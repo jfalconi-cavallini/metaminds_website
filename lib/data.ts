@@ -288,7 +288,7 @@ export const siteData = {
         },
         {
             question: "Where is camp located?",
-            answer: "We operate in the DFW Metroplex, serving families in Plano, Frisco, McKinney, Arlington, and surrounding areas. Exact location details are sent upon registration.",
+            answer: "📍North Fort Worth (Colleville / Grapevine / Southlake) Final venue secured by April 15. All familiies notified immediately upon confirmation.",
         },
         {
             question: "What's your refund and transfer policy?",

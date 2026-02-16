@@ -109,20 +109,20 @@ export default function PrivacyPage() {
                         </h2>
                         <p>
                             Questions about privacy? Contact us at{" "}
+                            <a
+                                href={`mailto:${siteData.brand.email}`}
+                                className="text-indigo-600 hover:text-indigo-700 underline"
+                            >
+                                {siteData.brand.email}
+                            </a>
+                        </p>
+                    </section>
 
-                            href={`mailto:${siteData.brand.email}`}
-                            className="text-indigo-600 hover:text-indigo-700 underline"
-              >
-                            {siteData.brand.email}
-                        </a>
+                    <p className="text-sm text-gray-500 pt-6 border-t border-gray-200">
+                        Last updated: February 2026
                     </p>
-                </section>
-
-                <p className="text-sm text-gray-500 pt-6 border-t border-gray-200">
-                    Last updated: February 2026
-                </p>
+                </div>
             </div>
-        </div>
-    </div >
-  );
+        </div >
+    );
 }

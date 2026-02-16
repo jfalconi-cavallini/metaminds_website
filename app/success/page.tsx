@@ -32,15 +32,15 @@ export default function SuccessPage() {
 
                     <p className="text-sm text-gray-500">
                         Questions?{" "}
-
-                        href="mailto:hello@metamindsstem.com"
-                        className="text-indigo-600 hover:text-indigo-700 underline"
-            >
-                        Contact us
-                    </a>
-                </p>
+                        <a
+                            href="mailto:hello@metamindsstem.com"
+                            className="text-indigo-600 hover:text-indigo-700 underline"
+                        >
+                            Contact us
+                        </a>
+                    </p>
+                </div>
             </div>
-        </div>
-    </div >
-  );
+        </div >
+    );
 }
