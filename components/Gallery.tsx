@@ -43,7 +43,7 @@ export default function Gallery() {
             desc: "Design & print custom creations"
         },
         {
-            src: "/images/science.jpg",
+            src: "/images/science.png",
             title: "🔬 Experiment",
             color: "text-green-600",
             desc: "Conduct hands-on science labs"
@@ -188,8 +188,8 @@ export default function Gallery() {
                                 key={idx}
                                 onClick={() => setCurrentPage(idx)}
                                 className={`w-3 h-3 rounded-full transition-all ${idx === currentPage
-                                        ? "bg-indigo-600 w-8"
-                                        : "bg-slate-300 hover:bg-slate-400"
+                                    ? "bg-indigo-600 w-8"
+                                    : "bg-slate-300 hover:bg-slate-400"
                                     }`}
                                 aria-label={`Go to page ${idx + 1}`}
                             />
