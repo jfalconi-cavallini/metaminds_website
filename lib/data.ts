@@ -2,7 +2,7 @@ export const siteData = {
     brand: {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
-        email: "hello@metamindsstem.com",
+        email: "metamindsstemacademy@gmail.com",
         tagline: "Where Future Engineers Are Built",
         description: "Hands-on robotics and engineering summer camps for ages 6-14 in the DFW area.",
     },
