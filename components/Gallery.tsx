@@ -1,207 +1,251 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { siteData } from "@/lib/data";
 import Section from "./Section";
 import Image from "next/image";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
+const masteryCards = [
+    {
+        src: "/images/robot1.png",
+        title: "🤖 Engineer",
+        color: "text-indigo-600",
+        desc: "Design & build competition robots",
+    },
+    {
+        src: "/images/robot2.jpg",
+        title: "💻 Program",
+        color: "text-purple-600",
+        desc: "Code autonomous behaviors",
+    },
+    {
+        src: "/images/robot3.jpg",
+        title: "🏆 Compete",
+        color: "text-amber-600",
+        desc: "Battle in daily tournaments",
+    },
+    {
+        src: "/images/3dprinting.jpg",
+        title: "🎨 3D Print",
+        color: "text-cyan-600",
+        desc: "Design & print custom creations",
+    },
+    {
+        src: "/images/science.png",
+        title: "🔬 Experiment",
+        color: "text-green-600",
+        desc: "Conduct hands-on science labs",
+    },
+    {
+        src: "/images/ai.jpg",
+        title: "🧠 AI Training",
+        color: "text-rose-600",
+        desc: "Build & train intelligent systems",
+    },
+];
+
+const IMAGES_PER_PAGE = 6;
+
 export default function Gallery() {
     const [currentPage, setCurrentPage] = useState(0);
-    const imagesPerPage = 6;
-    const totalPages = Math.ceil(siteData.gallery.images.length / imagesPerPage);
+    const [direction, setDirection] = useState(0);
+
+    const totalPages = Math.ceil(siteData.gallery.images.length / IMAGES_PER_PAGE);
 
     const paginatedImages = siteData.gallery.images.slice(
-        currentPage * imagesPerPage,
-        (currentPage + 1) * imagesPerPage
+        currentPage * IMAGES_PER_PAGE,
+        (currentPage + 1) * IMAGES_PER_PAGE
     );
 
-    const masteryCards = [
-        {
-            src: "/images/robot1.png",
-            title: "🤖 Engineer",
-            color: "text-indigo-600",
-            desc: "Design & build competition robots"
-        },
-        {
-            src: "/images/robot2.jpg",
-            title: "💻 Program",
-            color: "text-purple-600",
-            desc: "Code autonomous behaviors"
-        },
-        {
-            src: "/images/robot3.jpg",
-            title: "🏆 Compete",
-            color: "text-amber-600",
-            desc: "Battle in daily tournaments"
-        },
-        {
-            src: "/images/3dprinting.jpg",
-            title: "🎨 3D Print",
-            color: "text-cyan-600",
-            desc: "Design & print custom creations"
-        },
-        {
-            src: "/images/science.png",
-            title: "🔬 Experiment",
-            color: "text-green-600",
-            desc: "Conduct hands-on science labs"
-        },
-        {
-            src: "/images/ai.jpg",
-            title: "🧠 AI Training",
-            color: "text-rose-600",
-            desc: "Build & train intelligent systems"
-        },
-    ];
-
-    const goToNextPage = () => {
-        setCurrentPage((prev) => (prev + 1) % totalPages);
+    const paginate = (e: React.MouseEvent, newPage: number) => {
+        e.preventDefault();
+        if (newPage === currentPage) return;
+        setDirection(newPage > currentPage ? 1 : -1);
+        setCurrentPage(newPage);
     };
 
-    const goToPrevPage = () => {
-        setCurrentPage((prev) => (prev - 1 + totalPages) % totalPages);
+    const goNext = (e: React.MouseEvent) =>
+        paginate(e, (currentPage + 1) % totalPages);
+    const goPrev = (e: React.MouseEvent) =>
+        paginate(e, (currentPage - 1 + totalPages) % totalPages);
+
+    const slideVariants = {
+        enter: (dir: number) => ({ x: dir > 0 ? 60 : -60, opacity: 0 }),
+        center: {
+            x: 0,
+            opacity: 1,
+            transition: { duration: 0.35, ease: [0.25, 0.46, 0.45, 0.94] as const },
+        },
+        exit: (dir: number) => ({
+            x: dir > 0 ? -60 : 60,
+            opacity: 0,
+            transition: { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] as const },
+        }),
     };
 
     return (
-        <Section id="gallery" className="bg-gradient-to-br from-indigo-50 to-purple-50">
-            <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+        <Section id="gallery" className="bg-gradient-to-br from-indigo-50 to-purple-50 !pt-8 !pb-16">
+
+            {/* ── Section Header ── */}
+            <div className="text-center mb-6">
+                <motion.h2
+                    initial={{ opacity: 0, y: -12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45 }}
+                    className="text-4xl md:text-5xl font-bold text-gray-900 mb-3 leading-tight"
+                >
                     {siteData.gallery.title}
-                </h2>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+                </motion.h2>
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.45, delay: 0.12 }}
+                    className="text-base md:text-lg text-gray-500 max-w-xl mx-auto leading-relaxed"
+                >
                     {siteData.gallery.subtitle}
-                </p>
+                </motion.p>
             </div>
 
-            {/* Featured Mastery Cards */}
-            <div className="mb-20">
-                <div className="text-center mb-10">
-                    <h3 className="text-2xl md:text-3xl font-bold text-slate-900 mb-2 tracking-tight">
+            {/* Decorative accent divider */}
+            <div className="flex items-center justify-center gap-3 mb-10">
+                <div className="h-px w-14 bg-gradient-to-r from-transparent to-indigo-300" />
+                <div className="w-2 h-2 rounded-full bg-indigo-400" />
+                <div className="h-px w-14 bg-gradient-to-l from-transparent to-indigo-300" />
+            </div>
+
+            {/* ── Mastery Cards ── */}
+            <div className="mb-12">
+                <div className="text-center mb-6">
+                    <h3 className="text-xl md:text-2xl font-bold text-slate-800 mb-1 tracking-tight">
                         What Your Child Will Master
                     </h3>
-                    <p className="text-slate-600 text-sm sm:text-base font-medium">
+                    <p className="text-slate-500 text-sm font-medium">
                         Hands-on learning across robotics, coding, 3D design, science & AI
                     </p>
                 </div>
 
-                <motion.div
-                    initial={{ opacity: 0, y: 22 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.7 }}
-                    className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 max-w-6xl mx-auto"
-                >
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 max-w-5xl mx-auto">
                     {masteryCards.map((card, idx) => (
                         <motion.div
                             key={card.title}
-                            initial={{ opacity: 0, y: 20 }}
+                            initial={{ opacity: 0, y: 18 }}
                             whileInView={{ opacity: 1, y: 0 }}
-                            viewport={{ once: true }}
-                            transition={{ delay: idx * 0.1 }}
+                            viewport={{ once: true, margin: "-30px" }}
+                            transition={{ delay: idx * 0.07, duration: 0.45 }}
                             className="group relative"
                         >
-                            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-2xl border-2 border-white ring-1 ring-slate-200">
+                            <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg border-2 border-white ring-1 ring-slate-200">
                                 <Image
                                     src={card.src}
                                     alt={card.desc}
                                     fill
-                                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
+                                    className="object-cover transition-transform duration-700 group-hover:scale-105 will-change-transform"
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
-                                <div className="absolute bottom-5 left-5 right-5">
-                                    <div className="bg-white/95 backdrop-blur-md px-5 py-4 rounded-xl shadow-xl">
-                                        <p className={`${card.color} font-black text-xl mb-1`}>{card.title}</p>
-                                        <p className="text-slate-700 text-sm font-medium">{card.desc}</p>
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/75 via-slate-900/10 to-transparent" />
+                                <div className="absolute bottom-2.5 left-2.5 right-2.5 sm:bottom-4 sm:left-4 sm:right-4">
+                                    <div className="bg-white/96 backdrop-blur-sm px-3 py-2 sm:px-4 sm:py-3 rounded-xl shadow-lg">
+                                        <p className={`${card.color} font-black text-sm sm:text-lg leading-tight mb-0.5`}>
+                                            {card.title}
+                                        </p>
+                                        <p className="text-slate-600 text-xs sm:text-sm font-medium leading-tight">
+                                            {card.desc}
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </motion.div>
                     ))}
-                </motion.div>
+                </div>
             </div>
 
-            {/* Divider */}
-            <div className="mb-16">
-                <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
-            </div>
+            {/* Section divider */}
+            <div className="h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent mb-10" />
 
-            {/* Paginated Gallery Section */}
-            <div className="text-center mb-12">
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
+            {/* ── Paginated Gallery ── */}
+            <div className="text-center mb-6">
+                <h3 className="text-xl md:text-2xl font-bold text-gray-800 mb-1">
                     More From Our Camps
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-500 text-sm">
                     See our students in action
                 </p>
             </div>
 
-            {/* Gallery Grid */}
-            <motion.div
-                key={currentPage}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.3 }}
-                className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
-            >
-                {paginatedImages.map((image, idx) => (
+            {/* Gallery grid with directional slide */}
+            <div className="relative overflow-hidden mb-8">
+                <AnimatePresence mode="popLayout" custom={direction}>
                     <motion.div
-                        key={`${currentPage}-${idx}`}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: idx * 0.1 }}
-                        className="group relative aspect-[4/3] rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all"
+                        key={currentPage}
+                        custom={direction}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        className="grid grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
                     >
-                        <Image
-                            src={image.src}
-                            alt={image.alt}
-                            fill
-                            className="object-cover group-hover:scale-110 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <div className="absolute bottom-0 left-0 right-0 p-6">
-                                <p className="text-white font-semibold text-lg">
-                                    {image.caption}
-                                </p>
+                        {paginatedImages.map((image, idx) => (
+                            <div
+                                key={`${currentPage}-${idx}`}
+                                className="group relative aspect-[4/3] rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow duration-300"
+                            >
+                                <Image
+                                    src={image.src}
+                                    alt={image.alt}
+                                    fill
+                                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
+                                    className="object-cover group-hover:scale-105 transition-transform duration-500 will-change-transform"
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-5">
+                                        <p className="text-white font-semibold text-xs sm:text-base leading-snug">
+                                            {image.caption}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                        ))}
                     </motion.div>
-                ))}
-            </motion.div>
+                </AnimatePresence>
+            </div>
 
-            {/* Pagination Controls */}
+            {/* Pagination controls */}
             {totalPages > 1 && (
                 <div className="flex items-center justify-center gap-4">
                     <button
-                        onClick={goToPrevPage}
-                        className="p-3 rounded-xl bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={goPrev}
                         aria-label="Previous page"
+                        className="p-2.5 sm:p-3 rounded-xl bg-white hover:bg-indigo-50 active:bg-indigo-100 border-2 border-slate-200 hover:border-indigo-300 transition-all shadow-sm hover:shadow-md touch-manipulation"
                     >
-                        <ChevronLeft className="w-6 h-6 text-slate-700" />
+                        <ChevronLeft className="w-5 h-5 text-slate-700" />
                     </button>
 
                     <div className="flex items-center gap-2">
                         {Array.from({ length: totalPages }).map((_, idx) => (
                             <button
                                 key={idx}
-                                onClick={() => setCurrentPage(idx)}
-                                className={`w-3 h-3 rounded-full transition-all ${idx === currentPage
-                                    ? "bg-indigo-600 w-8"
-                                    : "bg-slate-300 hover:bg-slate-400"
-                                    }`}
+                                type="button"
+                                onClick={(e) => paginate(e, idx)}
                                 aria-label={`Go to page ${idx + 1}`}
+                                aria-current={idx === currentPage ? "true" : undefined}
+                                className={`h-2.5 rounded-full transition-all duration-300 touch-manipulation ${idx === currentPage
+                                        ? "bg-indigo-600 w-7"
+                                        : "bg-slate-300 hover:bg-slate-400 w-2.5"
+                                    }`}
                             />
                         ))}
                     </div>
 
                     <button
-                        onClick={goToNextPage}
-                        className="p-3 rounded-xl bg-white hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-300 transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        onClick={goNext}
                         aria-label="Next page"
+                        className="p-2.5 sm:p-3 rounded-xl bg-white hover:bg-indigo-50 active:bg-indigo-100 border-2 border-slate-200 hover:border-indigo-300 transition-all shadow-sm hover:shadow-md touch-manipulation"
                     >
-                        <ChevronRight className="w-6 h-6 text-slate-700" />
+                        <ChevronRight className="w-5 h-5 text-slate-700" />
                     </button>
                 </div>
             )}
