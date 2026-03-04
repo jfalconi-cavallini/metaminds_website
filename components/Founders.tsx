@@ -43,7 +43,7 @@ export default function Founders() {
                     transition={{ duration: 0.45, delay: 0.16 }}
                     className="text-slate-500 text-base max-w-lg mx-auto leading-relaxed"
                 >
-                    Experienced educators passionate about inspiring the next generation of engineers.
+                    Real Engineers. Real Curriculum. Real Teaching.
                 </motion.p>
             </div>
 

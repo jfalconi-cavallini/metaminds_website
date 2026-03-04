@@ -376,6 +376,18 @@ export const siteData = {
                 "STEM mentor and robotics enthusiast"
             ],
             bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills."
+        },
+        {
+            name: "Alan Martinez",
+            title: "Co-Founder & Robotics/Progamming Instructor",
+            image: "/images/alan.png",
+            credentials: [
+                "B.S. Electrical Engineering, UC San Diego",
+                "Strong background in robotics & programming",
+                "Electronics and systems design experience",
+                "STEM mentor and engineering instructor"
+            ],
+            bio: "Alan is an electrical engineer from UC San Diego with a strong background in robotics, programming, and electronics. He enjoys helping students understand how real technology works by guiding them through hands-on engineering projects and robotics challenges."
         }
     ],
 
