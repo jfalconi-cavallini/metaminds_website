@@ -4,52 +4,127 @@ import { motion } from "framer-motion";
 import { siteData } from "@/lib/data";
 import Section from "./Section";
 import Image from "next/image";
-import { GraduationCap } from "lucide-react";
+import { GraduationCap, Sparkles } from "lucide-react";
 
 export default function Founders() {
     return (
-        <Section id="founders" className="bg-white">
-            <div className="text-center mb-16">
-                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                    Meet the Founders
-                </h2>
-                <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <Section
+            id="founders"
+            className="relative bg-white !pt-10 !pb-12 overflow-hidden min-h-screen"
+        >
+            {/* Top accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
+
+            {/* ── Header ── */}
+            <div className="relative z-10 text-center mb-10">
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45 }}
+                    className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-600 text-xs font-semibold tracking-widest uppercase px-4 py-1.5 rounded-full mb-4"
+                >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Our Team
+                </motion.div>
+
+                <motion.h2
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.45, delay: 0.08 }}
+                    className="text-4xl md:text-5xl font-black text-slate-900 mb-3 tracking-tight leading-tight"
+                >
+                    Meet the{" "}
+                    <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+                        Founders
+                    </span>
+                </motion.h2>
+
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.45, delay: 0.16 }}
+                    className="text-slate-500 text-base max-w-lg mx-auto leading-relaxed"
+                >
                     Experienced educators passionate about inspiring the next generation of engineers.
-                </p>
+                </motion.p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            {/* ── Cards ── */}
+            <div className="relative z-10 grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
                 {siteData.founders.map((founder, idx) => (
                     <motion.div
                         key={idx}
-                        initial={{ opacity: 0, y: 30 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ delay: idx * 0.2 }}
-                        className="bg-gradient-to-br from-gray-50 to-white rounded-3xl p-8 shadow-lg border border-gray-200 hover:shadow-xl transition-shadow"
+                        initial={{ opacity: 0, y: 28 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 + idx * 0.15, duration: 0.5 }}
+                        className="group relative rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300"
                     >
-                        <div className="relative w-48 h-48 mx-auto mb-6 rounded-full overflow-hidden border-4 border-indigo-100">
-                            <Image src={founder.image} alt={founder.name} fill className="object-cover" />
-                        </div>
+                        {/* Card gradient */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-violet-600 to-purple-700" />
 
-                        <div className="text-center mb-6">
-                            <h3 className="text-2xl font-bold text-gray-900 mb-1">
-                                {founder.name}
-                            </h3>
-                            <p className="text-indigo-600 font-semibold">{founder.title}</p>
-                        </div>
+                        {/* Mesh overlay */}
+                        <div
+                            className="absolute inset-0 opacity-20"
+                            style={{
+                                backgroundImage: `radial-gradient(circle at 20% 20%, rgba(255,255,255,0.15) 0%, transparent 50%),
+                                                  radial-gradient(circle at 80% 80%, rgba(255,255,255,0.08) 0%, transparent 50%)`,
+                            }}
+                        />
 
-                        <p className="text-gray-600 text-center mb-6 leading-relaxed">
-                            {founder.bio}
-                        </p>
+                        {/* Decorative ring accents */}
+                        <div className="absolute -top-10 -right-10 w-44 h-44 border border-white/10 rounded-full" />
+                        <div className="absolute -top-6 -right-6 w-28 h-28 border border-white/10 rounded-full" />
+                        <div className="absolute -bottom-8 -left-8 w-36 h-36 border border-white/10 rounded-full" />
 
-                        <div className="space-y-3">
-                            {founder.credentials.map((credential, i) => (
-                                <div key={i} className="flex items-start gap-3">
-                                    <GraduationCap className="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700 text-sm">{credential}</span>
+                        {/* Content */}
+                        <div className="relative z-10 p-6">
+
+                            {/* Avatar + identity */}
+                            <div className="flex items-center gap-4 mb-5">
+                                <div className="relative flex-shrink-0">
+                                    <div className="w-[72px] h-[72px] rounded-xl overflow-hidden ring-2 ring-white/30 shadow-xl">
+                                        <Image
+                                            src={founder.image}
+                                            alt={founder.name}
+                                            width={72}
+                                            height={72}
+                                            className="object-cover w-full h-full"
+                                        />
+                                    </div>
+                                    <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-violet-600 shadow" />
                                 </div>
-                            ))}
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="text-xl font-bold text-white tracking-tight leading-tight">
+                                        {founder.name}
+                                    </h3>
+                                    <p className="text-violet-200 text-xs font-semibold tracking-widest uppercase mt-0.5">
+                                        {founder.title}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Bio */}
+                            <p className="text-indigo-100/90 text-sm leading-relaxed mb-5 border-l-2 border-white/20 pl-3">
+                                {founder.bio}
+                            </p>
+
+                            {/* Credentials */}
+                            <div className="space-y-1.5">
+                                <p className="text-white/40 text-[10px] font-bold tracking-[0.15em] uppercase mb-2">
+                                    Credentials
+                                </p>
+                                {founder.credentials.map((credential, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center gap-2.5 bg-white/[0.08] hover:bg-white/[0.14] border border-white/10 rounded-lg px-3 py-2 transition-colors duration-200"
+                                    >
+                                        <GraduationCap className="w-3.5 h-3.5 text-violet-300 flex-shrink-0" />
+                                        <span className="text-white/85 text-xs font-medium leading-snug">
+                                            {credential}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </motion.div>
                 ))}
