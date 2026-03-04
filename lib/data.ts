@@ -314,30 +314,69 @@ export const siteData = {
 
     founders: [
         {
-            name: "Jose Falconi",
+            name: "Jose Falconi-Cavallini",
             title: "Co-Founder & Lead Instructor",
             image: "/images/jose.jpg",
             credentials: [
                 "B.S. Computer Science, UC San Diego",
-                "7+ years teaching experience",
-                "College-level instructor",
-                "Revolution Prep educator",
+                "7+ years STEM teaching experience",
+                "Former college-level teaching assistant",
+                "Professional Tutor at Revolution Prep & EdLadder",
+                "Robotics & Coding Instructor",
                 "3+ years running robotics summer camps",
             ],
-            bio: "Passionate about making STEM accessible and exciting for young minds through hands-on learning and real-world engineering challenges.",
+            bio: "Jose is a computer science graduate from UC San Diego with over seven years of experience teaching STEM subjects to students of all ages. He is passionate about helping students truly understand engineering and programming through hands-on robotics projects, real problem solving, and interactive learning experiences.",
         },
         {
             name: "Emma Brugman",
             title: "Co-Founder & Curriculum Director",
             image: "/images/emma.png",
             credentials: [
-                "B.S. Cognitive & Neuroscience, UC San Diego",
-                "M.S. Molecular Software Engineering, UC Berkeley",
-                "STEM education specialist",
-                "Curriculum development expert",
+                "B.S. Cognitive & Behavorial Neuroscience, UC San Diego",
+                "M.S. Molecular Science & Software Engineering, UC Berkeley",
+                "Data & Machine Learning Analyst",
+                "Professional Tutor at Revolution Prep & EdLadder",
+                "STEM curriculum development Specialist"
             ],
-            bio: "Combining neuroscience and engineering to create learning experiences that truly resonate with how young minds develop and grow.",
+            bio: "Emma combines her background in neuroscience, engineering, and machine learning to design engaging STEM learning experiences for students. Her work focuses on building curriculum that aligns with how young minds learn best while making complex topics like coding and robotics approachable and exciting.",
         },
+        {
+            name: "Johan Falconi-Cavallini",
+            title: "Co-Founder & Curriculum Developer",
+            image: "/images/johan.png",
+            credentials: [
+                "B.S. Civil Engineering, UC Merced",
+                "3+ years STEM teaching experience",
+                "Professional tutor at Revolution Prep",
+                "Engineering & problem-solving specialist",
+            ],
+            bio: "Johan brings an engineering mindset to MetaMinds, helping students develop strong problem-solving and design skills. With a background in civil engineering and experience teaching STEM subjects, he focuses on helping students think like engineers while building confidence through hands-on projects.",
+        },
+        {
+            name: "Christian Tapia",
+            title: "Co-Founder & STEM Instructor",
+            image: "/images/christian.png",
+            credentials: [
+                "B.S. Mathematics–Computer Science, UC San Diego",
+                "M.S. Business Analytics, UC San Diego",
+                "Former robotics instructor at Magikid Robotics Lab",
+                "Professional tutor at EdLadder",
+                "3+ years STEM summer camp instruction"
+            ],
+            bio: "Christian specializes in mathematics, programming, and data-driven problem solving. With experience teaching robotics and coding camps, he enjoys helping students explore technology through hands-on experimentation and creative engineering challenges."
+        },
+        {
+            name: "Roberto Medina",
+            title: "Co-Founder & Engineering Instructor",
+            image: "/images/roberto.png",
+            credentials: [
+                "B.S. Mechanical Engineering",
+                "Advanced CAD & engineering design experience",
+                "Former tutor at Juni Learning",
+                "STEM mentor and robotics enthusiast"
+            ],
+            bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills."
+        }
     ],
 
     gallery: {
