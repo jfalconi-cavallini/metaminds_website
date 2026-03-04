@@ -12,8 +12,6 @@ export default function Founders() {
             id="founders"
             className="relative bg-white !pt-10 !pb-12 overflow-hidden min-h-screen"
         >
-            {/* Top accent bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-violet-500 to-purple-500" />
 
             {/* ── Header ── */}
             <div className="relative z-10 text-center mb-10">
