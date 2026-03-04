@@ -10,31 +10,31 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 const masteryCards = [
     {
         src: "/images/robot1.png",
-        title: "🤖 Engineer",
+        title: "🤖 Engineering",
         color: "text-indigo-600",
         desc: "Design & build competition robots",
     },
     {
         src: "/images/robot2.jpg",
-        title: "💻 Program",
+        title: "🏆 Competitions",
         color: "text-purple-600",
-        desc: "Code autonomous behaviors",
-    },
-    {
-        src: "/images/robot3.jpg",
-        title: "🏆 Compete",
-        color: "text-amber-600",
         desc: "Battle in daily tournaments",
     },
     {
+        src: "/images/robot3.jpg",
+        title: "💻 Programming",
+        color: "text-amber-600",
+        desc: "Code games from scratch",
+    },
+    {
         src: "/images/3dprinting.jpg",
-        title: "🎨 3D Print",
+        title: "🎨 3D Printing",
         color: "text-cyan-600",
         desc: "Design & print custom creations",
     },
     {
         src: "/images/science.png",
-        title: "🔬 Experiment",
+        title: "🔬 Experiments",
         color: "text-green-600",
         desc: "Conduct hands-on science labs",
     },
@@ -232,8 +232,8 @@ export default function Gallery() {
                                 aria-label={`Go to page ${idx + 1}`}
                                 aria-current={idx === currentPage ? "true" : undefined}
                                 className={`h-2.5 rounded-full transition-all duration-300 touch-manipulation ${idx === currentPage
-                                        ? "bg-indigo-600 w-7"
-                                        : "bg-slate-300 hover:bg-slate-400 w-2.5"
+                                    ? "bg-indigo-600 w-7"
+                                    : "bg-slate-300 hover:bg-slate-400 w-2.5"
                                     }`}
                             />
                         ))}

@@ -23,7 +23,6 @@ export default function Home() {
       <Founders />
       <Programs />
       <Gallery />
-      <Testimonials />  {/* NEW */}
       <DaySchedule />
       <CampWeeks />
       <Themes />
