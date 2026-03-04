@@ -40,13 +40,14 @@ export default function Navbar() {
                 />
             </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
+                {/* Mobile navbar taller to fit bigger logo */}
                 <div className="flex justify-between items-center h-16 md:h-20">
                     <Link href="/" className="flex items-center">
                         <img
                             src="/images/metaminds-logo.png"
                             alt="MetaMinds STEM Academy"
-                            className="h-12 md:h-40 w-auto"
+                            className="h-20 md:h-40 w-auto"
                         />
                     </Link>
 
