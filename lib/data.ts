@@ -353,6 +353,30 @@ export const siteData = {
             bio: "Johan brings an engineering mindset to MetaMinds, helping students develop strong problem-solving and design skills. With a background in civil engineering and experience teaching STEM subjects, he focuses on helping students think like engineers while building confidence through hands-on projects.",
         },
         {
+            name: "Roberto Medina",
+            title: "Co-Founder & Engineering Instructor",
+            image: "/images/roberto.jpg",
+            credentials: [
+                "B.S. Mechanical Engineering",
+                "Advanced CAD & engineering design experience",
+                "Former tutor at Juni Learning",
+                "STEM mentor and robotics enthusiast"
+            ],
+            bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills."
+        },
+        {
+            name: "Alan Martinez",
+            title: "Co-Founder & Robotics/Progamming Instructor",
+            image: "/images/Alan.jpg",
+            credentials: [
+                "B.S. Electrical Engineering, UC San Diego",
+                "Strong background in robotics & programming",
+                "Electronics and systems design experience",
+                "STEM mentor and engineering instructor"
+            ],
+            bio: "Alan is an electrical engineer from UC San Diego with a strong background in robotics, programming, and electronics. He enjoys helping students understand how real technology works by guiding them through hands-on engineering projects and robotics challenges."
+        },
+        {
             name: "Christian Tapia",
             title: "Co-Founder & STEM Instructor",
             image: "/images/christian.png",
@@ -365,30 +389,6 @@ export const siteData = {
             ],
             bio: "Christian specializes in mathematics, programming, and data-driven problem solving. With experience teaching robotics and coding camps, he enjoys helping students explore technology through hands-on experimentation and creative engineering challenges."
         },
-        {
-            name: "Roberto Medina",
-            title: "Co-Founder & Engineering Instructor",
-            image: "/images/roberto.png",
-            credentials: [
-                "B.S. Mechanical Engineering",
-                "Advanced CAD & engineering design experience",
-                "Former tutor at Juni Learning",
-                "STEM mentor and robotics enthusiast"
-            ],
-            bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills."
-        },
-        {
-            name: "Alan Martinez",
-            title: "Co-Founder & Robotics/Progamming Instructor",
-            image: "/images/alan.png",
-            credentials: [
-                "B.S. Electrical Engineering, UC San Diego",
-                "Strong background in robotics & programming",
-                "Electronics and systems design experience",
-                "STEM mentor and engineering instructor"
-            ],
-            bio: "Alan is an electrical engineer from UC San Diego with a strong background in robotics, programming, and electronics. He enjoys helping students understand how real technology works by guiding them through hands-on engineering projects and robotics challenges."
-        }
     ],
 
     gallery: {
