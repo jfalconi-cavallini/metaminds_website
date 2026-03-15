@@ -303,13 +303,13 @@ export const siteData = {
     },
 
     nav: [
-        { label: "Projects", href: "#gallery" },
-        { label: "Programs", href: "#programs" },
-        { label: "Weeks", href: "#weeks" },
-        { label: "Schedule", href: "#schedule" },
-        { label: "Pricing", href: "#pricing" },
-        { label: "Instructors", href: "#founders" },
-        { label: "FAQ", href: "#faq" },
+        { label: "What Kids Build", href: "#gallery" },
+        { label: "Camp Programs", href: "#programs" },
+        { label: "Camp Schedule", href: "#weeks" },
+        { label: "Daily Schedule", href: "#schedule" },
+        { label: "Tuition", href: "#pricing" },
+        { label: "Meet the Instructors", href: "#founders" },
+        { label: "Parent FAQ", href: "#faq" },
     ],
 
     founders: [
