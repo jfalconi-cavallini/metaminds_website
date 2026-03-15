@@ -25,7 +25,6 @@ export default function Home() {
       <Gallery />
       <DaySchedule />
       <CampWeeks />
-      <Themes />
       <Pricing />
       <FAQ />
       <CTA />
