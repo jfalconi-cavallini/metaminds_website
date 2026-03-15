@@ -57,7 +57,7 @@ export default function Navbar() {
                             </a>
                         ))}
                         <a href={siteData.hero.formUrl} target="_blank" rel="noopener noreferrer" className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-full font-semibold hover:shadow-lg transition-all hover:scale-105">
-                            Register Now
+                            Enroll Now
                         </a>
                     </div>
 
