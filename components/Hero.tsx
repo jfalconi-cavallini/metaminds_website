@@ -5,6 +5,9 @@ import { ArrowRight, Users, Trophy, Sparkles } from "lucide-react";
 import { siteData } from "@/lib/data";
 import Image from "next/image";
 
+// 👇 REPLACE THIS with your actual Google Form URL for the free Scratch class
+const FREE_CLASS_FORM_URL = "https://forms.google.com/YOUR_FORM_HERE";
+
 export default function Hero() {
     return (
         <section className="relative min-h-screen flex flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
@@ -77,7 +80,7 @@ export default function Hero() {
                         </div>
                     </motion.div>
 
-                    {/* Image Grid - 4 Key Features - THE STAR OF THE SHOW */}
+                    {/* Image Grid - 4 Key Features */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -149,6 +152,45 @@ export default function Hero() {
                         </div>
                     </motion.div>
 
+                    {/* ✨ FREE SCRATCH CLASS BANNER */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.35 }}
+                        className="mb-5 px-2 max-w-6xl mx-auto"
+                    >
+                        <a
+                            href={"https://docs.google.com/forms/d/e/1FAIpQLSdcxxB3udLysjnkefuWUAOwTMGa3R37CAHSAQxvAMhfU9r6Wg/viewform"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/15 backdrop-blur-sm border-2 border-white/40 rounded-2xl px-5 py-4 hover:bg-white/25 transition-all cursor-pointer"
+                        >
+                            {/* Left: icon + text */}
+                            <div className="flex items-center gap-3 text-left">
+                                <div className="text-3xl sm:text-4xl flex-shrink-0">🎓</div>
+                                <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="bg-yellow-400 text-yellow-900 text-[10px] sm:text-xs font-black uppercase tracking-widest px-2 py-0.5 rounded-full">
+                                            Free
+                                        </span>
+                                        <span className="text-white font-black text-sm sm:text-base md:text-lg leading-tight">
+                                            Try a Free Scratch Coding Class
+                                        </span>
+                                    </div>
+                                    <p className="text-white/80 text-xs sm:text-sm mt-0.5 leading-snug">
+                                        No commitment — see what your child will learn before enrolling in camp
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Right: CTA pill */}
+                            <div className="flex-shrink-0 bg-yellow-400 text-yellow-900 font-black text-xs sm:text-sm px-4 py-2 rounded-xl group-hover:bg-yellow-300 transition-colors flex items-center gap-1.5 whitespace-nowrap">
+                                Claim Your Spot
+                                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                            </div>
+                        </a>
+                    </motion.div>
+
                     {/* CTA Buttons - Compact */}
                     <motion.div
                         initial={{ opacity: 0, y: 20 }}
@@ -175,6 +217,6 @@ export default function Hero() {
 
                 </div>
             </div>
-        </section>
+        </section >
     );
 }
