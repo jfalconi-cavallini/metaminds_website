@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     siteName: "MetaMinds STEM Academy",
     images: [
       {
-        url: "https://www.metamindsstemacademy.com/images/metaminds-logo.png",
+        url: "https://www.metamindsstemacademy.com/images/metaminds-logo-mobile.png",
         width: 1200,
         height: 630,
         alt: "MetaMinds STEM Academy — Kids building robots",
