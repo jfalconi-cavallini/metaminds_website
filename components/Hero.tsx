@@ -29,7 +29,8 @@ export default function Hero() {
                             style={{ textShadow: '3px 3px 0px rgba(0,0,0,0.3), 6px 6px 0px rgba(0,0,0,0.1)' }}>
                             MetaMinds STEM Academy
                         </h1>
-                        <p className="text-base sm:text-lg md:text-xl text-white/90 italic font-light">
+                        <p className="text-lg sm:text-xl md:text-2xl text-yellow-200/90 italic font-light"
+                            style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}>
                             "Ideas are free, Creating has no limits"
                         </p>
                     </motion.div>
