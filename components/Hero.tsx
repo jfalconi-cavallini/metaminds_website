@@ -7,7 +7,7 @@ import Image from "next/image";
 
 export default function Hero() {
     return (
-        <section className="relative min-h-screen flex flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden py-20 md:py-0">
+        <section className="relative min-h-screen flex flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
             {/* Animated background elements */}
             <div className="absolute inset-0 opacity-20">
                 <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-pulse" />
@@ -15,7 +15,7 @@ export default function Hero() {
             </div>
 
             {/* Content Container */}
-            <div className="relative flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 py-8">
+            <div className="relative flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-24 pb-12">
                 <div className="max-w-7xl mx-auto w-full text-center">
 
                     {/* Main Headline with Quote */}
@@ -189,9 +189,6 @@ export default function Hero() {
 
                 </div>
             </div>
-
-            {/* Bottom gradient fade */}
-            <div className="h-16 bg-gradient-to-t from-white to-transparent" />
         </section>
     );
 }
