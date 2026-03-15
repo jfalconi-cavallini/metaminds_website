@@ -379,7 +379,7 @@ export const siteData = {
         {
             name: "Christian Tapia",
             title: "Co-Founder & STEM Instructor",
-            image: "/images/christian.png",
+            image: "/images/tapia.png",
             credentials: [
                 "B.S. Mathematics–Computer Science, UC San Diego",
                 "M.S. Business Analytics, UC San Diego",
