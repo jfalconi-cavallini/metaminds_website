@@ -24,7 +24,7 @@ export default function Pricing() {
                 "Exclusive founding family swag",
                 "Priority week selection"
             ],
-            availability: "Only 20 spots available",
+            availability: "Only 13 spots available",
             badgeColor: "bg-amber-500 text-white"
         },
         {
@@ -89,8 +89,8 @@ export default function Pricing() {
                             viewport={{ once: true }}
                             transition={{ delay: index * 0.1 }}
                             className={`relative rounded-2xl p-8 transition-all duration-300 ${tier.highlighted
-                                    ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-2xl scale-105 border-2 border-indigo-400"
-                                    : "bg-white text-gray-900 shadow-lg border-2 border-gray-200 hover:border-indigo-300 hover:shadow-xl"
+                                ? "bg-gradient-to-br from-indigo-600 to-purple-600 text-white shadow-2xl scale-105 border-2 border-indigo-400"
+                                : "bg-white text-gray-900 shadow-lg border-2 border-gray-200 hover:border-indigo-300 hover:shadow-xl"
                                 }`}
                         >
                             {/* Badge */}
@@ -105,8 +105,8 @@ export default function Pricing() {
 
                             {/* Icon */}
                             <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl mb-4 ${tier.highlighted
-                                    ? "bg-white/20"
-                                    : "bg-indigo-100"
+                                ? "bg-white/20"
+                                : "bg-indigo-100"
                                 }`}>
                                 <Icon className={`w-6 h-6 ${tier.highlighted ? "text-white" : "text-indigo-600"
                                     }`} />
@@ -162,8 +162,8 @@ export default function Pricing() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={`block w-full text-center py-4 rounded-xl font-bold text-lg transition-all duration-300 ${tier.highlighted
-                                        ? "bg-white text-indigo-600 hover:bg-indigo-50 shadow-lg"
-                                        : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
+                                    ? "bg-white text-indigo-600 hover:bg-indigo-50 shadow-lg"
+                                    : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg"
                                     }`}
                             >
                                 {tier.name === "Founding Families" ? "Claim Your Spot" : "Reserve Your Spot"}
