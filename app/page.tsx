@@ -20,12 +20,12 @@ export default function Home() {
     <main className="relative">
       <Navbar />
       <Hero />
-      <Founders />
-      <Programs />
       <Gallery />
-      <DaySchedule />
+      <Programs />
       <CampWeeks />
+      <DaySchedule />
       <Pricing />
+      <Founders />
       <FAQ />
       <CTA />
       <Footer />

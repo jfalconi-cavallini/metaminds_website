@@ -303,12 +303,12 @@ export const siteData = {
     },
 
     nav: [
-        { label: "Founders", href: "#founders" },
+        { label: "Projects", href: "#gallery" },
         { label: "Programs", href: "#programs" },
-        { label: "Gallery", href: "#gallery" },
-        { label: "Schedule", href: "#schedule" },
         { label: "Weeks", href: "#weeks" },
+        { label: "Schedule", href: "#schedule" },
         { label: "Pricing", href: "#pricing" },
+        { label: "Instructors", href: "#founders" },
         { label: "FAQ", href: "#faq" },
     ],
 
