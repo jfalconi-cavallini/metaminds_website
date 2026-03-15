@@ -57,7 +57,7 @@ export default function CampWeeks() {
                 >
                     <Zap className="w-5 h-5" />
                     <span className="font-bold text-sm sm:text-base">
-                        Most weeks 70% full • Early registration recommended
+                        Most weeks 40% full • Early registration recommended
                     </span>
                 </motion.div>
             </div>
