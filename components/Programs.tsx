@@ -99,8 +99,7 @@ export default function Programs() {
     ];
 
     return (
-        <Section id="programs" className="relative overflow-hidden bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50">
-            {/* Subtle pattern overlay */}
+        <Section id="programs" className="relative overflow-hidden bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200">
             <div className="absolute inset-0 opacity-30">
                 <div className="absolute inset-0"
                     style={{
