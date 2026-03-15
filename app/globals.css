@@ -198,3 +198,17 @@ body::before {
   background-color: rgba(0, 217, 255, 0.3);
   color: white;
 }
+
+/* Mochi Boom Font Face */
+@font-face {
+  font-family: 'Mochi Boom';
+  src: url('/fonts/MochiBoom-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Mochi Boom Font Utility for Tailwind v4 */
+.font-mochi {
+  font-family: 'Mochi Boom', cursive;
+}

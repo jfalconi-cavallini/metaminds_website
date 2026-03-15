@@ -1,149 +1,192 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Users, Trophy, Sparkles, ChevronDown, Award } from "lucide-react";
+import { ArrowRight, Users, Trophy, Sparkles } from "lucide-react";
 import { siteData } from "@/lib/data";
+import Image from "next/image";
 
 export default function Hero() {
     return (
-        <section className="relative min-h-screen bg-gradient-to-br from-slate-50 via-white to-indigo-50/30 overflow-hidden">
-            {/* Gradient Orbs */}
-            <div className="absolute inset-0 pointer-events-none">
-                <motion.div
-                    animate={{ scale: [1, 1.1, 1], opacity: [0.12, 0.22, 0.12] }}
-                    transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-10 -left-24 w-[420px] h-[420px] md:w-[520px] md:h-[520px] bg-indigo-400 rounded-full mix-blend-multiply blur-3xl"
-                />
-                <motion.div
-                    animate={{ scale: [1, 1.15, 1], opacity: [0.12, 0.22, 0.12] }}
-                    transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                    className="absolute bottom-10 -right-24 w-[420px] h-[420px] md:w-[520px] md:h-[520px] bg-purple-400 rounded-full mix-blend-multiply blur-3xl"
-                />
+        <section className="relative h-screen flex flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 overflow-hidden">
+            {/* Animated background elements */}
+            <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-20 left-10 w-72 h-72 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-pulse" />
+                <div className="absolute bottom-20 right-10 w-96 h-96 bg-white rounded-full mix-blend-overlay filter blur-3xl animate-pulse delay-1000" />
             </div>
 
-            {/* Main */}
-            <div className="relative mx-auto max-w-7xl px-6 sm:px-8 lg:px-12">
-                {/* Make hero content naturally centered without huge padding */}
-                <div className="min-h-screen flex flex-col justify-center pt-24 pb-16 md:pt-28">
-                    {/* Text */}
-                    <div className="text-center">
-                        {/* Badge */}
-                        <motion.div
-                            initial={{ opacity: 0, y: -16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15 }}
-                            className="inline-flex items-center gap-2.5 bg-white/80 backdrop-blur-md px-5 py-2.5 rounded-full shadow-md border border-indigo-100 mb-6"
-                        >
-                            <Award className="w-5 h-5 text-indigo-600" />
-                            <span className="text-indigo-900 font-semibold text-xs sm:text-sm tracking-wide">
-                                Summer 2026 • Premium STEM Experience
-                            </span>
-                        </motion.div>
+            {/* Content Container */}
+            <div className="relative flex-1 flex items-center justify-center px-4 sm:px-6 lg:px-8 pt-40 pb-6">
+                <div className="max-w-7xl mx-auto w-full text-center">
 
-                        {/* Headline */}
-                        <motion.h1
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.25 }}
-                            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 mb-4 leading-[1.05] tracking-tight"
-                        >
-                            Build. Code.{" "}
-                            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
-                                Compete.
-                            </span>
-                        </motion.h1>
-
-                        {/* Subtitle */}
-                        <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.35 }}
-                            className="text-base sm:text-lg md:text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed font-medium"
-                        >
-                            {siteData.hero.subheadline}
-                        </motion.p>
-
-                        {/* Key Info */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.45 }}
-                            className="mt-6 bg-white/70 backdrop-blur-md border border-indigo-100 rounded-2xl px-6 sm:px-8 py-4 max-w-3xl mx-auto shadow-sm"
-                        >
-                            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm sm:text-base">
-                                <span className="text-slate-700 font-semibold">Ages 6–14</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-slate-700 font-semibold">9 AM – 3 PM</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-slate-700 font-semibold">Week-Long Camps</span>
-                                <span className="text-slate-300">•</span>
-                                <span className="text-indigo-600 font-bold">From $450/week</span>
-                            </div>
-
-                            <div className="mt-3 pt-3 border-t border-slate-200">
-                                <p className="text-orange-600 font-bold text-sm flex items-center justify-center gap-2">
-                                    <Sparkles className="w-4 h-4" />
-                                    Limited Founding Family Spots - Save $75/week
-                                </p>
-                            </div>
-                        </motion.div>
-
-                        {/* Feature Pills */}
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: 0.55 }}
-                            className="mt-6 flex flex-wrap gap-3 justify-center"
-                        >
-                            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-sm border border-slate-200">
-                                <Users className="w-5 h-5 text-indigo-600" />
-                                <span className="text-slate-700 font-semibold text-sm">8:1 Student Ratio</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-sm border border-slate-200">
-                                <Trophy className="w-5 h-5 text-indigo-600" />
-                                <span className="text-slate-700 font-semibold text-sm">Daily Competitions</span>
-                            </div>
-                            <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm px-4 py-2.5 rounded-xl shadow-sm border border-slate-200">
-                                <Sparkles className="w-5 h-5 text-indigo-600" />
-                                <span className="text-slate-700 font-semibold text-sm">All Levels Welcome</span>
-                            </div>
-                        </motion.div>
-
-                        {/* CTAs */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 14 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.65 }}
-                            className="mt-7 flex flex-col sm:flex-row gap-3 justify-center"
-                        >
-                            <a
-                                href={siteData.hero.formUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="group inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-8 py-3.5 rounded-xl font-bold text-base hover:from-indigo-700 hover:to-indigo-800 transition-all shadow-lg hover:shadow-xl"
-                            >
-                                Reserve Your Spot
-                                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                            </a>
-                            <a
-                                href="#weeks"
-                                className="inline-flex items-center justify-center gap-2 bg-white/80 backdrop-blur-sm text-indigo-700 px-8 py-3.5 rounded-xl font-bold text-base hover:bg-white transition-all shadow-md border border-slate-200 hover:border-indigo-300"
-                            >
-                                Explore Curriculum
-                            </a>
-                        </motion.div>
-                    </div>
-
-                    {/* Scroll indicator */}
+                    {/* Main Headline with Quote */}
                     <motion.div
-                        animate={{ y: [0, 8, 0] }}
-                        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-                        className="mt-16"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.1 }}
+                        className="mb-4"
                     >
-                        <ChevronDown className="w-7 h-7 text-slate-400 mx-auto" />
+                        <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-mochi text-white mb-2 tracking-tight"
+                            style={{ textShadow: '3px 3px 0px rgba(0,0,0,0.3), 6px 6px 0px rgba(0,0,0,0.1)' }}>
+                            MetaMinds STEM Academy
+                        </h1>
+                        <p className="text-base sm:text-lg md:text-xl text-white/90 italic font-light">
+                            "Ideas are free, Creating has no limits"
+                        </p>
                     </motion.div>
+
+                    {/* Info Bar */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="bg-white/95 backdrop-blur-sm rounded-2xl p-3 sm:p-4 max-w-3xl mx-auto mb-6 shadow-xl"
+                    >
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-gray-700 font-semibold text-xs sm:text-sm mb-3">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-base sm:text-lg">👦👧</span>
+                                <span>Ages 6+</span>
+                            </div>
+                            <div className="hidden sm:block w-1.5 h-1.5 bg-gray-300 rounded-full"></div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-base sm:text-lg">🕐</span>
+                                <span>9 AM – 3 PM</span>
+                            </div>
+                            <div className="hidden sm:block w-1.5 h-1.5 bg-gray-300 rounded-full"></div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-base sm:text-lg">📅</span>
+                                <span>Week-Long Camps</span>
+                            </div>
+                        </div>
+
+                        {/* Urgency Banner */}
+                        <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-3 py-2 rounded-xl inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold">
+                            <span className="text-base sm:text-lg">🔥</span>
+                            <span>Limited Founding Family Spots - Save $75/week</span>
+                        </div>
+                    </motion.div>
+
+                    {/* Feature Pills */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="flex flex-wrap justify-center gap-3 mb-6 px-4"
+                    >
+                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg flex items-center gap-2">
+                            <Users className="w-4 h-4 text-indigo-600" />
+                            <span className="font-bold text-gray-800 text-sm">8:1 Student Ratio</span>
+                        </div>
+                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-indigo-600" />
+                            <span className="font-bold text-gray-800 text-sm">Daily Competitions</span>
+                        </div>
+                        <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 shadow-lg flex items-center gap-2">
+                            <Sparkles className="w-4 h-4 text-indigo-600" />
+                            <span className="font-bold text-gray-800 text-sm">All Levels Welcome</span>
+                        </div>
+                    </motion.div>
+
+                    {/* Image Grid - 4 Key Features */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 px-4 max-w-6xl mx-auto"
+                    >
+                        {/* Build Real Robots */}
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
+                            <div className="relative h-32 sm:h-36 bg-gray-200">
+                                <Image
+                                    src="/images/robot1.png"
+                                    alt="Kids building robots"
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            </div>
+                            <div className="p-3">
+                                <h3 className="font-bold text-gray-800 text-base mb-1">Build Real Robots</h3>
+                                <p className="text-gray-600 text-xs">Students design and build robots to take home</p>
+                            </div>
+                        </div>
+
+                        {/* Learn to Code */}
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
+                            <div className="relative h-32 sm:h-36 bg-gray-200">
+                                <Image
+                                    src="/images/robot2.jpg"
+                                    alt="Kids learning to code"
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            </div>
+                            <div className="p-3">
+                                <h3 className="font-bold text-gray-800 text-base mb-1">Learn to Code</h3>
+                                <p className="text-gray-600 text-xs">Real programming, not just copying from a screen</p>
+                            </div>
+                        </div>
+
+                        {/* Hands-On Learning */}
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
+                            <div className="relative h-32 sm:h-36 bg-gray-200">
+                                <Image
+                                    src="/images/robot3.jpg"
+                                    alt="Hands-on engineering challenges"
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            </div>
+                            <div className="p-3">
+                                <h3 className="font-bold text-gray-800 text-base mb-1">Actual Learning</h3>
+                                <p className="text-gray-600 text-xs">Real problem solving, not cookie-cutter tutorials</p>
+                            </div>
+                        </div>
+
+                        {/* 3D Printing */}
+                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
+                            <div className="relative h-32 sm:h-36 bg-gray-200">
+                                <Image
+                                    src="/images/robot1.png"
+                                    alt="3D printing designs"
+                                    fill
+                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
+                                />
+                            </div>
+                            <div className="p-3">
+                                <h3 className="font-bold text-gray-800 text-base mb-1">3D Printing</h3>
+                                <p className="text-gray-600 text-xs">Design and print custom creations during camp</p>
+                            </div>
+                        </div>
+                    </motion.div>
+
+                    {/* CTA Buttons */}
+                    <motion.div
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="flex flex-col sm:flex-row gap-3 justify-center px-4"
+                    >
+                        <a
+                            href={siteData.hero.formUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group bg-indigo-600 text-white px-8 py-4 rounded-2xl font-bold text-base sm:text-lg hover:bg-indigo-700 transition-all shadow-2xl hover:shadow-3xl hover:scale-105 active:scale-100 flex items-center justify-center gap-2"
+                        >
+                            Reserve Your Spot
+                            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                        </a>
+                        <a
+                            href="#curriculum"
+                            className="bg-white text-indigo-600 px-8 py-4 rounded-2xl font-bold text-base sm:text-lg hover:bg-gray-50 transition-all shadow-xl flex items-center justify-center"
+                        >
+                            Explore Curriculum
+                        </a>
+                    </motion.div>
+
                 </div>
             </div>
+
+            {/* Bottom gradient fade */}
+            <div className="h-16 bg-gradient-to-t from-white to-transparent" />
         </section>
     );
 }

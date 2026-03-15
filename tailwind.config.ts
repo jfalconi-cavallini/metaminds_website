@@ -36,6 +36,9 @@ const config: Config = {
                     800: '#002966',
                     900: '#001433',
                 },
+                fontFamily: {
+                    'mochi': ['Mochi Boom', 'cursive'],
+                },
             },
             backgroundImage: {
                 'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
