@@ -11,7 +11,7 @@ export default function Pricing() {
             name: "Founding Families",
             price: "$399",
             description: "Next 20 spots only",
-            badge: "🔥 Limited",
+            badge: "🔥 Limited Offers Available",
             icon: Sparkles,
             highlighted: false,
             bonuses: [
