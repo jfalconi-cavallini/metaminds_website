@@ -9,8 +9,8 @@ export default function Pricing() {
     const tiers = [
         {
             name: "Founding Families",
-            price: "$450",
-            description: "First 20 spots only",
+            price: "$399",
+            description: "Next 20 spots only",
             badge: "🔥 Limited",
             icon: Sparkles,
             highlighted: false,
@@ -21,7 +21,7 @@ export default function Pricing() {
                 "15% multi-week discount (vs 10% standard)",
                 "Priority week selection"
             ],
-            savings: "Save $75 vs Standard",
+            savings: "Over $200 in savings",
             availability: "Only 13 spots left!",
             badgeColor: "bg-gradient-to-r from-amber-500 to-orange-500 text-white",
             urgent: true
@@ -38,14 +38,14 @@ export default function Pricing() {
                 "Bonus 3D print toy (Pokémon, keychain, or bookmark)",
                 "10% multi-week discount"
             ],
-            savings: "Save $30 vs Standard",
+            savings: "Save $100 vs Standard",
             availability: "Most Popular Choice",
             badgeColor: "bg-gradient-to-r from-indigo-600 to-purple-600 text-white",
             urgent: false
         },
         {
             name: "Standard",
-            price: "$525",
+            price: "$595",
             description: "After May 1, 2026",
             badge: null,
             icon: Users,
