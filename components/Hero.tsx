@@ -114,7 +114,7 @@ export default function Hero() {
                         <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
                             <div className="relative h-32 sm:h-36 bg-gray-200">
                                 <Image
-                                    src="/images/robot2.jpg"
+                                    src="/images/robot3.jpg"
                                     alt="Kids learning to code"
                                     fill
                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -130,7 +130,7 @@ export default function Hero() {
                         <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
                             <div className="relative h-32 sm:h-36 bg-gray-200">
                                 <Image
-                                    src="/images/robot3.jpg"
+                                    src="/images/arduino.jpeg"
                                     alt="Hands-on engineering challenges"
                                     fill
                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -146,7 +146,7 @@ export default function Hero() {
                         <div className="bg-white rounded-2xl overflow-hidden shadow-xl hover:shadow-2xl transition-shadow group">
                             <div className="relative h-32 sm:h-36 bg-gray-200">
                                 <Image
-                                    src="/images/robot1.png"
+                                    src="/images/3dprinting.jpg"
                                     alt="3D printing designs"
                                     fill
                                     className="object-cover group-hover:scale-105 transition-transform duration-300"
