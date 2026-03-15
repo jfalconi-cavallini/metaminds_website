@@ -27,7 +27,6 @@ export default function Home() {
       <Pricing />
       <Founders />
       <FAQ />
-      <CTA />
       <Footer />
       <BackToTop />
     </main>
