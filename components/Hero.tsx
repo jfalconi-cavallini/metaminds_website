@@ -38,7 +38,7 @@ export default function Hero() {
                             className="text-sm sm:text-base md:text-lg lg:text-xl text-yellow-200/90 italic font-light px-4"
                             style={{ textShadow: '1px 1px 2px rgba(0,0,0,0.3)' }}
                         >
-                            "Ideas are free, Creating has no limits"
+                            "If You Can Dream It, You Can Build It"
                         </p>
                     </motion.div>
 
