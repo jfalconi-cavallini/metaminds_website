@@ -49,7 +49,7 @@ export default function Footer() {
 
                 <div className="border-t border-gray-800 pt-8 text-center text-sm">
                     <p>
-                        © {new Date().getFullYear()} {siteData.brand.name}. All rights reserved.
+                        © {new Date().getFullYear()} {siteData.brand.name} LLC. All rights reserved.
                     </p>
                 </div>
             </div>
