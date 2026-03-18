@@ -2,12 +2,44 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, HelpCircle, CheckCircle } from "lucide-react";
+import { ChevronDown, HelpCircle, CheckCircle, Send, User, Mail, MessageSquare } from "lucide-react";
 import { siteData } from "@/lib/data";
 import Section from "./Section";
+import emailjs from "@emailjs/browser";
 
 export default function FAQ() {
-    const [openIndex, setOpenIndex] = useState<number | null>(null); // First question open by default
+    const [openIndex, setOpenIndex] = useState<number | null>(null);
+    const [formData, setFormData] = useState({ name: "", email: "", message: "" });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+
+        try {
+            // Send email using EmailJS
+            await emailjs.send(
+                process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+                process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
+                {
+                    name: formData.name,        // Changed from from_name
+                    email: formData.email,      // Changed from from_email
+                    message: formData.message,
+                },
+                process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
+            );
+
+            setSubmitStatus("success");
+            setFormData({ name: "", email: "", message: "" });
+        } catch (error) {
+            console.error("EmailJS Error:", error);
+            setSubmitStatus("error");
+        } finally {
+            setIsSubmitting(false);
+            setTimeout(() => setSubmitStatus("idle"), 5000);
+        }
+    };
 
     return (
         <Section id="faq" className="bg-white">
@@ -45,7 +77,7 @@ export default function FAQ() {
                     className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
                 >
                     Everything you need to know about enrollment, schedules, safety, and what makes
-                    our camp special. Can't find your answer? <a href={`mailto:${siteData.brand?.email || 'metamindsstemacademy@gmail.com'}`} className="text-indigo-600 font-bold hover:underline">Email us</a>.
+                    our camp special. Can't find your answer? Use the form below.
                 </motion.p>
             </div>
 
@@ -75,22 +107,17 @@ export default function FAQ() {
                                     }`}
                             >
                                 <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
-                                    {/* Question Number/Icon */}
                                     <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center font-black text-sm sm:text-base transition-all duration-300 ${isOpen
                                         ? "bg-white/20 text-white"
                                         : "bg-indigo-100 text-indigo-600 group-hover:bg-indigo-200"
                                         }`}>
                                         {idx + 1}
                                     </div>
-
-                                    {/* Question Text */}
                                     <span className={`font-bold text-base sm:text-lg leading-tight pt-1 ${isOpen ? "text-white" : "text-gray-900"
                                         }`}>
                                         {faq.question}
                                     </span>
                                 </div>
-
-                                {/* Chevron */}
                                 <div className={`flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-300 ${isOpen
                                     ? "bg-white/20"
                                     : "bg-indigo-50 border-2 border-indigo-100 group-hover:border-indigo-200"
@@ -128,36 +155,132 @@ export default function FAQ() {
                 })}
             </div>
 
-            {/* Bottom CTA */}
+            {/* Contact Form Section */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                className="text-center mt-16 px-4"
+                className="mt-16 px-4"
             >
-                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8 sm:p-10 max-w-3xl mx-auto border-2 border-indigo-200">
-                    <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mb-4">
-                        Still Have Questions?
-                    </h3>
-                    <p className="text-gray-700 mb-6 text-sm sm:text-base leading-relaxed">
-                        We're here to help! Reach out and we'll get back to you within 24 hours.
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                        <a
-                            href={`mailto:${siteData.brand?.email || 'metamindsstemacademy@gmail.com'}`}
-                            className="inline-flex items-center justify-center gap-2 bg-white text-indigo-600 px-8 py-4 rounded-xl font-bold text-base sm:text-lg border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-lg transition-all"
-                        >
-                            📧 Email Us
-                        </a>
-                        <a
-                            href={siteData.hero.formUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-8 py-4 rounded-xl font-bold text-base sm:text-lg hover:shadow-2xl transition-all hover:scale-105"
-                        >
-                            Reserve Your Spot
-                        </a>
+                <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-6 sm:p-10 max-w-3xl mx-auto border-2 border-indigo-200">
+                    <div className="text-center mb-8">
+                        <h3 className="text-2xl sm:text-3xl font-black text-gray-900 mb-3">
+                            Still Have Questions?
+                        </h3>
+                        <p className="text-gray-700 text-sm sm:text-base leading-relaxed">
+                            Send us a message and we'll get back to you within 24 hours!
+                        </p>
                     </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Name Field */}
+                        <div>
+                            <label htmlFor="name" className="block text-sm font-bold text-gray-700 mb-2">
+                                Your Name
+                            </label>
+                            <div className="relative">
+                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="text"
+                                    id="name"
+                                    required
+                                    value={formData.name}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                                    placeholder="John Doe"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Email Field */}
+                        <div>
+                            <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
+                                Email Address
+                            </label>
+                            <div className="relative">
+                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                <input
+                                    type="email"
+                                    id="email"
+                                    required
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                                    placeholder="parent@example.com"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Message Field */}
+                        <div>
+                            <label htmlFor="message" className="block text-sm font-bold text-gray-700 mb-2">
+                                Your Question
+                            </label>
+                            <div className="relative">
+                                <MessageSquare className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
+                                <textarea
+                                    id="message"
+                                    required
+                                    rows={4}
+                                    value={formData.message}
+                                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white resize-none"
+                                    placeholder="What would you like to know about our camp?"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Submit Button */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-4 rounded-xl font-bold text-base hover:shadow-xl transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isSubmitting ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Sending...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Send className="w-5 h-5" />
+                                        Send Message
+                                    </>
+                                )}
+                            </button>
+
+                            <a
+                                href={siteData.hero.formUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 bg-white text-indigo-600 px-6 py-4 rounded-xl font-bold text-base border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                            >
+                                Reserve Your Spot
+                            </a>
+                        </div>
+
+                        {/* Status Messages */}
+                        {submitStatus === "success" && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"
+                            >
+                                <CheckCircle className="w-5 h-5" />
+                                Message sent! We'll respond within 24 hours.
+                            </motion.div>
+                        )}
+                        {submitStatus === "error" && (
+                            <motion.div
+                                initial={{ opacity: 0, y: -10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-bold"
+                            >
+                                ⚠️ Something went wrong. Please try emailing us directly at {siteData.brand?.email || 'metamindsstemacademy@gmail.com'}
+                            </motion.div>
+                        )}
+                    </form>
                 </div>
             </motion.div>
         </Section>
