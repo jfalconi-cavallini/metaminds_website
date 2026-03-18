@@ -9,29 +9,73 @@ import emailjs from "@emailjs/browser";
 
 export default function FAQ() {
     const [openIndex, setOpenIndex] = useState<number | null>(null);
-    const [formData, setFormData] = useState({ name: "", email: "", message: "" });
+    const [formData, setFormData] = useState({ name: "", email: "", message: "", honeypot: "" });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
+    const [errors, setErrors] = useState({ name: "", email: "", message: "" });
+
+    // Email validation
+    const validateEmail = (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Form validation
+    const validateForm = () => {
+        const newErrors = { name: "", email: "", message: "" };
+        let isValid = true;
+
+        if (formData.name.trim().length < 2) {
+            newErrors.name = "Name must be at least 2 characters";
+            isValid = false;
+        }
+
+        if (!validateEmail(formData.email)) {
+            newErrors.email = "Please enter a valid email address";
+            isValid = false;
+        }
+
+        if (formData.message.trim().length < 10) {
+            newErrors.message = "Message must be at least 10 characters";
+            isValid = false;
+        }
+
+        setErrors(newErrors);
+        return isValid;
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setIsSubmitting(true);
+        
+        // Honeypot check (spam bot protection)
+        if (formData.honeypot) {
+            console.log("Bot detected");
+            return;
+        }
 
+        // Validate form
+        if (!validateForm()) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        
         try {
             // Send email using EmailJS
             await emailjs.send(
                 process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
                 process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
                 {
-                    name: formData.name,        // Changed from from_name
-                    email: formData.email,      // Changed from from_email
+                    name: formData.name,
+                    email: formData.email,
                     message: formData.message,
                 },
                 process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
             );
-
+            
             setSubmitStatus("success");
-            setFormData({ name: "", email: "", message: "" });
+            setFormData({ name: "", email: "", message: "", honeypot: "" });
+            setErrors({ name: "", email: "", message: "" });
         } catch (error) {
             console.error("EmailJS Error:", error);
             setSubmitStatus("error");
@@ -173,10 +217,21 @@ export default function FAQ() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Honeypot field (hidden from users, catches bots) */}
+                        <input
+                            type="text"
+                            name="website"
+                            value={formData.honeypot}
+                            onChange={(e) => setFormData({ ...formData, honeypot: e.target.value })}
+                            style={{ display: "none" }}
+                            tabIndex={-1}
+                            autoComplete="off"
+                        />
+
                         {/* Name Field */}
                         <div>
                             <label htmlFor="name" className="block text-sm font-bold text-gray-700 mb-2">
-                                Your Name
+                                Your Name *
                             </label>
                             <div className="relative">
                                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -185,17 +240,21 @@ export default function FAQ() {
                                     id="name"
                                     required
                                     value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, name: e.target.value });
+                                        setErrors({ ...errors, name: "" });
+                                    }}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'} focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white`}
                                     placeholder="John Doe"
                                 />
                             </div>
+                            {errors.name && <p className="text-red-600 text-xs mt-1 ml-1">{errors.name}</p>}
                         </div>
 
                         {/* Email Field */}
                         <div>
                             <label htmlFor="email" className="block text-sm font-bold text-gray-700 mb-2">
-                                Email Address
+                                Email Address *
                             </label>
                             <div className="relative">
                                 <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -204,17 +263,21 @@ export default function FAQ() {
                                     id="email"
                                     required
                                     value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white"
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, email: e.target.value });
+                                        setErrors({ ...errors, email: "" });
+                                    }}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white`}
                                     placeholder="parent@example.com"
                                 />
                             </div>
+                            {errors.email && <p className="text-red-600 text-xs mt-1 ml-1">{errors.email}</p>}
                         </div>
 
                         {/* Message Field */}
                         <div>
                             <label htmlFor="message" className="block text-sm font-bold text-gray-700 mb-2">
-                                Your Question
+                                Your Question *
                             </label>
                             <div className="relative">
                                 <MessageSquare className="absolute left-4 top-4 w-5 h-5 text-gray-400" />
@@ -223,11 +286,15 @@ export default function FAQ() {
                                     required
                                     rows={4}
                                     value={formData.message}
-                                    onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                                    className="w-full pl-12 pr-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white resize-none"
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, message: e.target.value });
+                                        setErrors({ ...errors, message: "" });
+                                    }}
+                                    className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.message ? 'border-red-500' : 'border-gray-200'} focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white resize-none`}
                                     placeholder="What would you like to know about our camp?"
                                 />
                             </div>
+                            {errors.message && <p className="text-red-600 text-xs mt-1 ml-1">{errors.message}</p>}
                         </div>
 
                         {/* Submit Button */}
@@ -249,7 +316,7 @@ export default function FAQ() {
                                     </>
                                 )}
                             </button>
-
+                            
                             <a
                                 href={siteData.hero.formUrl}
                                 target="_blank"
