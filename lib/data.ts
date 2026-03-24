@@ -309,6 +309,7 @@ export const siteData = {
         { label: "Schedule", href: "#schedule" },
         { label: "Tuition", href: "#pricing" },
         { label: "Instructors", href: "#founders" },
+        { label: "Mentoring", href: "#mentoring" },
         { label: "FAQ", href: "#faq" },
     ],
 
