@@ -77,6 +77,7 @@ export const siteData = {
     ],
 
     campWeeks: [
+        /*
         {
             dates: "May 25–29",
             status: "available",
@@ -94,7 +95,7 @@ export const siteData = {
             status: "available",
             theme: "Underwater Explorers",
             description: "Create submersible robots for deep-sea missions"
-        },
+        }, */
         {
             dates: "June 15–19",
             status: "available",
@@ -152,7 +153,6 @@ export const siteData = {
     ],
 
     themes: [
-        /*
         {
             name: "Robot Battle Royale",
             weekDates: "May 25–29",
@@ -179,7 +179,7 @@ export const siteData = {
             skills: ["Waterproofing", "Buoyancy Control", "Underwater Navigation", "Sample Collection"],
             projects: ["Submarine Bot", "Treasure Retriever", "Deep Sea Explorer"],
             highlight: "Pool testing day with underwater challenges!",
-        }, */
+        },
         {
             name: "Robot Restaurant",
             weekDates: "June 15–19",
