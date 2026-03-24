@@ -14,6 +14,7 @@ import CTA from "@/components/CTA";
 import Footer from "@/components/Footer";
 import BackToTop from "@/components/BackToTop";
 import RobotBanner from "@/components/robot-banner";
+import Mentoring from "@/components/Mentoring";
 
 export default function Home() {
   return (
@@ -26,6 +27,7 @@ export default function Home() {
       <DaySchedule />
       <Pricing />
       <Founders />
+      <Mentoring />
       <FAQ />
       <Footer />
       <BackToTop />
