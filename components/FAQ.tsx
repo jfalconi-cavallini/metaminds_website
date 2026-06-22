@@ -86,6 +86,7 @@ export default function FAQ() {
     };
 
     return (
+        <>
         <Section id="faq" className="bg-white">
             {/* Header */}
             <div className="text-center mb-16 px-4">
@@ -120,8 +121,8 @@ export default function FAQ() {
                     transition={{ delay: 0.2 }}
                     className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
                 >
-                    Everything you need to know about enrollment, schedules, safety, and what makes
-                    our camp special. Can't find your answer? Use the form below.
+                    Everything you need to know about our tutoring programs, scheduling, and pricing.
+                    Can&apos;t find your answer? Use the form below.
                 </motion.p>
             </div>
 
@@ -197,6 +198,43 @@ export default function FAQ() {
                         </motion.div>
                     );
                 })}
+            </div>
+
+        </Section>
+        <Section id="contact" className="bg-white">
+
+            {/* Contact Header */}
+            <div className="text-center mb-12 px-4">
+                <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-200 text-indigo-600 text-xs font-bold tracking-widest uppercase px-4 py-1.5 rounded-full mb-6"
+                >
+                    <Mail className="w-4 h-4" />
+                    Contact Us
+                </motion.div>
+                <motion.h2
+                    initial={{ opacity: 0, y: -10 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.1 }}
+                    className="text-4xl sm:text-5xl font-black text-gray-900 mb-4 tracking-tight"
+                >
+                    Get In{" "}
+                    <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                        Touch
+                    </span>
+                </motion.h2>
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    whileInView={{ opacity: 1 }}
+                    viewport={{ once: true }}
+                    transition={{ delay: 0.2 }}
+                    className="text-lg text-gray-600 max-w-2xl mx-auto"
+                >
+                    Have a question or ready to get started? We&apos;ll get back to you within 24 hours.
+                </motion.p>
             </div>
 
             {/* Contact Form Section */}
@@ -291,7 +329,7 @@ export default function FAQ() {
                                         setErrors({ ...errors, message: "" });
                                     }}
                                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.message ? 'border-red-500' : 'border-gray-200'} focus:border-indigo-500 focus:outline-none transition-colors text-gray-900 bg-white resize-none`}
-                                    placeholder="What would you like to know about our camp?"
+                                    placeholder="What would you like to know about our tutoring programs?"
                                 />
                             </div>
                             {errors.message && <p className="text-red-600 text-xs mt-1 ml-1">{errors.message}</p>}
@@ -323,7 +361,7 @@ export default function FAQ() {
                                 rel="noopener noreferrer"
                                 className="flex-1 bg-white text-indigo-600 px-6 py-4 rounded-xl font-bold text-base border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-lg transition-all flex items-center justify-center gap-2"
                             >
-                                Reserve Your Spot
+                                Book Free Consultation
                             </a>
                         </div>
 
@@ -351,5 +389,6 @@ export default function FAQ() {
                 </div>
             </motion.div>
         </Section>
+        </>
     );
 }

@@ -3,322 +3,208 @@ export const siteData = {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
         email: "metamindsstemacademy@gmail.com",
-        tagline: "Where Future Engineers Are Built",
-        description: "Hands-on robotics and engineering summer camps for ages 6-14 in the DFW area.",
+        tagline: "Expert Online Tutoring for SAT, ACT & STEM",
+        description: "Personalized 1-on-1 online tutoring from UCSD Computer Science graduates. SAT/ACT prep, K-12 math, coding, and advanced STEM mentoring.",
     },
 
     hero: {
-        headline: "Build. Code. Compete.",
-        subheadline: "DFW's premier robotics summer camp where kids design real robots, solve engineering challenges, and compete in epic tournaments.",
-        cta1: "Reserve a Spot",
-        cta2: "View Summer Weeks",
-        formUrl: "https://pci.jotform.com/form/260627728878171",
+        headline: "Expert Online Tutoring for SAT, ACT & STEM",
+        subheadline: "1-on-1 personalized instruction from UCSD Computer Science graduates. Real results. Real instructors. Real improvement.",
+        cta1: "Book Free Consultation",
+        cta2: "View Programs",
+        formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
+        stats: {
+            students: "500+",
+            satImprovement: "+200pts",
+            successRate: "98%",
+        },
     },
 
     trustBar: [
-        "Ages 6–14",
-        "9 Summer Weeks",
-        "Small Groups (8:1 ratio)",
-        "No Experience Needed",
+        { label: "Students Helped", value: "500+" },
+        { label: "Avg SAT Improvement", value: "+200pts" },
+        { label: "Expert Instructors", value: "UCSD Grads" },
+        { label: "Success Rate", value: "98%" },
     ],
 
-    tracks: [
+    services: [
         {
-            id: "explorers",
-            name: "Explorers Division",
-            ageRange: "Ages 6–8",
-            description:
-                "A hands-on introduction to robotics, engineering fundamentals, and scientific discovery through guided builds, coding basics, and structured team challenges.",
-            highlights: [
-                "Foundations of simple machines",
-                "Introductory coding logic & sensors",
-                "Collaborative robotics builds",
-                "Division-based mini tournaments",
-            ],
+            id: "sat-act",
+            title: "SAT & ACT Prep",
+            description: "Comprehensive test prep with proven score improvements. Average +200 SAT points.",
+            features: ["Full-length practice tests", "Targeted weak area focus", "Test-day strategy"],
+            icon: "📚",
         },
         {
-            id: "builders",
-            name: "Builders Division",
-            ageRange: "Ages 9–11",
-            description:
-                "Students design, construct, and refine robotics systems while learning mechanical engineering principles, structured problem-solving, and competitive strategy.",
-            highlights: [
-                "Gear ratios & drivetrain systems",
-                "Structural design & load testing",
-                "Coding for controlled robotics systems",
-                "Weekly division tournaments",
-            ],
+            id: "math",
+            title: "K-12 Math Tutoring",
+            description: "Master any math topic from algebra to calculus. Personalized to your pace.",
+            features: ["All grade levels", "Homework help", "Concept mastery"],
+            icon: "🔢",
         },
         {
-            id: "elite",
-            name: "Elite Robotics Division",
-            ageRange: "Ages 12–14",
-            description:
-                "An advanced engineering experience focused on autonomous robotics, AI logic, sensor integration, and high-level competitive performance.",
-            highlights: [
-                "Autonomous programming & sensor fusion",
-                "AI-driven decision systems",
-                "Strategic robot optimization",
-                "Elite tournament bracket competition",
-            ],
+            id: "coding",
+            title: "Coding & Programming",
+            description: "Learn Python, JavaScript, Java, and web development from industry experts.",
+            features: ["Real projects", "Portfolio building", "Interview prep"],
+            icon: "💻",
+        },
+        {
+            id: "stem",
+            title: "STEM Mentoring",
+            description: "Advanced mentorship in CS, robotics, AI, and engineering. 1-on-1 guidance.",
+            features: ["Expert mentors", "Portfolio projects", "Career guidance"],
+            icon: "🚀",
         },
     ],
 
-
-    schedule: [
-        { time: "9:00 AM", activity: "Welcome + Mini Challenge" },
-        { time: "9:30 AM", activity: "Build Session" },
-        { time: "11:00 AM", activity: "Coding + Testing" },
-        { time: "12:00 PM", activity: "Lunch Break" },
-        { time: "12:45 PM", activity: "Team Challenge" },
-        { time: "2:00 PM", activity: "Competition / Tournament" },
-        { time: "2:45 PM", activity: "Showcase + Wrap-up" },
-        { time: "3:00 PM", activity: "Pickup" },
-    ],
-
-    campWeeks: [
-        /*
+    whyUs: [
         {
-            dates: "May 25–29",
-            status: "available",
-            theme: "Robot Battle Royale",
-            description: "Design combat robots for the ultimate tournament showdown"
+            title: "Expert Instructors",
+            description: "UCSD Computer Science graduates and certified tutors with 10+ years of teaching experience.",
         },
         {
-            dates: "June 1–5",
-            status: "available",
-            theme: "Drone Racing League",
-            description: "Build and race autonomous drones through obstacle courses"
+            title: "Proven Results",
+            description: "Average SAT improvement of +200 points. 500+ students helped. Real success stories.",
         },
         {
-            dates: "June 8–12",
-            status: "available",
-            theme: "Underwater Explorers",
-            description: "Create submersible robots for deep-sea missions"
-        }, */
-        {
-            dates: "June 15–19",
-            status: "available",
-            theme: "Robot Restaurant",
-            description: "Engineer a fully automated robot kitchen and delivery system"
+            title: "Personalized Learning",
+            description: "1-on-1 sessions tailored to your goals, pace, and learning style. No cookie-cutter lessons.",
         },
         {
-            dates: "June 22–26",
-            status: "available",
-            theme: "Superhero Tech Lab",
-            description: "Build gadgets and robots inspired by your favorite heroes"
-        },
-        {
-            dates: "June 29–July 3",
-            status: "available",
-            theme: "Zombie Apocalypse Survival",
-            description: "Create defense robots and automated survival systems"
-        },
-        {
-            dates: "July 6–10",
-            status: "available",
-            theme: "Treasure Hunter Bots",
-            description: "Design robots that search, map, and recover hidden treasures"
-        },
-        {
-            dates: "July 13–17",
-            status: "available",
-            theme: "Animal Kingdom Robots",
-            description: "Build biomimetic robots inspired by nature's best designs"
-        },
-        {
-            dates: "July 20–24",
-            status: "available",
-            theme: "Time Travel Engineers",
-            description: "Create robots from different eras: ancient, medieval, future"
-        },
-        {
-            dates: "July 27–31",
-            status: "available",
-            theme: "Robot Olympics",
-            description: "Train robots for extreme sports and athletic competitions"
-        },
-        {
-            dates: "August 3–7",
-            status: "available",
-            theme: "Spy Tech & Secret Agents",
-            description: "Build surveillance bots, code-breaking systems, and stealth tech"
-        },
-        {
-            dates: "August 10–14",
-            status: "available",
-            theme: "Alien Invasion Defense",
-            description: "Engineer planetary defense systems and alien contact robots"
+            title: "Flexible & Affordable",
+            description: "Schedule sessions that fit your life. Transparent pricing. No hidden fees. Money-back guarantee.",
         },
     ],
 
-    themes: [
+    results: [
+        { before: 1050, after: 1310, student: "Sarah J." },
+        { before: 1200, after: 1470, student: "Michael K." },
+        { before: 980, after: 1200, student: "Emma T." },
+    ],
+
+    testimonials: [
         {
-            name: "Robot Battle Royale",
-            weekDates: "May 25–29",
-            description: "Welcome to the arena! Design offensive and defensive mechanisms, strategic AI, and battle-tested armor. Build your champion bot and compete in daily elimination rounds leading to the ultimate Friday championship.",
-            icon: "⚔️",
-            skills: ["Combat Mechanics", "Strategic AI", "Armor Design", "Tournament Strategy"],
-            projects: ["Spinner Bot", "Flipper Mechanism", "Wedge Warrior"],
-            highlight: "Friday Tournament with Championship Belt!",
+            quote: "My SAT score went from 1050 to 1310. The personalized approach really made the difference.",
+            author: "Sarah J.",
+            role: "SAT Student",
         },
         {
-            name: "Drone Racing League",
-            weekDates: "June 1–5",
-            description: "Experience the thrill of high-speed robotics! Build drones with precision controls, obstacle avoidance sensors, and speed optimization. Race through custom courses with loops, gates, and challenges.",
-            icon: "🚁",
-            skills: ["Flight Dynamics", "Speed Optimization", "Obstacle Detection", "Precision Control"],
-            projects: ["Racing Quadcopter", "Obstacle Course", "Time Trial System"],
-            highlight: "Live drone racing championship with FPV cameras!",
+            quote: "Finally understand coding. Best investment in my son's education.",
+            author: "Parent of Alex",
+            role: "Python Student",
         },
         {
-            name: "Underwater Explorers",
-            weekDates: "June 8–12",
-            description: "Dive deep into robotics! Create waterproof robots that can navigate underwater, collect samples, and explore aquatic environments. Learn about buoyancy, propulsion, and remote underwater operations.",
-            icon: "🌊",
-            skills: ["Waterproofing", "Buoyancy Control", "Underwater Navigation", "Sample Collection"],
-            projects: ["Submarine Bot", "Treasure Retriever", "Deep Sea Explorer"],
-            highlight: "Pool testing day with underwater challenges!",
+            quote: "Got into my dream college. Couldn't have done it without this tutoring.",
+            author: "Michael K.",
+            role: "SAT Student",
+        },
+    ],
+
+    howItWorks: [
+        {
+            step: "1",
+            title: "Book Free Consultation",
+            description: "Tell us your goals. We'll assess your needs and create a personalized plan.",
         },
         {
-            name: "Robot Restaurant",
-            weekDates: "June 15–19",
-            description: "Open for business! Design an entire automated restaurant system—from robot chefs to delivery drones to automated cashiers. Learn about conveyor systems, sorting algorithms, and customer service AI.",
-            icon: "🍕",
-            skills: ["Automation Systems", "Conveyor Design", "Sorting Algorithms", "Service Robotics"],
-            projects: ["Chef Bot Arm", "Delivery Robot", "Order System"],
-            highlight: "Parent showcase with working robot restaurant!",
+            step: "2",
+            title: "Start 1-on-1 Sessions",
+            description: "Meet with your tutor online. Real-time feedback, screen sharing, and live coding.",
         },
         {
-            name: "Superhero Tech Lab",
-            weekDates: "June 22–26",
-            description: "Every hero needs gadgets! Build Iron Man's suit components, Spider-Man's web shooters, Batman's grappling hooks, and more. Combine engineering with imagination to create functioning superhero technology.",
-            icon: "🦸",
-            skills: ["Gadget Engineering", "Wearable Tech", "Mechanism Design", "Comic Book Physics"],
-            projects: ["Power Glove", "Grappling System", "Jetpack Prototype"],
-            highlight: "Superhero showcase day—costumes encouraged!",
+            step: "3",
+            title: "Track Progress",
+            description: "Regular check-ins and progress reports. See improvement in real-time.",
         },
         {
-            name: "Zombie Apocalypse Survival",
-            weekDates: "June 29–July 3",
-            description: "Survive the outbreak! Build perimeter defense robots, automated alert systems, supply delivery drones, and barricade mechanisms. Strategy meets engineering in this action-packed survival challenge.",
-            icon: "🧟",
-            skills: ["Defense Systems", "Perimeter Security", "Threat Detection", "Supply Management"],
-            projects: ["Guard Bot", "Alert System", "Supply Drone"],
-            highlight: "Zombie invasion simulation finale!",
-        },
-        {
-            name: "Treasure Hunter Bots",
-            weekDates: "July 6–10",
-            description: "X marks the spot! Create robots that can read maps, navigate terrain, detect buried objects, and retrieve treasures. Learn about GPS, metal detection, mapping algorithms, and excavation tools.",
-            icon: "🗺️",
-            skills: ["Navigation Systems", "Object Detection", "Mapping", "Excavation Tools"],
-            projects: ["Explorer Bot", "Detector System", "Retrieval Arm"],
-            highlight: "Real treasure hunt with buried prizes!",
-        },
-        {
-            name: "Animal Kingdom Robots",
-            weekDates: "July 13–17",
-            description: "Nature's greatest inventions! Build robots inspired by animals—flying like birds, swimming like fish, crawling like insects, and climbing like geckos. Discover how biology inspires the best robotics.",
-            icon: "🦎",
-            skills: ["Biomimicry", "Natural Motion", "Adaptive Systems", "Multi-Terrain Movement"],
-            projects: ["Bird Bot", "Snake Robot", "Climbing Spider"],
-            highlight: "Nature vs. Machine competition!",
-        },
-        {
-            name: "Time Travel Engineers",
-            weekDates: "July 20–24",
-            description: "Build through the ages! Create ancient catapults, medieval siege weapons, steampunk contraptions, and futuristic tech. Learn how engineering evolved and imagine what comes next.",
-            icon: "⏰",
-            skills: ["Historical Engineering", "Evolution of Tech", "Steampunk Design", "Future Prediction"],
-            projects: ["Catapult", "Mechanical Clock", "Hovercraft"],
-            highlight: "Time period competition across eras!",
-        },
-        {
-            name: "Robot Olympics",
-            weekDates: "July 27–31",
-            description: "Go for the gold! Train robots for extreme competitions—long jump, sprint races, weightlifting, gymnastics, and more. Optimize for speed, power, precision, and endurance.",
-            icon: "🏆",
-            skills: ["Performance Optimization", "Speed Tuning", "Power Systems", "Precision Engineering"],
-            projects: ["Sprint Bot", "Jumping Robot", "Weightlifter"],
-            highlight: "Olympic-style medal ceremony!",
-        },
-        {
-            name: "Spy Tech & Secret Agents",
-            weekDates: "August 3–7",
-            description: "Mission accepted! Build surveillance drones, code-breaking computers, laser security systems, and stealth robots. Learn about encryption, sensors, and covert operations technology.",
-            icon: "🕵️",
-            skills: ["Stealth Technology", "Surveillance Systems", "Encryption", "Covert Operations"],
-            projects: ["Spy Drone", "Security System", "Code Breaker"],
-            highlight: "Secret mission finale with parents as targets!",
-        },
-        {
-            name: "Alien Invasion Defense",
-            weekDates: "August 10–14",
-            description: "Protect Earth! Design planetary defense systems, alien communication devices, UFO interceptors, and first-contact protocols. The fate of humanity depends on your engineering skills!",
-            icon: "👽",
-            skills: ["Defense Strategy", "Communication Systems", "Interception Tech", "First Contact Protocol"],
-            projects: ["Defense Turret", "Scanner System", "Interceptor Bot"],
-            highlight: "Alien invasion simulation battle!",
+            step: "4",
+            title: "Achieve Your Goals",
+            description: "SAT/ACT scores, college admission, coding mastery, or career readiness.",
         },
     ],
 
     pricing: {
-        basePrice: "$495",
-        priceLabel: "per week",
-        siblingDiscount: "Sibling discount available",
-        note: "Limited seats per week. Reserve early.",
+        packages: [
+            {
+                name: "Single Session",
+                price: "$70",
+                duration: "1 Hour",
+                description: "Perfect for trying out 1-on-1 mentoring or getting help with a specific project",
+            },
+            {
+                name: "4-Hour Package",
+                price: "$260",
+                duration: "4 Hours Total",
+                description: "Best for learning a new skill or completing a multi-week project",
+            },
+            {
+                name: "8-Hour Package",
+                price: "$480",
+                duration: "8 Hours Total",
+                description: "Ultimate package for mastering complex topics or building advanced projects",
+            },
+        ],
     },
 
     faqs: [
         {
-            question: "Do kids need prior experience?",
-            answer: "Not at all! Our program is designed for beginners through advanced students. We group kids by age and skill level, and our instructors adapt activities to meet each child where they are.",
+            question: "How long does a typical session last?",
+            answer: "Most sessions are 60 minutes, though we offer flexible scheduling from 30 minutes to 2-hour deep-dives. You choose what works best for you.",
         },
         {
-            question: "What will my child build?",
-            answer: "Kids build functioning robots using VEX IQ and VEX V5 systems. Projects range from sensor-equipped rovers to competition-ready battlebots, depending on their track. Every student takes home photos and videos of their creations.",
+            question: "What's the cost of tutoring?",
+            answer: "Our packages range from $70 for a single session to $480 for 8 hours. We offer flexible payment plans and a money-back guarantee if you're not satisfied.",
         },
         {
-            question: "What's the instructor-to-student ratio?",
-            answer: "We maintain a maximum 8:1 ratio to ensure personalized attention. Each group has a lead instructor plus assistants, all experienced in robotics and education.",
+            question: "How much can I improve my SAT/ACT score?",
+            answer: "Our average student improves by 200+ SAT points or 3+ ACT points within 8-12 weeks with consistent practice. Results vary based on starting score and effort.",
         },
         {
-            question: "What should my child bring?",
-            answer: "Just a lunch, water bottle, and enthusiasm! We provide all robotics equipment, laptops, safety gear, and materials. Closed-toe shoes required.",
+            question: "Can I schedule sessions around my school schedule?",
+            answer: "Yes! We offer evening and weekend sessions. Book any time that works for you through our Calendly link.",
         },
         {
-            question: "Where is camp located?",
-            answer: "📍North Fort Worth (Colleville / Grapevine / Southlake) Final venue secured by April 15. All familiies notified immediately upon confirmation.",
+            question: "Do you offer group tutoring?",
+            answer: "We specialize in 1-on-1 personalized tutoring, but we can discuss group options if needed. Contact us to explore alternatives.",
         },
         {
-            question: "What's your refund and transfer policy?",
-            answer: "Full refund if canceled 14+ days before camp start. Within 14 days, receive a credit for a future week. We're flexible with transfers between weeks based on availability.",
+            question: "What if I'm not satisfied?",
+            answer: "We offer a money-back guarantee if you're not satisfied after your first session. No questions asked. Your satisfaction is our priority.",
+        },
+        {
+            question: "What technology do I need?",
+            answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for coding/problem-solving.",
+        },
+        {
+            question: "How do I prepare for my first session?",
+            answer: "Have your goals ready and any materials related to what you want to learn. We'll handle the rest! Our instructors will guide you through everything.",
         },
     ],
 
     cta: {
-        headline: "Ready to Launch?",
-        subheadline: "Spots fill fast. Reserve your child's week today.",
-        buttonText: "Reserve Your Spot",
+        headline: "Ready to Get Started?",
+        subheadline: "Book a free 30-minute consultation with one of our tutors. No commitment. No pressure.",
+        buttonText: "Book Free Consultation",
     },
 
     nav: [
-        { label: "Projects", href: "#gallery" },
         { label: "Programs", href: "#programs" },
-        { label: "Camps", href: "#weeks" },
-        { label: "Schedule", href: "#schedule" },
-        { label: "Tuition", href: "#pricing" },
-        { label: "Instructors", href: "#founders" },
+        { label: "Why MetaMinds", href: "#why" },
+        { label: "Results", href: "#results" },
+        { label: "How It Works", href: "#howitworks" },
         { label: "Mentoring", href: "#mentoring" },
         { label: "FAQ", href: "#faq" },
     ],
 
+    // ==================== PRESERVED FROM ORIGINAL ====================
+    // These sections can be used for future features or Phase 1
+
     founders: [
         {
             name: "Jose Falconi-Cavallini",
-            title: "Co-Founder & Lead Instructor",
-            image: "/images/jose.jpg",
+            title: "Computer Science & STEM Instructor & SAT/ACT Tutor",
+            image: "/images/tutors/jose_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Computer Science, UC San Diego",
                 "7+ years STEM teaching experience",
@@ -327,25 +213,25 @@ export const siteData = {
                 "Robotics & Coding Instructor",
                 "3+ years running robotics summer camps",
             ],
-            bio: "Jose is a computer science graduate from UC San Diego with over seven years of experience teaching STEM subjects to students of all ages. He is passionate about helping students truly understand engineering and programming through hands-on robotics projects, real problem solving, and interactive learning experiences.",
+            bio: "Jose is a computer science graduate from UC San Diego with over seven years of experience teaching STEM subjects to students of all ages. He is passionate about helping students truly understand engineering and programming through hands-on projects, real problem solving, and interactive learning experiences.",
         },
         {
             name: "Emma Brugman",
-            title: "Co-Founder & Curriculum Director",
-            image: "/images/emma.png",
+            title: "Machine Learning & Data Science Instructor & SAT/ACT Tutor",
+            image: "/images/tutors/emma_tutor_1024_square.jpg",
             credentials: [
-                "B.S. Cognitive & Behavorial Neuroscience, UC San Diego",
+                "B.S. Cognitive & Behavorial Neuroscience, UC San Diego M.S. Molecular Science & Software Engineering, UC Berkeley",
                 "M.S. Molecular Science & Software Engineering, UC Berkeley",
                 "Data & Machine Learning Analyst",
                 "Professional Tutor at Revolution Prep & EdLadder",
-                "STEM curriculum development Specialist"
+                "STEM curriculum development Specialist",
             ],
             bio: "Emma combines her background in neuroscience, engineering, and machine learning to design engaging STEM learning experiences for students. Her work focuses on building curriculum that aligns with how young minds learn best while making complex topics like coding and robotics approachable and exciting.",
         },
         {
             name: "Johan Falconi-Cavallini",
-            title: "Co-Founder & Curriculum Developer",
-            image: "/images/johan.png",
+            title: "Civil Engineering & Problem-Solving Instructor",
+            image: "/images/tutors/johan_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Civil Engineering, UC Merced",
                 "3+ years STEM teaching experience",
@@ -356,94 +242,152 @@ export const siteData = {
         },
         {
             name: "Roberto Medina",
-            title: "Co-Founder & Engineering Instructor",
-            image: "/images/roberto.jpg",
+            title: "Mechanical Engineering & Design Instructor",
+            image: "/images/tutors/roberto_tutor_1024_square.jpg",
             credentials: [
-                "B.S. Mechanical Engineering",
+                "B.S. Mechanical Engineering, UC San Diego",
                 "Advanced CAD & engineering design experience",
                 "Former tutor at Juni Learning",
-                "STEM mentor and robotics enthusiast"
+                "STEM mentor and robotics enthusiast",
             ],
-            bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills."
+            bio: "Roberto brings mechanical engineering and design expertise to MetaMinds. His background in CAD and engineering allows students to explore how real machines are designed and built while developing practical engineering skills.",
         },
         {
             name: "Alan Martinez",
-            title: "Co-Founder & Robotics/Progamming Instructor",
-            image: "/images/Alan.jpg",
+            title: "Electrical Engineering & Robotics Instructor",
+            image: "/images/tutors/alan_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Electrical Engineering, UC San Diego",
                 "Strong background in robotics & programming",
                 "Electronics and systems design experience",
-                "STEM mentor and engineering instructor"
+                "STEM mentor and engineering instructor",
             ],
-            bio: "Alan is an electrical engineer from UC San Diego with a strong background in robotics, programming, and electronics. He enjoys helping students understand how real technology works by guiding them through hands-on engineering projects and robotics challenges."
+            bio: "Alan is an electrical engineer from UC San Diego with a strong background in robotics, programming, and electronics. He enjoys helping students understand how real technology works by guiding them through hands-on engineering projects and robotics challenges.",
         },
         {
             name: "Christian Tapia",
-            title: "Co-Founder & STEM Instructor",
-            image: "/images/tapia.png",
+            title: "Mathematics & Computer Science Instructor",
+            image: "/images/tutors/christian_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Mathematics–Computer Science, UC San Diego",
                 "M.S. Business Analytics, UC San Diego",
                 "Former robotics instructor at Magikid Robotics Lab",
                 "Professional tutor at EdLadder",
-                "3+ years STEM summer camp instruction"
+                "3+ years STEM summer camp instruction",
             ],
-            bio: "Christian specializes in mathematics, programming, and data-driven problem solving. With experience teaching robotics and coding camps, he enjoys helping students explore technology through hands-on experimentation and creative engineering challenges."
+            bio: "Christian specializes in mathematics, programming, and data-driven problem solving. With experience teaching robotics and coding camps, he enjoys helping students explore technology through hands-on experimentation and creative engineering challenges.",
         },
     ],
 
     gallery: {
         title: "See Us in Action",
-        subtitle: "Real moments from our camps—building, competing, and celebrating together.",
+        subtitle: "Real moments from our tutoring sessions and camps.",
         images: [
             {
                 src: "/images/gallery/camp1.jpg",
-                alt: "Students building robots",
-                caption: "Team collaboration during build session",
+                alt: "1-on-1 tutoring session",
+                caption: "Personalized online tutoring",
             },
             {
                 src: "/images/gallery/camp2.jpg",
-                alt: "Robot competition",
-                caption: "Tournament day excitement",
+                alt: "Student coding project",
+                caption: "Live coding session",
             },
             {
                 src: "/images/gallery/camp3.jpg",
-                alt: "Coding session",
-                caption: "Learning autonomous programming",
+                alt: "SAT prep session",
+                caption: "Test prep strategy session",
             },
             {
                 src: "/images/gallery/camp4.jpg",
-                alt: "Group photo",
-                caption: "Week 3 graduates celebrating",
+                alt: "Group learning",
+                caption: "Collaborative problem solving",
             },
             {
                 src: "/images/gallery/camp5.jpg",
-                alt: "Robot showcase",
-                caption: "Final showcase presentations",
+                alt: "Project showcase",
+                caption: "Student project presentations",
             },
             {
                 src: "/images/gallery/camp6.jpg",
-                alt: "Instructors helping",
-                caption: "One-on-one instruction",
+                alt: "Instructor support",
+                caption: "Expert guidance and support",
             },
             {
                 src: "/images/gallery/camp7.jpg",
-                alt: "Group photo",
-                caption: "Week 3 graduates celebrating",
+                alt: "Success celebration",
+                caption: "Celebrating student achievements",
             },
             {
                 src: "/images/gallery/camp8.jpg",
-                alt: "Robot showcase",
-                caption: "Final showcase presentations",
+                alt: "Robotics mentoring",
+                caption: "Advanced robotics instruction",
             },
             {
                 src: "/images/gallery/camp9.jpg",
-                alt: "Instructors helping",
-                caption: "One-on-one instruction",
+                alt: "STEM learning",
+                caption: "Hands-on STEM mentoring",
             },
-
-
         ],
     },
+
+    // ==================== FUTURE PHASES (keep for reference) ====================
+    // These are not used in Phase 0 but preserved for future camp/robotics features
+    
+    campWeeks: [
+        {
+            dates: "June 15–19",
+            status: "available",
+            theme: "Robot Restaurant",
+            description: "Engineer a fully automated robot kitchen and delivery system",
+        },
+        {
+            dates: "June 22–26",
+            status: "available",
+            theme: "Superhero Tech Lab",
+            description: "Build gadgets and robots inspired by your favorite heroes",
+        },
+        {
+            dates: "June 29–July 3",
+            status: "available",
+            theme: "Zombie Apocalypse Survival",
+            description: "Create defense robots and automated survival systems",
+        },
+        {
+            dates: "July 6–10",
+            status: "available",
+            theme: "Treasure Hunter Bots",
+            description: "Design robots that search, map, and recover hidden treasures",
+        },
+        {
+            dates: "July 13–17",
+            status: "available",
+            theme: "Animal Kingdom Robots",
+            description: "Build biomimetic robots inspired by nature's best designs",
+        },
+        {
+            dates: "July 20–24",
+            status: "available",
+            theme: "Time Travel Engineers",
+            description: "Create robots from different eras: ancient, medieval, future",
+        },
+        {
+            dates: "July 27–31",
+            status: "available",
+            theme: "Robot Olympics",
+            description: "Train robots for extreme sports and athletic competitions",
+        },
+        {
+            dates: "August 3–7",
+            status: "available",
+            theme: "Spy Tech & Secret Agents",
+            description: "Build surveillance bots, code-breaking systems, and stealth tech",
+        },
+        {
+            dates: "August 10–14",
+            status: "available",
+            theme: "Alien Invasion Defense",
+            description: "Engineer planetary defense systems and alien contact robots",
+        },
+    ],
 };

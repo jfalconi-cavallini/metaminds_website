@@ -1,26 +1,33 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { siteData } from "@/lib/data";
-import { Check } from "lucide-react";
 
 export default function TrustBar() {
+    const stats = [
+        { label: "Ages 6–14", value: "All Ages" },
+        { label: "9 Summer Weeks", value: "9 Programs" },
+        { label: "Small Groups (8:1 ratio)", value: "Personalized" },
+        { label: "No Experience Needed", value: "Beginner Friendly" },
+    ];
+
     return (
-        <section className="bg-white py-8 border-y border-gray-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="flex flex-wrap justify-center items-center gap-6 md:gap-12"
-                >
-                    {siteData.trustBar.map((item, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
-                            <Check className="w-5 h-5 text-green-600" />
-                            <span className="text-gray-700 font-medium">{item}</span>
-                        </div>
+        <section className="py-12 bg-blue-50 border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+                    {stats.map((stat, idx) => (
+                        <motion.div
+                            key={idx}
+                            initial={{ opacity: 0, y: 10 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: idx * 0.1 }}
+                            className="text-center"
+                        >
+                            <div className="text-sm text-gray-600 mb-1">{stat.label}</div>
+                            <div className="text-2xl font-black text-gray-900">{stat.value}</div>
+                        </motion.div>
                     ))}
-                </motion.div>
+                </div>
             </div>
         </section>
     );

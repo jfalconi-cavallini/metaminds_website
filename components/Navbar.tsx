@@ -1,88 +1,63 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
 import { siteData } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { Menu, X } from "lucide-react";
+import { useState } from "react";
 
 export default function Navbar() {
-    const [isScrolled, setIsScrolled] = useState(false);
-    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [scrollProgress, setScrollProgress] = useState(0);
-
-    useEffect(() => {
-        const handleScroll = () => {
-            setIsScrolled(window.scrollY > 20);
-
-            const windowHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-            const scrolled = (window.scrollY / windowHeight) * 100;
-            setScrollProgress(scrolled);
-        };
-        window.addEventListener("scroll", handleScroll);
-        return () => window.removeEventListener("scroll", handleScroll);
-    }, []);
+    const [isOpen, setIsOpen] = useState(false);
 
     return (
-        <nav
-            className={cn(
-                "fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-white",
-                isScrolled ? "shadow-lg" : "shadow-md"
-            )}
-        >
-            {/* Progress Bar */}
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-gray-200">
-                <div
-                    className="h-full bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-150"
-                    style={{ width: `${scrollProgress}%` }}
-                />
-            </div>
+        <nav className="fixed top-0 w-full h-20 bg-white shadow-sm z-50">
+            <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-2">
+                    <img src="/images/metaminds-logo2.png" alt="Logo" className="h-24 w-auto object-contain" />
+                </Link>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 overflow-visible">
-                {/* Mobile navbar taller to fit bigger logo */}
-                <div className="flex justify-between items-center h-16 md:h-20">
-                    <Link href="/" className="flex items-center">
-                        <img
-                            src="/images/metaminds-logo.png"
-                            alt="MetaMinds STEM Academy"
-                            className="h-20 md:h-40 w-auto"
-                        />
-                    </Link>
-
-                    <div className="hidden md:flex items-center gap-8">
-                        {siteData.nav.map((item) => (
-                            <a key={item.href} href={item.href} className="text-gray-600 hover:text-indigo-600 font-medium transition-colors relative group">
-                                {item.label}
-                                <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-indigo-600 transition-all group-hover:w-full" />
-                            </a>
-                        ))}
-                        <a href={siteData.hero.formUrl} target="_blank" rel="noopener noreferrer" className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-2.5 rounded-full font-semibold hover:shadow-lg transition-all hover:scale-105">
-                            Enroll Now
-                        </a>
-                    </div>
-
-                    <button
-                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                        className="md:hidden p-2 text-gray-600 hover:text-gray-900"
-                        aria-label="Toggle menu"
-                    >
-                        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-                    </button>
+                {/* Desktop Menu */}
+                <div className="hidden md:flex items-center gap-8">
+                    <Link href="#" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Home</Link>
+                    <Link href="#programs" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Programs</Link>
+                    <Link href="#results" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Success Stories</Link>
+                    <Link href="#faq" className="text-gray-700 hover:text-gray-900 font-medium text-sm">About</Link>
+                    <Link href="#contact" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Contact</Link>
+                    
                 </div>
+
+                {/* CTA Button */}
+                <a
+                    href={siteData.hero?.formUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hidden md:inline-flex px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                    Book Free Consultation
+                </a>
+
+                {/* Mobile Menu Button */}
+                <button onClick={() => setIsOpen(!isOpen)} className="md:hidden">
+                    {isOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                </button>
             </div>
 
-            {isMobileMenuOpen && (
-                <div className="md:hidden bg-white border-t border-gray-200 shadow-lg">
-                    <div className="px-4 py-4 space-y-3">
-                        {siteData.nav.map((item) => (
-                            <a key={item.href} href={item.href} onClick={() => setIsMobileMenuOpen(false)} className="block text-gray-600 hover:text-indigo-600 font-medium py-2">
-                                {item.label}
-                            </a>
-                        ))}
-                        <a href={siteData.hero.formUrl} target="_blank" rel="noopener noreferrer" className="block text-center bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg transition-all">
-                            Enroll Now
-                        </a>
-                    </div>
+            {/* Mobile Menu */}
+            {isOpen && (
+                <div className="md:hidden bg-white border-t border-gray-200 p-4 space-y-3">
+                    <Link href="#" className="block text-gray-700 font-medium py-2 text-sm">Home</Link>
+                    <Link href="#programs" className="block text-gray-700 font-medium py-2 text-sm">Programs</Link>
+                    <Link href="#results" className="block text-gray-700 font-medium py-2 text-sm">Success Stories</Link>
+                    <Link href="#" className="block text-gray-700 font-medium py-2 text-sm">About</Link>
+                    <Link href="#FAQ" className="block text-gray-700 font-medium py-2 text-sm">Contact</Link>
+                    <a
+                        href={siteData.hero?.formUrl || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block w-full px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg text-center text-sm"
+                    >
+                        Book Free Consultation
+                    </a>
                 </div>
             )}
         </nav>

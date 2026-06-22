@@ -3,54 +3,52 @@ import { siteData } from "@/lib/data";
 
 export default function Footer() {
     return (
-        <footer className="bg-gray-900 text-gray-400 py-12">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="grid md:grid-cols-3 gap-8 mb-8">
+        <footer className="bg-slate-900 text-white py-16">
+            <div className="max-w-7xl mx-auto px-6">
+                <div className="grid md:grid-cols-4 gap-12 mb-12">
+                    {/* Brand */}
                     <div>
-                        <h3 className="text-white font-bold text-xl mb-4">
-                            {siteData.brand.name}
-                        </h3>
-                        <p className="text-sm leading-relaxed">
-                            Empowering the next generation of engineers through hands-on
-                            robotics education in the DFW area.
-                        </p>
+                        <div className="flex items-center gap-2 mb-4">
+                            <div className="bg-white rounded-xl px-3 py-2 inline-flex">
+                                <img src="/images/metaminds-logo2.png" alt="MetaMinds Logo" className="h-12 w-auto object-contain" />
+                            </div>
+                        </div>
+                        <p className="text-gray-400 text-sm">Expert tutoring in SAT, ACT, Math, Coding, and Robotics.</p>
                     </div>
 
+                    {/* Contact */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Quick Links</h4>
-                        <ul className="space-y-2 text-sm">
-                            {siteData.nav.map((item) => (
-                                <li key={item.href}>
-                                    <a href={item.href} className="hover:text-white transition-colors">
-                                        {item.label}
-                                    </a>
-                                </li>
-                            ))}
-                            <li>
-                                <Link href="/privacy" className="hover:text-white transition-colors">
-                                    Privacy Policy
-                                </Link>
-                            </li>
+                        <div className="font-bold mb-4">Contact</div>
+                        <div className="text-gray-400 text-sm space-y-2">
+                            <p>{siteData.brand?.email}</p>
+                        </div>
+                    </div>
+
+                    {/* Links */}
+                    <div>
+                        <div className="font-bold mb-4">Follow Us</div>
+                        <ul className="space-y-2 text-gray-400 text-sm">
+                            <li><a href="https://www.facebook.com/people/MetaMinds-Stem-Academy/61588028801791/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Facebook</a></li>
+                            <li><a href="https://www.instagram.com/metamindsstemacademy/" target="_blank" rel="noopener noreferrer" className="hover:text-white">Instagram</a></li>
                         </ul>
                     </div>
 
+                    {/* CTA */}
                     <div>
-                        <h4 className="text-white font-semibold mb-4">Contact</h4>
-                        <ul className="space-y-2 text-sm">
-                            <li>
-                                <a href={`mailto:${siteData.brand.email}`} className="hover:text-white transition-colors">
-                                    {siteData.brand.email}
-                                </a>
-                            </li>
-                            <li>{siteData.brand.location}</li>
-                        </ul>
+                        <div className="font-bold mb-4">Quick Links</div>
+                        <a
+                            href={siteData.hero?.formUrl || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
+                        >
+                            Book Consultation
+                        </a>
                     </div>
                 </div>
 
-                <div className="border-t border-gray-800 pt-8 text-center text-sm">
-                    <p>
-                        © {new Date().getFullYear()} {siteData.brand.name} LLC. All rights reserved.
-                    </p>
+                <div className="border-t border-slate-800 pt-8 text-center text-gray-400 text-sm">
+                    <p>&copy; 2024 MetaMinds STEM Academy. All rights reserved.</p>
                 </div>
             </div>
         </footer>
