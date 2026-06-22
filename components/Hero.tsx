@@ -185,7 +185,7 @@ export default function Hero() {
 
                             {/* Right: CTA pill */}
                             <div className="flex-shrink-0 bg-yellow-400 text-yellow-900 font-black text-xs sm:text-sm px-4 py-2 rounded-xl group-hover:bg-yellow-300 transition-colors flex items-center gap-1.5 whitespace-nowrap">
-                                Claim Your Spot
+                                Claim Your Spot!
                                 <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                             </div>
                         </a>
