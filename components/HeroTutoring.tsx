@@ -74,7 +74,7 @@ export default function HeroTutoring() {
                             >
                                 <Users className="w-7 h-7 text-green-400 mb-3" />
                                 <div className="text-sm font-bold text-white">Expert Tutors</div>
-                                <div className="text-xs text-blue-200 mt-1">UCSD Computer Science</div>
+                                <div className="text-xs text-blue-200 mt-1">UC graduates</div>
                             </motion.div>
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
