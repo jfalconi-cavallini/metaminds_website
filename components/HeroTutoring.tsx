@@ -32,7 +32,7 @@ export default function HeroTutoring() {
                         </h1>
 
                         <p className="text-lg md:text-xl text-blue-100 mb-10 leading-relaxed max-w-xl">
-                            Expert tutoring in SAT/ACT, Math, Coding, Robotics, and 3D Design from UCSD Computer Science graduates.
+                            Expert tutoring in SAT/ACT, Math, Coding, Robotics, and 3D Design from UC graduates.
                         </p>
 
                         {/* CTA Buttons */}
