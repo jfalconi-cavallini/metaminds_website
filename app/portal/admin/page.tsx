@@ -232,21 +232,24 @@ export default function AdminPortal() {
       setStudFormError("Name, email, and password are required."); return;
     }
     setStudFormLoading(true); setStudFormError(""); setStudFormSuccess("");
+    let createdStudentId: number | null = null;
     try {
       // 1. Create DB record
       const s = await createStudent({
         name: newStudName, email: newStudEmail, grade: newStudGrade,
         subjects: newStudSubjects.split(",").map((x) => x.trim()).filter(Boolean),
       });
+      createdStudentId = s.id;
       setStudents((prev) => [...prev, s]);
 
       // 2. Create Supabase Auth account + link to DB record
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session has expired — please refresh and sign in again.");
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           email: newStudEmail,
@@ -257,13 +260,14 @@ export default function AdminPortal() {
         }),
       });
       const result = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(result.error ?? "Auth account creation failed.");
+      if (!res.ok) throw new Error(result.error ?? `Server error ${res.status}`);
 
       setStudFormSuccess(`Account created! ${newStudName} can now log in with ${newStudEmail}.`);
       setNewStudName(""); setNewStudEmail(""); setNewStudPassword(""); setNewStudGrade(""); setNewStudSubjects("");
       setTimeout(() => { setShowStudentForm(false); setStudFormSuccess(""); }, 4000);
     } catch (e: unknown) {
-      setStudFormError(e instanceof Error ? e.message : "Failed to create student.");
+      const msg = e instanceof Error ? e.message : String(e);
+      setStudFormError(`${msg}${createdStudentId ? ` (Student DB record #${createdStudentId} was created — re-submit or delete it manually in Supabase)` : ""}`);
     } finally { setStudFormLoading(false); }
   }
 
@@ -282,21 +286,24 @@ export default function AdminPortal() {
       setTutFormError("Name, email, and password are required."); return;
     }
     setTutFormLoading(true); setTutFormError(""); setTutFormSuccess("");
+    let createdTutorId: number | null = null;
     try {
       // 1. Create DB record
       const t = await createTutor({
         name: newTutName, email: newTutEmail,
         subjects: newTutSubjs.split(",").map((x) => x.trim()).filter(Boolean),
       });
+      createdTutorId = t.id;
       setTutors((prev) => [...prev, t]);
 
       // 2. Create Supabase Auth account + link to DB record
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session has expired — please refresh and sign in again.");
       const res = await fetch("/api/admin/create-user", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${session?.access_token ?? ""}`,
+          "Authorization": `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           email: newTutEmail,
@@ -307,13 +314,14 @@ export default function AdminPortal() {
         }),
       });
       const result = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(result.error ?? "Auth account creation failed.");
+      if (!res.ok) throw new Error(result.error ?? `Server error ${res.status}`);
 
       setTutFormSuccess(`Account created! ${newTutName} can now log in with ${newTutEmail}.`);
       setNewTutName(""); setNewTutEmail(""); setNewTutPassword(""); setNewTutSubjs("");
       setTimeout(() => { setShowTutorForm(false); setTutFormSuccess(""); }, 4000);
     } catch (e: unknown) {
-      setTutFormError(e instanceof Error ? e.message : "Failed to create tutor.");
+      const msg = e instanceof Error ? e.message : String(e);
+      setTutFormError(`${msg}${createdTutorId ? ` (Tutor DB record #${createdTutorId} was created — re-submit or delete it manually in Supabase)` : ""}`);
     } finally { setTutFormLoading(false); }
   }
 
