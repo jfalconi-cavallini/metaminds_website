@@ -18,7 +18,7 @@ export default function SuccessPage() {
                 </p>
 
                 <p className="text-gray-600 mb-8">
-                    We'll review your submission and send a confirmation email within 24
+                    We&apos;ll review your submission and send a confirmation email within 24
                     hours with next steps and location details.
                 </p>
 

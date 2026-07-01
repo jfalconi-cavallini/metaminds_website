@@ -42,7 +42,7 @@ export default function PrivacyPage() {
                         </p>
                         <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
                             <li>Parent/guardian contact information</li>
-                            <li>Child's name, age, and emergency contacts</li>
+                            <li>Child&apos;s name, age, and emergency contacts</li>
                             <li>Medical information and allergies</li>
                             <li>Photo/video consent preferences</li>
                         </ul>

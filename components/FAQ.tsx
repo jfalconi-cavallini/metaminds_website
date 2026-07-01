@@ -250,7 +250,7 @@ export default function FAQ() {
                             Still Have Questions?
                         </h3>
                         <p className="text-gray-700 text-sm sm:text-base leading-relaxed">
-                            Send us a message and we'll get back to you within 24 hours!
+                            Send us a message and we&apos;ll get back to you within 24 hours!
                         </p>
                     </div>
 
@@ -373,7 +373,7 @@ export default function FAQ() {
                                 className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"
                             >
                                 <CheckCircle className="w-5 h-5" />
-                                Message sent! We'll respond within 24 hours.
+                                Message sent! We&apos;ll respond within 24 hours.
                             </motion.div>
                         )}
                         {submitStatus === "error" && (

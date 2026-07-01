@@ -26,15 +26,23 @@ export default function Navbar() {
                     
                 </div>
 
-                {/* CTA Button */}
-                <a
-                    href={siteData.hero?.formUrl || "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hidden md:inline-flex px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                >
-                    Book Free Consultation
-                </a>
+                {/* CTA Buttons */}
+                <div className="hidden md:flex items-center gap-3">
+                    <Link
+                        href="/login"
+                        className="px-5 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                    >
+                        Sign In
+                    </Link>
+                    <a
+                        href={siteData.hero?.formUrl || "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                    >
+                        Book Free Consultation
+                    </a>
+                </div>
 
                 {/* Mobile Menu Button */}
                 <button onClick={() => setIsOpen(!isOpen)} className="md:hidden">
@@ -50,6 +58,13 @@ export default function Navbar() {
                     <Link href="#results" className="block text-gray-700 font-medium py-2 text-sm">Success Stories</Link>
                     <Link href="#" className="block text-gray-700 font-medium py-2 text-sm">About</Link>
                     <Link href="#FAQ" className="block text-gray-700 font-medium py-2 text-sm">Contact</Link>
+                    <Link
+                        href="/login"
+                        className="block w-full px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg text-center text-sm"
+                        onClick={() => setIsOpen(false)}
+                    >
+                        Sign In
+                    </Link>
                     <a
                         href={siteData.hero?.formUrl || "#"}
                         target="_blank"

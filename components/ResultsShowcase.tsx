@@ -110,7 +110,7 @@ export default function ProgramsAndResults() {
                         transition={{ delay: 0.1 }}
                         className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed"
                     >
-                        From SAT/ACT prep to cutting-edge robotics and 3D design, we offer personalized tutoring across multiple disciplines. Each program is tailored to your child's learning style and goals.
+                        From SAT/ACT prep to cutting-edge robotics and 3D design, we offer personalized tutoring across multiple disciplines. Each program is tailored to your child&apos;s learning style and goals.
                     </motion.p>
                 </div>
 
@@ -201,7 +201,7 @@ export default function ProgramsAndResults() {
                             <div className="text-3xl flex-shrink-0">✓</div>
                             <div>
                                 <p className="font-bold text-lg mb-2">Flexible Scheduling</p>
-                                <p className="text-blue-100 text-sm">Online sessions that fit your family's schedule with no long-term contracts.</p>
+                                <p className="text-blue-100 text-sm">Online sessions that fit your family&apos;s schedule with no long-term contracts.</p>
                             </div>
                         </motion.div>
                     </div>
@@ -236,7 +236,7 @@ export default function ProgramsAndResults() {
                         transition={{ delay: 0.1 }}
                         className="text-lg text-gray-600 max-w-3xl mx-auto leading-relaxed"
                     >
-                        Our students consistently achieve significant improvements. Whether it's SAT/ACT score increases, mastering new coding languages, or building their first robot, we help students reach their goals.
+                        Our students consistently achieve significant improvements. Whether it&apos;s SAT/ACT score increases, mastering new coding languages, or building their first robot, we help students reach their goals.
                     </motion.p>
                 </div>
 
