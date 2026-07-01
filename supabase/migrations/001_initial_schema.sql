@@ -85,12 +85,12 @@ alter table user_packages      enable row level security;
 alter table session_requests   enable row level security;
 alter table tutor_availability enable row level security;
 
-create policy "phase1_allow_all" on tutors             for all to anon using (true) with check (true);
-create policy "phase1_allow_all" on students           for all to anon using (true) with check (true);
-create policy "phase1_allow_all" on sessions           for all to anon using (true) with check (true);
-create policy "phase1_allow_all" on user_packages      for all to anon using (true) with check (true);
-create policy "phase1_allow_all" on session_requests   for all to anon using (true) with check (true);
-create policy "phase1_allow_all" on tutor_availability for all to anon using (true) with check (true);
+create policy "phase1_allow_all" on tutors             for all to anon, authenticated using (true) with check (true);
+create policy "phase1_allow_all" on students           for all to anon, authenticated using (true) with check (true);
+create policy "phase1_allow_all" on sessions           for all to anon, authenticated using (true) with check (true);
+create policy "phase1_allow_all" on user_packages      for all to anon, authenticated using (true) with check (true);
+create policy "phase1_allow_all" on session_requests   for all to anon, authenticated using (true) with check (true);
+create policy "phase1_allow_all" on tutor_availability for all to anon, authenticated using (true) with check (true);
 
 
 -- SEED DATA -----------------------------------------------------

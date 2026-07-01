@@ -39,6 +39,18 @@ function ProfileRow({ label, value }: { label: string; value?: string }) {
 }
 
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const TIME_OPTIONS = (() => {
+  const opts: string[] = [];
+  for (let h = 6; h < 24; h++) {
+    const ampm = h >= 12 ? "PM" : "AM";
+    const h12  = h % 12 || 12;
+    opts.push(`${h12}:00 ${ampm}`);
+    opts.push(`${h12}:30 ${ampm}`);
+  }
+  return opts;
+})();
 
 const navItems = [
   { id: "overview",  label: "Overview"      },
@@ -1070,34 +1082,105 @@ export default function TutorPortal() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-semibold text-gray-900">My Weekly Availability</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Blue slots on the calendar show available windows</p>
+                <p className="text-xs text-gray-400 mt-0.5">Check the days you work, set your hours, then Save.</p>
               </div>
               {availSaved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
             </div>
-            {availSlots.length > 0 && (
-              <div className="mb-4">
-                <AvailabilityGrid slots={availSlots.map((s, i) => ({ id: i, tutorId, ...s }))} onRemove={removeAvailSlot} />
-                <p className="text-xs text-gray-400 mt-2">Hover a slot and click × to remove it.</p>
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2 items-end">
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">Day</label>
-                <select value={availDay} onChange={(e) => setAvailDay(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                  {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">From</label>
-                <input type="time" value={availStart} onChange={(e) => setAvailStart(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              </div>
-              <div>
-                <label className="block text-xs text-gray-500 mb-1">To</label>
-                <input type="time" value={availEnd} onChange={(e) => setAvailEnd(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              </div>
-              <button onClick={addAvailSlot} disabled={!availStart || !availEnd} className="px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40">+ Add</button>
+
+            <div className="divide-y divide-gray-100 mb-5">
+              {DAY_NAMES.map((dayName, dow) => {
+                const daySlots = availSlots.filter((s) => s.dayOfWeek === dow);
+                const isOn = daySlots.length > 0;
+                return (
+                  <div key={dow} className="py-3 flex flex-wrap items-center gap-3">
+                    {/* Checkbox + day label */}
+                    <label className="flex items-center gap-2 cursor-pointer select-none w-20 shrink-0">
+                      <input type="checkbox" checked={isOn}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setAvailSlots((prev) => [...prev, { dayOfWeek: dow, startTime: "9:00 AM", endTime: "5:00 PM" }]
+                              .sort((a, b) => a.dayOfWeek - b.dayOfWeek));
+                          } else {
+                            setAvailSlots((prev) => prev.filter((s) => s.dayOfWeek !== dow));
+                          }
+                        }}
+                        className="w-4 h-4 accent-blue-600" />
+                      <span className={`text-sm font-medium ${isOn ? "text-gray-900" : "text-gray-400"}`}>{DAY_SHORT[dow]}</span>
+                    </label>
+
+                    {isOn ? (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {daySlots.map((slot, slotIdx) => (
+                          <div key={slotIdx} className="flex items-center gap-1.5">
+                            <select value={slot.startTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAvailSlots((prev) => {
+                                  let nth = 0;
+                                  return prev.map((s) => {
+                                    if (s.dayOfWeek !== dow) return s;
+                                    return nth++ === slotIdx ? { ...s, startTime: val } : s;
+                                  });
+                                });
+                              }}
+                              className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm bg-white">
+                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            <span className="text-gray-400 text-xs">to</span>
+                            <select value={slot.endTime}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setAvailSlots((prev) => {
+                                  let nth = 0;
+                                  return prev.map((s) => {
+                                    if (s.dayOfWeek !== dow) return s;
+                                    return nth++ === slotIdx ? { ...s, endTime: val } : s;
+                                  });
+                                });
+                              }}
+                              className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm bg-white">
+                              {TIME_OPTIONS.map((t) => <option key={t} value={t}>{t}</option>)}
+                            </select>
+                            {daySlots.length > 1 && (
+                              <button onClick={() => {
+                                let nth = 0;
+                                setAvailSlots((prev) => prev.filter((s) => {
+                                  if (s.dayOfWeek !== dow) return true;
+                                  return nth++ !== slotIdx;
+                                }));
+                              }} className="text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Add second slot for split days */}
+                        <button onClick={() => setAvailSlots((prev) => [...prev, { dayOfWeek: dow, startTime: "9:00 AM", endTime: "5:00 PM" }])}
+                          className="text-xs text-blue-500 hover:text-blue-700 font-medium">+ split</button>
+
+                        {/* Apply to all weekdays shortcut */}
+                        {dow >= 1 && dow <= 5 && (
+                          <button onClick={() => {
+                            const src = daySlots[0];
+                            setAvailSlots((prev) => {
+                              const withoutWeekdays = prev.filter((s) => s.dayOfWeek < 1 || s.dayOfWeek > 5);
+                              const weekdays = [1,2,3,4,5].map((d) => ({ dayOfWeek: d, startTime: src.startTime, endTime: src.endTime }));
+                              return [...withoutWeekdays, ...weekdays].sort((a, b) => a.dayOfWeek - b.dayOfWeek);
+                            });
+                          }} className="text-xs text-gray-400 hover:text-blue-600 font-medium whitespace-nowrap">
+                            Apply Mon–Fri
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-300">Not available</span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
-            <button onClick={saveAvailability} disabled={availSaving} className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+
+            <button onClick={saveAvailability} disabled={availSaving}
+              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
               {availSaving ? "Saving…" : "Save Availability"}
             </button>
           </div>
