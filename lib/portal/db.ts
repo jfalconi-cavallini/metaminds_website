@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -766,4 +766,41 @@ export async function bulkInsertSessions(sessions: Array<{
   }
 
   return data.map(rowToSession);
+}
+
+// ── BLOCKED SLOTS (per-slot, not full-day) ────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToBlockedSlot(r: any): BlockedSlot {
+  return { id: r.id, tutorId: r.tutor_id, slotDate: r.slot_date, slotTime: r.slot_time };
+}
+
+export async function fetchBlockedSlots(tutorId: number): Promise<BlockedSlot[]> {
+  const { data, error } = await supabase
+    .from("blocked_slots")
+    .select("*")
+    .eq("tutor_id", tutorId);
+  if (error) return [];
+  return data.map(rowToBlockedSlot);
+}
+
+/** Toggles a blocked slot: inserts if absent, deletes if present. Returns true if now blocked. */
+export async function toggleBlockedSlot(
+  tutorId: number, date: string, time: string,
+): Promise<boolean> {
+  const { data: existing } = await supabase
+    .from("blocked_slots")
+    .select("id")
+    .eq("tutor_id", tutorId)
+    .eq("slot_date", date)
+    .eq("slot_time", time)
+    .maybeSingle();
+
+  if (existing) {
+    await supabase.from("blocked_slots").delete().eq("id", existing.id);
+    return false;
+  } else {
+    await supabase.from("blocked_slots").insert({ tutor_id: tutorId, slot_date: date, slot_time: time });
+    return true;
+  }
 }

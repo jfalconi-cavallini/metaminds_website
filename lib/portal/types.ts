@@ -107,3 +107,10 @@ export interface ParentUpdate {
   message: string;
   createdAt: string;      // ISO timestamp
 }
+
+export interface BlockedSlot {
+  id: number;
+  tutorId: number;
+  slotDate: string;   // ISO date "2026-07-04"
+  slotTime: string;   // "4:00 PM"
+}

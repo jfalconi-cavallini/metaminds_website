@@ -22,10 +22,11 @@ import {
   fetchBlockedDates, addBlockedDate, removeBlockedDate,
   fetchParentUpdatesByTutor, insertParentUpdate,
   autoCompletePastSessions,
+  fetchBlockedSlots, toggleBlockedSlot,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
-  SessionNote, Homework, BlockedDate, ParentUpdate,
+  SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot,
 } from "@/lib/portal/types";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
@@ -79,6 +80,8 @@ export default function TutorPortal() {
   const [sessionNotes,  setSessionNotes]   = useState<SessionNote[]>([]);
   const [homework,      setHomework]       = useState<Homework[]>([]);
   const [blockedDates,  setBlockedDates]   = useState<BlockedDate[]>([]);
+  const [blockedSlots,  setBlockedSlots]   = useState<BlockedSlot[]>([]);
+  const [calendarMode,  setCalendarMode]   = useState<"schedule" | "block">("schedule");
   const [loading,       setLoading]        = useState(true);
 
   useEffect(() => {
@@ -92,7 +95,7 @@ export default function TutorPortal() {
     async function load() {
       try {
         await autoCompletePastSessions();
-        const [t, allStudents, sess, pkgs, avail, notes, hw, blocked, pu] = await Promise.all([
+        const [t, allStudents, sess, pkgs, avail, notes, hw, blocked, pu, bs] = await Promise.all([
           fetchTutorById(tutorId),
           fetchStudents(),
           fetchSessionsByTutor(tutorId),
@@ -102,6 +105,7 @@ export default function TutorPortal() {
           fetchHomeworkByTutor(tutorId),
           fetchBlockedDates(tutorId),
           fetchParentUpdatesByTutor(tutorId),
+          fetchBlockedSlots(tutorId),
         ]);
         setTutor(t);
         setMyStudents(allStudents.filter((s) => t?.assignedStudentIds.includes(s.id) ?? false));
@@ -112,6 +116,7 @@ export default function TutorPortal() {
         setHomework(hw);
         setBlockedDates(blocked);
         setParentUpdates(pu);
+        setBlockedSlots(bs);
       } catch (err) { console.error("Tutor load error:", err); }
       finally { setLoading(false); }
     }
@@ -1001,7 +1006,19 @@ export default function TutorPortal() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
-            <p className="text-sm text-gray-500">Click any slot to schedule a session</p>
+            {/* Mode toggle */}
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm shadow-sm">
+              <button
+                onClick={() => { setCalendarMode("schedule"); setSelectedSlot(null); }}
+                className={`px-4 py-2 font-medium transition-colors ${calendarMode === "schedule" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                📅 Schedule
+              </button>
+              <button
+                onClick={() => { setCalendarMode("block"); setSelectedSlot(null); }}
+                className={`px-4 py-2 font-medium transition-colors border-l border-gray-200 ${calendarMode === "block" ? "bg-orange-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                🚫 Block Time
+              </button>
+            </div>
           </div>
 
           {schedSuccess && (
@@ -1012,14 +1029,23 @@ export default function TutorPortal() {
             availability={availability}
             sessions={localSessions}
             mode="tutor"
-            selectedSlot={selectedSlot}
+            selectedSlot={calendarMode === "schedule" ? selectedSlot : null}
             blockedDates={blockedDates.map((b) => b.blockedDate)}
+            blockedSlots={blockedSlots.map((b) => ({ date: b.slotDate, time: b.slotTime }))}
             resolveStudentName={(id) => getStudent(id)?.name}
-            onSlotSelect={(date, time) => {
+            onSlotSelect={calendarMode === "schedule" ? (date, time) => {
               setSessionDetail(null);
               setSelectedSlot({ date, time }); setSchedError("");
               if (myStudents.length > 0 && !schedStudentId) setSchedStudentId(String(myStudents[0].id));
-            }}
+            } : undefined}
+            onSlotBlock={calendarMode === "block" ? async (date, time) => {
+              const nowBlocked = await toggleBlockedSlot(tutorId, date, time);
+              setBlockedSlots((prev) =>
+                nowBlocked
+                  ? [...prev, { id: Date.now(), tutorId, slotDate: date, slotTime: time }]
+                  : prev.filter((b) => !(b.slotDate === date && b.slotTime === time)),
+              );
+            } : undefined}
             onSessionClick={(s) => {
               setSelectedSlot(null);
               setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink(""); setSdNoteError(""); setSdNoteSuccess(false);

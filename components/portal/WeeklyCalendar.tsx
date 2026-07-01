@@ -74,12 +74,15 @@ interface Props {
   bookingLeadHours?: number;
   onSessionClick?: (session: Session) => void;
   blockedDates?: string[];
+  blockedSlots?: { date: string; time: string }[];
+  onSlotBlock?: (date: string, time: string) => void;
   resolveStudentName?: (id: number) => string | undefined;
 }
 
 export default function WeeklyCalendar({
   availability, sessions, mode, onSlotSelect, selectedSlot,
-  bookingLeadHours, onSessionClick, blockedDates, resolveStudentName,
+  bookingLeadHours, onSessionClick, blockedDates, blockedSlots,
+  onSlotBlock, resolveStudentName,
 }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
 
@@ -94,6 +97,8 @@ export default function WeeklyCalendar({
   const nowH       = now.getHours() + now.getMinutes() / 60;
   const nowTopPx   = (nowH - SLOT_START) * 2 * ROW_H;
   const showNowBar = nowH >= SLOT_START && nowH <= SLOT_START + 12;
+
+  const blockMode = !!onSlotBlock;
 
   const weekLabel = `${days[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${days[6].toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
 
@@ -126,10 +131,16 @@ export default function WeeklyCalendar({
           <span>Click any <strong>green slot</strong> to book a session with your tutor.</span>
         </div>
       )}
-      {mode === "tutor" && (
+      {mode === "tutor" && !blockMode && (
         <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700">
           <span className="text-base">📅</span>
-          <span>Click any slot to schedule a session. <strong>Green</strong> = your availability window. Click a blue block to view/edit session details.</span>
+          <span>Click any slot to schedule a session. Click a blue block to view/edit session details.</span>
+        </div>
+      )}
+      {blockMode && (
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-xl text-xs text-orange-700">
+          <span className="text-base">🚫</span>
+          <span><strong>Block mode:</strong> Click any slot to block it. Click an orange slot to unblock it.</span>
         </div>
       )}
 
@@ -182,7 +193,6 @@ export default function WeeklyCalendar({
             <div className="w-14 shrink-0 border-r border-gray-200 bg-white relative z-10">
               {SLOTS.map((slot) => (
                 <div key={slot} className="relative" style={{ height: ROW_H }}>
-                  {/* Show hour label offset upward so it sits ON the line */}
                   {slot % 1 === 0 && slot > SLOT_START && (
                     <span className="absolute -top-[9px] right-2 text-[10px] text-gray-400 font-medium select-none leading-none whitespace-nowrap">
                       {hourLabel(slot)}
@@ -198,13 +208,12 @@ export default function WeeklyCalendar({
                 const dateISO   = toISO(d);
                 const dow       = d.getDay();
                 const isToday   = dateISO === todayISO;
-                const isBlocked = blockedDates?.includes(dateISO) ?? false;
+                const isDayBlocked = blockedDates?.includes(dateISO) ?? false;
 
                 const daySessions = sessions.filter(
                   (s) => s.date === dateISO && s.status !== "cancelled",
                 );
 
-                // Selected slot position for this day
                 const selH =
                   selectedSlot?.date === dateISO
                     ? parseTimeToHour(selectedSlot.time)
@@ -218,15 +227,19 @@ export default function WeeklyCalendar({
                   <div
                     key={dayIdx}
                     className={`relative border-r border-gray-100 last:border-r-0 ${
-                      isBlocked ? "bg-orange-50/40" : isToday ? "bg-blue-50/20" : ""
+                      isDayBlocked ? "bg-orange-50/40" : isToday ? "bg-blue-50/20" : ""
                     }`}
                   >
 
-                    {/* ── Background slot rows (clickable) ── */}
+                    {/* ── Background slot rows ── */}
                     {SLOTS.map((slot) => {
-                      const isHalf   = slot % 1 !== 0;
-                      const occupied = slotOccupied(dateISO, slot, sessions);
-                      const avail    = inAvailability(dow, slot, availability);
+                      const isHalf       = slot % 1 !== 0;
+                      const occupied     = slotOccupied(dateISO, slot, sessions);
+                      const avail        = inAvailability(dow, slot, availability);
+                      const slotTime     = hourToTimeString(slot);
+                      const isSlotBlocked = blockedSlots?.some(
+                        (b) => b.date === dateISO && b.time === slotTime,
+                      ) ?? false;
 
                       const slotH  = Math.floor(slot);
                       const slotM  = slot % 1 >= 0.5 ? "30" : "00";
@@ -242,46 +255,74 @@ export default function WeeklyCalendar({
                         hoursUntil < bookingLeadHours;
                       const notBookable = isPast || isTooSoon;
 
+                      // ── Block mode ──
+                      if (blockMode) {
+                        const canBlock = !occupied && !isPast && !isDayBlocked;
+                        let bg = "";
+                        if (occupied || isDayBlocked) bg = "";
+                        else if (isSlotBlocked)       bg = "bg-orange-100 hover:bg-orange-200 cursor-pointer";
+                        else if (isPast)              bg = "bg-gray-50/70";
+                        else if (avail)               bg = "bg-emerald-50 hover:bg-orange-50 cursor-pointer";
+                        else                          bg = "hover:bg-orange-50 cursor-pointer";
+
+                        return (
+                          <div
+                            key={slot}
+                            style={{ height: ROW_H }}
+                            onClick={() => canBlock && onSlotBlock!(dateISO, slotTime)}
+                            title={
+                              isSlotBlocked ? `Click to unblock ${slotTime}`
+                                : canBlock   ? `Click to block ${slotTime}`
+                                : undefined
+                            }
+                            className={`relative ${bg} ${
+                              isHalf
+                                ? "border-b border-dashed border-gray-100"
+                                : "border-b border-gray-200"
+                            }`}
+                          >
+                            {isSlotBlocked && (
+                              <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <span className="text-[9px] font-semibold text-orange-500">blocked</span>
+                              </span>
+                            )}
+                            {canBlock && !isSlotBlocked && !isPast && (
+                              <span className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
+                                <span className="text-[9px] font-semibold text-orange-400">block</span>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      }
+
+                      // ── Schedule mode (existing logic) ──
                       const clickable =
                         !occupied &&
                         !notBookable &&
-                        !isBlocked &&
+                        !isDayBlocked &&
+                        !isSlotBlocked &&
                         (mode === "tutor" || (mode === "book" && avail));
 
-                      const slotTime = hourToTimeString(slot);
-
-                      // Slot background color
                       let bg = "";
-                      if (occupied) {
-                        bg = ""; // session block painted above
-                      } else if (isBlocked) {
-                        bg = "";
-                      } else if (isPast) {
-                        bg = "bg-gray-50/70";
-                      } else if (isTooSoon && avail) {
-                        bg = "bg-amber-50";
-                      } else if (avail && clickable) {
-                        bg = "bg-emerald-50 hover:bg-emerald-100";
-                      } else if (!avail && mode === "tutor" && !notBookable) {
-                        bg = "hover:bg-gray-50";
-                      }
+                      if (occupied)                          bg = "";
+                      else if (isDayBlocked || isSlotBlocked) bg = "bg-orange-50/60";
+                      else if (isPast)                       bg = "bg-gray-50/70";
+                      else if (isTooSoon && avail)           bg = "bg-amber-50";
+                      else if (avail && clickable)           bg = "bg-emerald-50 hover:bg-emerald-100";
+                      else if (!avail && mode === "tutor" && !notBookable) bg = "hover:bg-gray-50";
 
                       return (
                         <div
                           key={slot}
                           style={{ height: ROW_H }}
                           title={
-                            clickable
-                              ? `Book ${slotTime}`
-                              : isTooSoon
-                              ? `Within ${bookingLeadHours}h booking window`
-                              : isBlocked
-                              ? "Day blocked off"
+                            isSlotBlocked   ? `Blocked — switch to Block mode to unblock`
+                              : clickable   ? `Schedule at ${slotTime}`
+                              : isTooSoon   ? `Within ${bookingLeadHours}h booking window`
+                              : isDayBlocked ? "Day blocked off"
                               : undefined
                           }
-                          onClick={() => {
-                            if (clickable) onSlotSelect?.(dateISO, slotTime);
-                          }}
+                          onClick={() => { if (clickable) onSlotSelect?.(dateISO, slotTime); }}
                           className={`relative ${bg} ${clickable ? "cursor-pointer group" : "cursor-default"} ${
                             isHalf
                               ? "border-b border-dashed border-gray-100"
@@ -300,6 +341,12 @@ export default function WeeklyCalendar({
                               </span>
                             </span>
                           )}
+                          {/* Slot block indicator */}
+                          {isSlotBlocked && !occupied && (
+                            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <span className="text-[9px] font-semibold text-orange-400">🚫</span>
+                            </span>
+                          )}
                           {/* Too-soon lock */}
                           {isTooSoon && avail && (
                             <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -310,7 +357,7 @@ export default function WeeklyCalendar({
                       );
                     })}
 
-                    {/* ── Session event blocks (absolute, spans full duration) ── */}
+                    {/* ── Session event blocks ── */}
                     {daySessions.map((session) => {
                       const startH = parseTimeToHour(session.time);
                       if (startH < SLOT_START || startH > SLOT_START + 12) return null;
@@ -325,13 +372,7 @@ export default function WeeklyCalendar({
                       return (
                         <div
                           key={session.id}
-                          style={{
-                            position: "absolute",
-                            top: topPx,
-                            height: heightPx,
-                            left: 3,
-                            right: 3,
-                          }}
+                          style={{ position: "absolute", top: topPx, height: heightPx, left: 3, right: 3 }}
                           onClick={() => canClick && onSessionClick!(session)}
                           className={`rounded-lg z-10 px-2 pt-1.5 pb-1 overflow-hidden shadow-md border ${
                             inPerson
@@ -339,9 +380,7 @@ export default function WeeklyCalendar({
                               : "bg-blue-600 border-blue-500"
                           } ${canClick ? "cursor-pointer hover:brightness-90 active:brightness-75 transition-all" : "pointer-events-none"}`}
                         >
-                          <p className="text-white text-[10px] font-bold leading-tight truncate">
-                            {session.subject}
-                          </p>
+                          <p className="text-white text-[10px] font-bold leading-tight truncate">{session.subject}</p>
                           {stuName && (
                             <p className={`text-[9px] leading-tight truncate mt-0.5 ${inPerson ? "text-violet-200" : "text-blue-200"}`}>
                               {stuName}
@@ -364,13 +403,7 @@ export default function WeeklyCalendar({
                     {/* ── Selected slot highlight ── */}
                     {selTopPx !== null && (
                       <div
-                        style={{
-                          position: "absolute",
-                          top: selTopPx,
-                          height: ROW_H - 2,
-                          left: 3,
-                          right: 3,
-                        }}
+                        style={{ position: "absolute", top: selTopPx, height: ROW_H - 2, left: 3, right: 3 }}
                         className="rounded-md bg-emerald-500 z-[5] flex items-center justify-center shadow-sm border border-emerald-400"
                       >
                         <span className="text-white text-[9px] font-bold leading-none tracking-wide">
@@ -379,7 +412,7 @@ export default function WeeklyCalendar({
                       </div>
                     )}
 
-                    {/* ── Current-time indicator (today only) ── */}
+                    {/* ── Current-time indicator ── */}
                     {isToday && showNowBar && (
                       <div
                         style={{ position: "absolute", top: nowTopPx, left: 0, right: 0 }}
@@ -404,17 +437,20 @@ export default function WeeklyCalendar({
         )}
         <LegendDot color="bg-blue-600"   label="Booked (online)" />
         <LegendDot color="bg-violet-600" label="Booked (in-person)" />
-        {mode !== "view" && (
+        {!blockMode && mode !== "view" && (
           <LegendDot color="bg-emerald-500" label="Selected slot" />
         )}
         {mode === "book" && bookingLeadHours != null && (
           <LegendDot color="bg-amber-50 border border-amber-200" label={`Within ${bookingLeadHours}h window 🔒`} />
         )}
-        {mode === "tutor" && (
+        {mode === "tutor" && !blockMode && (
           <LegendDot color="bg-gray-50 border border-gray-200" label="Outside availability (schedulable)" />
         )}
+        {blockMode && (
+          <LegendDot color="bg-orange-100 border border-orange-300" label="Blocked slot (click to unblock)" />
+        )}
         {(blockedDates?.length ?? 0) > 0 && (
-          <LegendDot color="bg-orange-100 border border-orange-200" label="Blocked off" />
+          <LegendDot color="bg-orange-100 border border-orange-200" label="Full day blocked" />
         )}
         <div className="flex items-center gap-1.5 text-xs text-gray-500">
           <div className="w-3 h-0.5 bg-red-400 inline-block" />
