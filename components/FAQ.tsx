@@ -6,6 +6,7 @@ import { ChevronDown, HelpCircle, CheckCircle, Send, User, Mail, MessageSquare }
 import { siteData } from "@/lib/data";
 import Section from "./Section";
 import emailjs from "@emailjs/browser";
+import CalendlyButton from "./CalendlyButton";
 
 export default function FAQ() {
     const [openIndex, setOpenIndex] = useState<number | null>(null);
@@ -355,14 +356,9 @@ export default function FAQ() {
                                 )}
                             </button>
                             
-                            <a
-                                href={siteData.hero.formUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex-1 bg-white text-indigo-600 px-6 py-4 rounded-xl font-bold text-base border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                            >
+                            <CalendlyButton className="flex-1 bg-white text-indigo-600 px-6 py-4 rounded-xl font-bold text-base border-2 border-indigo-200 hover:border-indigo-400 hover:shadow-lg transition-all flex items-center justify-center gap-2">
                                 Book Free Consultation
-                            </a>
+                            </CalendlyButton>
                         </div>
 
                         {/* Status Messages */}
