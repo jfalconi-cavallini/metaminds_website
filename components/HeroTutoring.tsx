@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, Award, Users, Lightbulb } from "lucide-react";
 import { siteData } from "@/lib/data";
 import TutorCarousel from "./TutorCarousel";
+import CalendlyButton from "./CalendlyButton";
 
 export default function HeroTutoring() {
     return (
@@ -37,15 +38,10 @@ export default function HeroTutoring() {
 
                         {/* CTA Buttons */}
                         <div className="flex flex-col sm:flex-row gap-4 mb-16">
-                            <a
-                                href={siteData.hero?.formUrl || "#"}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-base"
-                            >
+                            <CalendlyButton className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-base">
                                 Book Free Consultation
                                 <ArrowRight className="w-5 h-5" />
-                            </a>
+                            </CalendlyButton>
                             <a
                                 href="#programs"
                                 className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 border border-white/30 text-white font-bold rounded-lg hover:bg-white/20 transition-colors text-base"

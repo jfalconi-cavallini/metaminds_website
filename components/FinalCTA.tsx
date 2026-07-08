@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Gift } from "lucide-react";
 import { siteData } from "@/lib/data";
+import CalendlyButton from "./CalendlyButton";
 
 export default function FinalCTA() {
     const referral = siteData.referral;
@@ -47,15 +48,10 @@ export default function FinalCTA() {
                             Book a free consultation to discuss your goals and how we can help.
                         </p>
 
-                        <a
-                            href={siteData.hero?.formUrl || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-50 transition-colors text-lg"
-                        >
+                        <CalendlyButton className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white text-blue-600 font-bold rounded-lg hover:bg-gray-50 transition-colors text-lg">
                             Book Free Consultation
                             <ArrowRight className="w-5 h-5" />
-                        </a>
+                        </CalendlyButton>
 
                         <div className="mt-12 text-center">
                             <p className="text-blue-200 text-sm">

@@ -1,4 +1,5 @@
 import { siteData } from "@/lib/data";
+import CalendlyButton from "./CalendlyButton";
 
 export default function Footer() {
     return (
@@ -35,14 +36,9 @@ export default function Footer() {
                     {/* CTA */}
                     <div>
                         <div className="font-bold mb-4">Quick Links</div>
-                        <a
-                            href={siteData.hero?.formUrl || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700"
-                        >
+                        <CalendlyButton className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold hover:bg-blue-700">
                             Book Consultation
-                        </a>
+                        </CalendlyButton>
                     </div>
                 </div>
 

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { siteData } from "@/lib/data";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
+import CalendlyButton from "./CalendlyButton";
 
 export default function Navbar() {
     const [isOpen, setIsOpen] = useState(false);
@@ -33,14 +34,9 @@ export default function Navbar() {
                     >
                         Sign In
                     </Link>
-                    <a
-                        href={siteData.hero?.formUrl || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                    >
+                    <CalendlyButton className="px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-colors text-sm">
                         Book Free Consultation
-                    </a>
+                    </CalendlyButton>
                 </div>
 
                 {/* Mobile Menu Button */}
@@ -64,14 +60,9 @@ export default function Navbar() {
                     >
                         Sign In
                     </Link>
-                    <a
-                        href={siteData.hero?.formUrl || "#"}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block w-full px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg text-center text-sm"
-                    >
+                    <CalendlyButton className="block w-full px-6 py-2.5 bg-blue-600 text-white font-bold rounded-lg text-center text-sm">
                         Book Free Consultation
-                    </a>
+                    </CalendlyButton>
                 </div>
             )}
         </nav>
