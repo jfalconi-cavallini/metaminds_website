@@ -198,9 +198,20 @@ export default function ConsultationPage() {
         <>
             <Navbar />
 
-            {/* Calendly scripts — scoped to this page only */}
-            <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
-            <Script src="https://assets.calendly.com/assets/external/widget.js" strategy="afterInteractive" />
+            <Script
+                src="https://assets.calendly.com/assets/external/widget.js"
+                strategy="afterInteractive"
+                onLoad={() => {
+                    const w = window as any;
+                    const el = document.getElementById("calendly-embed");
+                    if (el && w.Calendly) {
+                        w.Calendly.initInlineWidget({
+                            url: siteData.hero?.formUrl,
+                            parentElement: el,
+                        });
+                    }
+                }}
+            />
 
             <main className="bg-white">
 
@@ -402,8 +413,8 @@ export default function ConsultationPage() {
                         </motion.div>
                         <motion.div {...fade(0.1)}>
                             <div
-                                className="calendly-inline-widget rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-white"
-                                data-url={calendlyUrl}
+                                id="calendly-embed"
+                                className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-white"
                                 style={{ minWidth: "320px", height: "700px" }}
                             />
                         </motion.div>
