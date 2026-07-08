@@ -13,12 +13,13 @@ declare global {
 interface Props {
     className?: string;
     children: React.ReactNode;
+    url?: string;
 }
 
-export default function CalendlyButton({ className, children }: Props) {
+export default function CalendlyButton({ className, children, url }: Props) {
     function open() {
-        const url = siteData.hero?.formUrl;
-        if (url) window.Calendly?.initPopupWidget({ url });
+        const target = url ?? siteData.hero?.formUrl;
+        if (target) window.Calendly?.initPopupWidget({ url: target });
     }
 
     return (

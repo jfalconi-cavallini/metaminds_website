@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Video, Users, Zap, Check, Clock, Trophy, ArrowRight } from "lucide-react";
 import Section from "./Section";
+import CalendlyButton from "./CalendlyButton";
 
 export default function Mentoring() {
     const packages = [
@@ -161,15 +162,13 @@ export default function Mentoring() {
                             </ul>
 
                             {/* CTA Button */}
-                            <a
-                                href={pkg.calendlyUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            <CalendlyButton
+                                url={pkg.calendlyUrl}
                                 className={`group/btn w-full bg-gradient-to-r ${pkg.gradient} text-white px-6 py-4 rounded-xl font-bold text-base hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center gap-2`}
                             >
                                 Book Now
                                 <ArrowRight className="w-5 h-5 group-hover/btn:translate-x-1 transition-transform" />
-                            </a>
+                            </CalendlyButton>
                         </div>
                     </motion.div>
                 ))}
