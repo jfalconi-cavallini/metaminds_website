@@ -83,8 +83,7 @@ export default function LoginPage() {
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign in to MetaMinds</h1>
                 <p className="text-gray-500 text-sm mb-6">
                   Accounts are created for enrolled families. No account yet?{" "}
-                  <a href={siteData.hero?.formUrl || "#"} onClick={(e) => { e.preventDefault(); (window as any).Calendly?.initPopupWidget({ url: siteData.hero?.formUrl }); }}
-                    className="text-blue-600 hover:underline cursor-pointer">
+                  <a href="/consultation" className="text-blue-600 hover:underline">
                     Book a free consultation.
                   </a>
                 </p>

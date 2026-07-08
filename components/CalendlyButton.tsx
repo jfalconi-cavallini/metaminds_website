@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { siteData } from "@/lib/data";
 
 declare global {
@@ -13,13 +14,20 @@ declare global {
 interface Props {
     className?: string;
     children: React.ReactNode;
-    url?: string;
+    url?: string; // if provided, opens Calendly popup; otherwise navigates to /consultation
 }
 
 export default function CalendlyButton({ className, children, url }: Props) {
+    const router = useRouter();
+
     function open() {
-        const target = url ?? siteData.hero?.formUrl;
-        if (target) window.Calendly?.initPopupWidget({ url: target });
+        if (url) {
+            // Package-specific booking — open popup directly
+            window.Calendly?.initPopupWidget({ url });
+        } else {
+            // Main consultation CTA — go to landing page
+            router.push("/consultation");
+        }
     }
 
     return (
