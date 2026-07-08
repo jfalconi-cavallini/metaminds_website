@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Script from "next/script";
+import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { siteData } from "@/lib/data";
@@ -170,10 +171,27 @@ const fade = (delay = 0) => ({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
+function initCalendlyWidget(url: string) {
+    const w = window as any;
+    const el = document.getElementById("calendly-embed");
+    if (el && w.Calendly) {
+        el.innerHTML = "";
+        w.Calendly.initInlineWidget({ url, parentElement: el });
+    }
+}
+
 export default function ConsultationPage() {
     const calendlyUrl = siteData.hero?.formUrl ?? "";
+    const router = useRouter();
 
-    // Calendly conversion tracking — fires on booking confirmed
+    // Init widget if Calendly script was already cached (client-side navigation)
+    useEffect(() => {
+        if ((window as any).Calendly) {
+            initCalendlyWidget(calendlyUrl);
+        }
+    }, [calendlyUrl]);
+
+    // Conversion tracking + redirect to /success after booking
     useEffect(() => {
         function handleMessage(e: MessageEvent) {
             if (e.data?.event !== "calendly.event_scheduled") return;
@@ -189,10 +207,12 @@ export default function ConsultationPage() {
             });
             w.dataLayer = w.dataLayer ?? [];
             w.dataLayer.push({ event: "calendly_scheduled" });
+
+            router.push("/success");
         }
         window.addEventListener("message", handleMessage);
         return () => window.removeEventListener("message", handleMessage);
-    }, []);
+    }, [router]);
 
     return (
         <>
@@ -201,16 +221,7 @@ export default function ConsultationPage() {
             <Script
                 src="https://assets.calendly.com/assets/external/widget.js"
                 strategy="afterInteractive"
-                onLoad={() => {
-                    const w = window as any;
-                    const el = document.getElementById("calendly-embed");
-                    if (el && w.Calendly) {
-                        w.Calendly.initInlineWidget({
-                            url: siteData.hero?.formUrl,
-                            parentElement: el,
-                        });
-                    }
-                }}
+                onLoad={() => initCalendlyWidget(siteData.hero?.formUrl ?? "")}
             />
 
             <main className="bg-white">
