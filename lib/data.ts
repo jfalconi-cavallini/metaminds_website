@@ -3,13 +3,13 @@ export const siteData = {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
         email: "metamindsstemacademy@gmail.com",
-        tagline: "Expert Online Tutoring for SAT, ACT & STEM",
-        description: "Personalized 1-on-1 online tutoring from UCSD Computer Science graduates. SAT/ACT prep, K-12 math, coding, and advanced STEM mentoring.",
+        tagline: "Expert Tutoring for SAT, ACT, GED & STEM",
+        description: "1-on-1 tutoring from working engineers and scientists holding B.S. and M.S. degrees from UC San Diego and UC Berkeley. SAT/ACT/GED prep, K-12 math, coding, and advanced STEM mentoring.",
     },
 
     hero: {
-        headline: "Expert Online Tutoring for SAT, ACT & STEM",
-        subheadline: "1-on-1 personalized instruction from UCSD Computer Science graduates. Real results. Real instructors. Real improvement.",
+        headline: "Tutored by Real Engineers & Scientists",
+        subheadline: "Not grad students — working professionals. Our tutors hold B.S. and M.S. degrees in Engineering and Computer Science from UC San Diego & UC Berkeley and work in industry every day.",
         cta1: "Book Free Consultation",
         cta2: "View Programs",
         formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
@@ -23,7 +23,7 @@ export const siteData = {
     trustBar: [
         { label: "Students Helped", value: "500+" },
         { label: "Avg SAT Improvement", value: "+200pts" },
-        { label: "Expert Instructors", value: "UCSD Grads" },
+        { label: "Tutor Degrees", value: "B.S. / M.S." },
         { label: "Success Rate", value: "98%" },
     ],
 
@@ -36,6 +36,13 @@ export const siteData = {
             icon: "📚",
         },
         {
+            id: "ged",
+            title: "GED Test Prep",
+            description: "Get your diploma with 1-on-1 prep across all four GED subjects. Flexible scheduling around your life.",
+            features: ["Math, Science, RLA & Social Studies", "Practice tests & strategy", "Flexible scheduling"],
+            icon: "🎓",
+        },
+        {
             id: "math",
             title: "K-12 Math Tutoring",
             description: "Master any math topic from algebra to calculus. Personalized to your pace.",
@@ -45,35 +52,35 @@ export const siteData = {
         {
             id: "coding",
             title: "Coding & Programming",
-            description: "Learn Python, JavaScript, Java, and web development from industry experts.",
+            description: "Learn Python, JavaScript, Java, and web development from active software engineers.",
             features: ["Real projects", "Portfolio building", "Interview prep"],
             icon: "💻",
         },
         {
             id: "stem",
             title: "STEM Mentoring",
-            description: "Advanced mentorship in CS, robotics, AI, and engineering. 1-on-1 guidance.",
-            features: ["Expert mentors", "Portfolio projects", "Career guidance"],
+            description: "Advanced mentorship in CS, robotics, AI, and engineering from working professionals.",
+            features: ["Industry-experienced mentors", "Portfolio projects", "Career guidance"],
             icon: "🚀",
         },
     ],
 
     whyUs: [
         {
-            title: "Expert Instructors",
-            description: "UCSD Computer Science graduates and certified tutors with 10+ years of teaching experience.",
+            title: "Working Professionals, Not Grad Students",
+            description: "Every tutor holds a B.S. or M.S. in Engineering or Computer Science from UC San Diego or UC Berkeley — and works in industry today. You get real-world expertise, not textbook knowledge.",
         },
         {
             title: "Proven Results",
-            description: "Average SAT improvement of +200 points. 500+ students helped. Real success stories.",
+            description: "Average SAT improvement of +200 points. 500+ students helped. Real success stories from students at every level.",
         },
         {
-            title: "Personalized Learning",
-            description: "1-on-1 sessions tailored to your goals, pace, and learning style. No cookie-cutter lessons.",
+            title: "Truly Personalized",
+            description: "1-on-1 sessions built around your goals, pace, and learning style. No shared classes, no cookie-cutter plans.",
         },
         {
             title: "Flexible & Affordable",
-            description: "Schedule sessions that fit your life. Transparent pricing. No hidden fees. Money-back guarantee.",
+            description: "Evening and weekend sessions that fit your schedule. Transparent pricing, no hidden fees, money-back guarantee.",
         },
     ],
 

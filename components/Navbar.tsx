@@ -18,12 +18,11 @@ export default function Navbar() {
 
                 {/* Desktop Menu */}
                 <div className="hidden md:flex items-center gap-8">
-                    <Link href="#" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Home</Link>
-                    <Link href="#programs" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Programs</Link>
-                    <Link href="#results" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Success Stories</Link>
-                    <Link href="#faq" className="text-gray-700 hover:text-gray-900 font-medium text-sm">About</Link>
-                    <Link href="#contact" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Contact</Link>
-                    
+                    <Link href="/" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Home</Link>
+                    <Link href="/#programs" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Programs</Link>
+                    <Link href="/#results" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Success Stories</Link>
+                    <Link href="/#faq" className="text-gray-700 hover:text-gray-900 font-medium text-sm">About</Link>
+                    <Link href="/#contact" className="text-gray-700 hover:text-gray-900 font-medium text-sm">Contact</Link>
                 </div>
 
                 {/* CTA Buttons */}
@@ -53,11 +52,11 @@ export default function Navbar() {
             {/* Mobile Menu */}
             {isOpen && (
                 <div className="md:hidden bg-white border-t border-gray-200 p-4 space-y-3">
-                    <Link href="#" className="block text-gray-700 font-medium py-2 text-sm">Home</Link>
-                    <Link href="#programs" className="block text-gray-700 font-medium py-2 text-sm">Programs</Link>
-                    <Link href="#results" className="block text-gray-700 font-medium py-2 text-sm">Success Stories</Link>
-                    <Link href="#" className="block text-gray-700 font-medium py-2 text-sm">About</Link>
-                    <Link href="#FAQ" className="block text-gray-700 font-medium py-2 text-sm">Contact</Link>
+                    <Link href="/" className="block text-gray-700 font-medium py-2 text-sm" onClick={() => setIsOpen(false)}>Home</Link>
+                    <Link href="/#programs" className="block text-gray-700 font-medium py-2 text-sm" onClick={() => setIsOpen(false)}>Programs</Link>
+                    <Link href="/#results" className="block text-gray-700 font-medium py-2 text-sm" onClick={() => setIsOpen(false)}>Success Stories</Link>
+                    <Link href="/#faq" className="block text-gray-700 font-medium py-2 text-sm" onClick={() => setIsOpen(false)}>About</Link>
+                    <Link href="/#contact" className="block text-gray-700 font-medium py-2 text-sm" onClick={() => setIsOpen(false)}>Contact</Link>
                     <Link
                         href="/login"
                         className="block w-full px-6 py-2.5 border border-gray-300 text-gray-700 font-medium rounded-lg text-center text-sm"
