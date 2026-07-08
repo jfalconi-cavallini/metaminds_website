@@ -3,7 +3,7 @@ export const siteData = {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
         email: "metamindsstemacademy@gmail.com",
-        tagline: "Expert Tutoring for SAT, ACT, GED & STEM",
+        tagline: "Expert Tutoring for SAT, ACT, AP, GED & STEM",
         description: "1-on-1 tutoring from working engineers and scientists holding B.S. and M.S. degrees from UC San Diego and UC Berkeley. SAT/ACT/GED prep, K-12 math, coding, and advanced STEM mentoring.",
     },
 
@@ -34,6 +34,13 @@ export const siteData = {
             description: "Comprehensive test prep with proven score improvements. Average +200 SAT points.",
             features: ["Full-length practice tests", "Targeted weak area focus", "Test-day strategy"],
             icon: "📚",
+        },
+        {
+            id: "ap",
+            title: "AP Exam Prep",
+            description: "Targeted prep for AP exams from tutors who know the material at a professional level. Calculus, Physics, Chemistry, CS, Biology, Statistics, and more.",
+            features: ["All major AP subjects", "Free-response & essay strategy", "Score improvement focus"],
+            icon: "🏆",
         },
         {
             id: "ged",
@@ -154,6 +161,12 @@ export const siteData = {
         ],
     },
 
+    referral: {
+        headline: "Love MetaMinds? Share It.",
+        description: "Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account — automatically. No limits, refer as many people as you like.",
+        badge: "Free Hour for Every Referral",
+    },
+
     faqs: [
         {
             question: "How long does a typical session last?",
@@ -174,6 +187,10 @@ export const siteData = {
         {
             question: "Do you offer group tutoring?",
             answer: "We specialize in 1-on-1 personalized tutoring, but we can discuss group options if needed. Contact us to explore alternatives.",
+        },
+        {
+            question: "Do you have a referral program?",
+            answer: "Yes! Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account as a thank-you. There's no limit to how many people you can refer.",
         },
         {
             question: "What if I'm not satisfied?",
