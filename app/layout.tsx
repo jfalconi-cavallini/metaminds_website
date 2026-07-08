@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { siteData } from "@/lib/data";
-import CalendlyTracker from "@/components/CalendlyTracker";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -34,9 +33,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
-      </head>
       <body className={inter.className}>
         {/* Google Analytics */}
         <Script src="https://www.googletagmanager.com/gtag/js?id=G-MHFJLNT58X" strategy="afterInteractive" />
@@ -46,9 +42,6 @@ export default function RootLayout({
           gtag('js', new Date());
           gtag('config', 'G-MHFJLNT58X');
         `}</Script>
-        {/* Calendly popup widget */}
-        <Script src="https://assets.calendly.com/assets/external/widget.js" strategy="afterInteractive" />
-        <CalendlyTracker />
         {children}
       </body>
     </html>

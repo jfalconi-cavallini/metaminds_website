@@ -2,14 +2,20 @@
 
 import { motion } from "framer-motion";
 import {
-    CheckCircle2, Clock, Video, ClipboardList, Star,
+    CheckCircle2, Clock, Video,
     ArrowDown, Shield, Users, TrendingUp, Lightbulb,
-    BookOpen, Target, Brain, Calculator, ChevronDown,
+    BookOpen, Target, Brain, ChevronDown, Code, Layers,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import Script from "next/script";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { siteData } from "@/lib/data";
+
+// ─── Conversion tracking ─────────────────────────────────────────────────────
+// Replace these with your values from Google Ads → Goals → Conversions → Tag setup
+const GOOGLE_ADS_CONVERSION_ID    = "AW-XXXXXXXXX";
+const GOOGLE_ADS_CONVERSION_LABEL = "XXXXXXXXXXXXXXXXXXXX";
 
 // ─── Page data ────────────────────────────────────────────────────────────────
 
@@ -22,7 +28,7 @@ const benefits = [
     {
         icon: Target,
         title: "Pinpoint Exactly Where to Focus",
-        description: "We identify the specific question types and topics costing your student the most points.",
+        description: "We identify the specific gaps — in test prep, coursework, or a new skill — holding your student back.",
     },
     {
         icon: Video,
@@ -31,39 +37,48 @@ const benefits = [
     },
     {
         icon: BookOpen,
-        title: "Understand the Digital SAT",
-        description: "Most families don't know how adaptive scoring works or how to use Desmos strategically. We explain it all.",
+        title: "Get a Subject-Specific Game Plan",
+        description: "Whether it's the SAT, AP Calculus, Python, or catching up in math class — we'll map out the right path.",
     },
     {
         icon: Clock,
         title: "Leave With an Actionable Plan",
-        description: "A concrete week-by-week study timeline tied to your student's test date and target score.",
+        description: "A concrete week-by-week study schedule tailored to your student's goals, pace, and timeline.",
     },
     {
         icon: Brain,
         title: "Expert Perspective, Not a Script",
-        description: "Our tutors are working engineers and scientists — they spot patterns and root causes other tutors miss.",
+        description: "Our tutors are working engineers and scientists — they spot root causes other tutors miss.",
     },
 ];
 
 const whatParentsLearn = [
-    "Exactly which question types are costing the most points and why",
-    "How the Digital SAT's adaptive format affects strategy",
-    "How to use Desmos and the on-screen calculator to gain points",
-    "Whether SAT or ACT is a better fit for your student",
-    "A realistic target score and timeline based on test date",
-    "The most effective study method for your student's learning style",
-    "What a strong weekly study schedule looks like",
-    "How our tutors approach score improvement differently",
+    "Exactly what's holding your student back and where to focus first",
+    "Whether test prep, coursework support, or skill-building is the right starting point",
+    "How the Digital SAT's adaptive format works and how to use Desmos strategically",
+    "Whether the SAT or ACT is a better fit for your student's strengths",
+    "What a realistic improvement timeline looks like for your student's specific goal",
+    "How AP exam scoring works and how our approach is different from school prep",
+    "What a strong weekly study schedule looks like around school and activities",
+    "How our tutors approach coding, 3D printing, and STEM mentoring for beginners",
 ];
 
 const prepChecklist = [
-    { item: "Most recent SAT, ACT, or PSAT score report", required: true },
-    { item: "Current math class (Algebra 2, Pre-Calc, Calculus, etc.)", required: true },
+    { item: "Most recent SAT, ACT, PSAT, or AP score report (if applicable)", required: true },
+    { item: "Current math class and any classes the student is struggling with", required: true },
     { item: "Upcoming test date, if already scheduled", required: false },
     { item: "List of target colleges or programs", required: false },
     { item: "Current GPA", required: false },
     { item: "A notebook and pen for taking notes", required: false },
+];
+
+const services = [
+    { icon: Target,  label: "SAT & ACT Prep" },
+    { icon: Layers,  label: "AP Exam Prep" },
+    { icon: BookOpen,label: "GED Prep" },
+    { icon: Brain,   label: "K–12 Math & Science" },
+    { icon: Code,    label: "Coding & Programming" },
+    { icon: Lightbulb, label: "3D Printing & STEM" },
 ];
 
 const whyMetaMinds = [
@@ -71,52 +86,56 @@ const whyMetaMinds = [
         icon: Users,
         stat: "500+",
         label: "Students Helped",
-        description: "Families across the DFW Metroplex trust MetaMinds for SAT, ACT, GED, and STEM tutoring.",
+        description: "Families across the DFW Metroplex trust MetaMinds for test prep, academics, and STEM mentoring.",
     },
     {
         icon: TrendingUp,
         stat: "+200pts",
-        label: "Average SAT Improvement",
-        description: "Our structured, personalized approach consistently delivers score improvements that move the needle.",
+        label: "Avg SAT Improvement",
+        description: "Our structured, personalized approach consistently delivers score improvements that matter.",
     },
     {
         icon: Lightbulb,
         stat: "B.S. / M.S.",
         label: "Tutor Credentials",
-        description: "Every tutor holds an engineering or CS degree from a top university — and works in their field today.",
+        description: "Every tutor holds an engineering or CS degree from a top university and works in their field today.",
     },
     {
         icon: CheckCircle2,
         stat: "98%",
         label: "Satisfaction Rate",
-        description: "We back every engagement with a money-back guarantee. Your student's progress is our only measure of success.",
+        description: "We back every engagement with a money-back guarantee. Your student's progress is our measure of success.",
     },
 ];
 
 const faqs = [
     {
         q: "How long is the consultation?",
-        a: "30 minutes via Zoom. We keep it focused and won't waste your time. If you have more questions, we're happy to go a few minutes over.",
+        a: "30 minutes via Zoom. We keep it focused — no fluff. If you have more questions, we're happy to go a few minutes over.",
     },
     {
         q: "Is it really free?",
-        a: "Yes — completely free, no credit card required, no obligation to continue. We do this because the best clients come from families who've seen how we work.",
+        a: "Yes — completely free, no credit card required, no obligation to continue. We do this because families who understand how we work become long-term clients.",
     },
     {
         q: "Who will I be speaking with?",
-        a: "You'll speak directly with Jose, the founder of MetaMinds — a UCSD Computer Science graduate with 7+ years of tutoring experience.",
+        a: "You'll speak directly with Jose, the founder of MetaMinds — a UCSD Computer Science graduate with 7+ years of tutoring experience in test prep, coding, and STEM.",
+    },
+    {
+        q: "We're not focused on SAT/ACT — can we still book?",
+        a: "Absolutely. The consultation works for any goal: improving grades in a specific class, learning to code, AP exam prep, GED prep, or exploring 3D printing and robotics. We'll talk through whatever your student needs.",
     },
     {
         q: "Can my student join the call?",
-        a: "Absolutely, and we encourage it. We can speak with the student directly, see how they think about problems, and build a stronger plan as a result.",
+        a: "Yes, and we encourage it. Speaking with the student directly helps us build a more accurate and effective plan.",
     },
     {
         q: "What happens after the consultation?",
-        a: "If you'd like to move forward, we'll send you package options and get your first session scheduled — usually within the week. There's no pressure and no deadline.",
+        a: "If you'd like to move forward, we'll send you package options and get your first session scheduled — usually within the week. No pressure, no deadline.",
     },
     {
-        q: "We don't have score reports yet. Should we still book?",
-        a: "Yes. A score report is helpful but not required. We can assess your student's situation from a quick conversation about their current classes and goals.",
+        q: "We don't have any score reports. Should we still book?",
+        a: "Yes. A score report is helpful but not required. A quick conversation about current classes, goals, and challenges gives us everything we need.",
     },
 ];
 
@@ -154,9 +173,34 @@ const fade = (delay = 0) => ({
 export default function ConsultationPage() {
     const calendlyUrl = siteData.hero?.formUrl ?? "";
 
+    // Calendly conversion tracking — fires on booking confirmed
+    useEffect(() => {
+        function handleMessage(e: MessageEvent) {
+            if (e.data?.event !== "calendly.event_scheduled") return;
+
+            const w = window as any;
+            w.gtag?.("event", "conversion", {
+                send_to: `${GOOGLE_ADS_CONVERSION_ID}/${GOOGLE_ADS_CONVERSION_LABEL}`,
+            });
+            w.gtag?.("event", "generate_lead", {
+                event_category: "consultation",
+                event_label: "calendly_booking",
+                value: 1,
+            });
+            w.dataLayer = w.dataLayer ?? [];
+            w.dataLayer.push({ event: "calendly_scheduled" });
+        }
+        window.addEventListener("message", handleMessage);
+        return () => window.removeEventListener("message", handleMessage);
+    }, []);
+
     return (
         <>
             <Navbar />
+
+            {/* Calendly scripts — scoped to this page only */}
+            <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
+            <Script src="https://assets.calendly.com/assets/external/widget.js" strategy="afterInteractive" />
 
             <main className="bg-white">
 
@@ -171,11 +215,22 @@ export default function ConsultationPage() {
                             </span>
                         </motion.div>
                         <motion.h1 {...fade(0.1)} className="text-5xl md:text-7xl font-black text-white mb-6 leading-[1.05]">
-                            Your Child's Score<br className="hidden md:block" /> Breakthrough<br className="hidden md:block" /> Starts Here
+                            Let's Build Your<br className="hidden md:block" /> Student's<br className="hidden md:block" /> Success Plan
                         </motion.h1>
-                        <motion.p {...fade(0.2)} className="text-xl text-blue-100 max-w-2xl mx-auto mb-10 leading-relaxed">
-                            Talk directly with a working engineer. We'll review your student's current scores, find the gaps, and hand you a personalized plan — in 30 minutes flat.
+                        <motion.p {...fade(0.2)} className="text-xl text-blue-100 max-w-2xl mx-auto mb-6 leading-relaxed">
+                            Whether it's the SAT, AP exams, struggling in math, learning to code, or exploring 3D printing — talk directly with a working engineer and walk away with a real plan.
                         </motion.p>
+
+                        {/* Service tags */}
+                        <motion.div {...fade(0.25)} className="flex flex-wrap justify-center gap-2 mb-10">
+                            {services.map(({ icon: Icon, label }) => (
+                                <span key={label} className="inline-flex items-center gap-1.5 bg-white/10 border border-white/20 text-blue-100 text-xs font-medium px-3 py-1.5 rounded-full">
+                                    <Icon className="w-3.5 h-3.5" />
+                                    {label}
+                                </span>
+                            ))}
+                        </motion.div>
+
                         <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
                             <a
                                 href="#schedule"
@@ -225,7 +280,7 @@ export default function ConsultationPage() {
                     <div className="max-w-4xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-12">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">What You'll Learn on the Call</h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">By the end of the 30 minutes, you'll have clear, specific answers to these questions.</p>
+                            <p className="text-gray-500 max-w-xl mx-auto">Clear, specific answers — not generic advice.</p>
                         </motion.div>
                         <div className="grid md:grid-cols-2 gap-3">
                             {whatParentsLearn.map((item, i) => (
@@ -243,7 +298,7 @@ export default function ConsultationPage() {
                     <div className="max-w-3xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-12">
                             <h2 className="text-3xl md:text-4xl font-black text-white mb-3">What to Have Ready</h2>
-                            <p className="text-blue-200 max-w-xl mx-auto">These help us give you the most specific advice possible. But don't let missing items stop you from booking.</p>
+                            <p className="text-blue-200 max-w-xl mx-auto">These help us give the most specific advice. Missing items won't stop us.</p>
                         </motion.div>
                         <div className="space-y-3">
                             {prepChecklist.map(({ item, required }, i) => (
@@ -251,9 +306,7 @@ export default function ConsultationPage() {
                                     <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${required ? "bg-blue-600" : "bg-white/10"}`}>
                                         <CheckCircle2 className="w-4 h-4 text-white" />
                                     </div>
-                                    <div className="flex-1">
-                                        <span className="text-white text-sm">{item}</span>
-                                    </div>
+                                    <span className="text-white text-sm flex-1">{item}</span>
                                     {required ? (
                                         <span className="text-blue-300 text-xs font-medium bg-blue-500/20 px-2 py-0.5 rounded-full">Helpful</span>
                                     ) : (
@@ -263,7 +316,7 @@ export default function ConsultationPage() {
                             ))}
                         </div>
                         <motion.p {...fade(0.3)} className="text-center text-blue-300 text-sm mt-8 italic">
-                            Don't have these available? That's completely okay — book the call anyway.
+                            Don't have these? That's completely okay — book the call anyway.
                         </motion.p>
                     </div>
                 </section>
@@ -273,7 +326,7 @@ export default function ConsultationPage() {
                     <div className="max-w-5xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-12">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why Families Choose MetaMinds</h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">We're not a tutoring marketplace or a franchise. Every session is with a working professional who's mastered the material firsthand.</p>
+                            <p className="text-gray-500 max-w-xl mx-auto">We're not a tutoring marketplace or a franchise. Every session is with a working professional who has mastered the material firsthand.</p>
                         </motion.div>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                             {whyMetaMinds.map(({ icon: Icon, stat, label, description }, i) => (
@@ -303,7 +356,7 @@ export default function ConsultationPage() {
                                     <motion.div key={t.author} {...fade(i * 0.08)} className="bg-white rounded-2xl p-6 shadow-sm border border-blue-100">
                                         <div className="flex gap-0.5 mb-4">
                                             {[...Array(5)].map((_, j) => (
-                                                <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
+                                                <svg key={j} className="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
                                             ))}
                                         </div>
                                         <p className="text-gray-700 text-sm leading-relaxed mb-5">"{t.quote}"</p>
@@ -345,7 +398,7 @@ export default function ConsultationPage() {
                     <div className="max-w-3xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-10">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Pick a Time That Works for You</h2>
-                            <p className="text-gray-500">Evening and weekend slots available. It takes 2 minutes to book.</p>
+                            <p className="text-gray-500">Evening and weekend slots available. Takes 2 minutes to book.</p>
                         </motion.div>
                         <motion.div {...fade(0.1)}>
                             <div
