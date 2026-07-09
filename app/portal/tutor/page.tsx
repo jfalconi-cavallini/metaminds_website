@@ -498,7 +498,7 @@ export default function TutorPortal() {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ tutorId, studentId, message: parentUpdateText.trim(), sessionIds: puSelectedSessionIds }),
-      }).catch(console.error);
+      }).then((r) => r.json()).then((j) => console.log("[email]", j)).catch(console.error);
       setParentUpdateText("");
       setPuSelectedSessionIds([]);
       setParentUpdateSuccess(true); setTimeout(() => setParentUpdateSuccess(false), 3000);
