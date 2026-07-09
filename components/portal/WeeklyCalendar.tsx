@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Session, TutorAvailability } from "@/lib/portal/types";
 
-const ROW_H      = 28;   // px per 30-min slot
+const ROW_H      = 20;   // px per 30-min slot
 const SLOT_START = 9;    // 9 AM
 const SLOTS      = Array.from({ length: 25 }, (_, i) => SLOT_START + i * 0.5); // 9:00–21:00
 
