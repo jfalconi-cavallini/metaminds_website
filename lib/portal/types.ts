@@ -26,6 +26,7 @@ export interface Tutor {
   archived: boolean;
   phone?: string;
   bio?: string;
+  photoUrl?: string;
 }
 
 export interface Session {

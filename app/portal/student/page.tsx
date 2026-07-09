@@ -463,14 +463,25 @@ export default function StudentPortal() {
               <div className="mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 mb-3">My Tutor</h2>
                 <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <p className="font-semibold text-gray-900 text-lg">{tutor.name}</p>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {tutor.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
-                  </div>
-                  {tutor.bio && <p className="text-sm text-gray-500 mt-2">{tutor.bio}</p>}
-                  <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                    {tutor.email && <a href={`mailto:${tutor.email}`} className="text-blue-600 hover:underline">✉ {tutor.email}</a>}
-                    {tutor.phone && <a href={`tel:${tutor.phone}`} className="text-blue-600 hover:underline">📞 {tutor.phone}</a>}
+                  <div className="flex items-start gap-4">
+                    {tutor.photoUrl ? (
+                      <img src={tutor.photoUrl} alt={tutor.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shrink-0" />
+                    ) : (
+                      <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0 select-none">
+                        {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 text-base">{tutor.name}</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {tutor.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
+                      </div>
+                      {tutor.bio && <p className="text-sm text-gray-500 mt-2 leading-relaxed">{tutor.bio}</p>}
+                      <div className="mt-3 flex flex-wrap gap-4 text-sm">
+                        {tutor.email && <a href={`mailto:${tutor.email}`} className="text-blue-600 hover:underline">✉ {tutor.email}</a>}
+                        {tutor.phone && <a href={`tel:${tutor.phone}`} className="text-blue-600 hover:underline">📞 {tutor.phone}</a>}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

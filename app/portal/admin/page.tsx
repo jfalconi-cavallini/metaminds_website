@@ -67,6 +67,7 @@ export default function AdminPortal() {
   const [pfTutSubjects,  setPfTutSubjects]  = useState("");
   const [pfTutPhone,     setPfTutPhone]     = useState("");
   const [pfTutBio,       setPfTutBio]       = useState("");
+  const [pfTutPhoto,     setPfTutPhoto]     = useState("");
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -470,6 +471,7 @@ export default function AdminPortal() {
     setProfileTutor(t); setEditingProfile(false);
     setPfTutName(t.name); setPfTutEmail(t.email);
     setPfTutSubjects(t.subjects.join(", ")); setPfTutPhone(t.phone ?? ""); setPfTutBio(t.bio ?? "");
+    setPfTutPhoto(t.photoUrl ?? "");
   }
 
   async function saveStudentProfile() {
@@ -494,7 +496,7 @@ export default function AdminPortal() {
       const updated = await updateTutorProfile(profileTutor.id, {
         name: pfTutName, email: pfTutEmail,
         subjects: pfTutSubjects.split(",").map((s) => s.trim()).filter(Boolean),
-        phone: pfTutPhone, bio: pfTutBio,
+        phone: pfTutPhone, bio: pfTutBio, photoUrl: pfTutPhoto,
       });
       setTutors((prev) => prev.map((t) => t.id === updated.id ? updated : t));
       setProfileTutor(updated); setEditingProfile(false);
@@ -1416,16 +1418,28 @@ export default function AdminPortal() {
         <Modal onClose={() => { setProfileTutor(null); setEditingProfile(false); }} title={pt.name} subtitle="Tutor" size="xl">
           {!editingProfile ? (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
-                  <ProfileRow label="Email" value={pt.email} />
-                  <ProfileRow label="Phone" value={pt.phone} />
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>
-                  <div className="flex flex-wrap gap-1">
-                    {pt.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
+              {/* Photo + contact side by side */}
+              <div className="flex items-start gap-4">
+                {pt.photoUrl ? (
+                  <img src={pt.photoUrl} alt={pt.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shrink-0" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0 select-none">
+                    {pt.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
+                      <ProfileRow label="Email" value={pt.email} />
+                      <ProfileRow label="Phone" value={pt.phone} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>
+                      <div className="flex flex-wrap gap-1">
+                        {pt.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1453,6 +1467,16 @@ export default function AdminPortal() {
                 <input value={pfTutSubjects} onChange={(e) => setPfTutSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               </div>
               <textarea value={pfTutBio} onChange={(e) => setPfTutBio(e.target.value)} placeholder="Tutor bio / background…" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Photo URL (paste a link to a headshot image)</label>
+                <input value={pfTutPhoto} onChange={(e) => setPfTutPhoto(e.target.value)} placeholder="https://example.com/photo.jpg" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                {pfTutPhoto && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img src={pfTutPhoto} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <span className="text-xs text-gray-400">Preview</span>
+                  </div>
+                )}
+              </div>
               <div className="flex gap-3">
                 <button onClick={saveTutorProfile} disabled={profileSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                   {profileSaving ? "Saving…" : "Save"}

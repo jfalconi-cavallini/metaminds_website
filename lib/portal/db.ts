@@ -30,8 +30,9 @@ function rowToTutorBase(r: any) {
     subjects: (r.subjects ?? []) as string[],
     bookingLeadHours: (r.booking_lead_hours ?? 24) as number,
     archived: (r.archived ?? false) as boolean,
-    phone: r.phone as string | undefined ?? undefined,
-    bio:   r.bio   as string | undefined ?? undefined,
+    phone:    r.phone     as string | undefined ?? undefined,
+    bio:      r.bio       as string | undefined ?? undefined,
+    photoUrl: r.photo_url as string | undefined ?? undefined,
   };
 }
 
@@ -596,14 +597,15 @@ export async function updateStudentProfile(id: number, payload: Partial<{
 }
 
 export async function updateTutorProfile(id: number, payload: Partial<{
-  name: string; email: string; subjects: string[]; phone: string; bio: string;
+  name: string; email: string; subjects: string[]; phone: string; bio: string; photoUrl: string;
 }>): Promise<Tutor> {
   const update: Record<string, unknown> = {};
-  if (payload.name     !== undefined) update.name     = payload.name;
-  if (payload.email    !== undefined) update.email    = payload.email;
-  if (payload.subjects !== undefined) update.subjects = payload.subjects;
-  if (payload.phone    !== undefined) update.phone    = payload.phone;
-  if (payload.bio      !== undefined) update.bio      = payload.bio;
+  if (payload.name     !== undefined) update.name      = payload.name;
+  if (payload.email    !== undefined) update.email     = payload.email;
+  if (payload.subjects !== undefined) update.subjects  = payload.subjects;
+  if (payload.phone    !== undefined) update.phone     = payload.phone;
+  if (payload.bio      !== undefined) update.bio       = payload.bio;
+  if (payload.photoUrl !== undefined) update.photo_url = payload.photoUrl || null;
   const { data, error } = await supabase.from("tutors").update(update).eq("id", id).select().single();
   if (error) throw error;
   const { data: studs } = await supabase.from("students").select("id").eq("assigned_tutor_id", id);
