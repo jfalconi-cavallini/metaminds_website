@@ -368,7 +368,8 @@ export default function StudentPortal() {
                           <p className="text-blue-200 text-xs mt-0.5">{sessionToday.durationHours} hr · <Badge status={sessionToday.sessionType} /></p>
                         </div>
                         {sessionToday.zoomLink && (
-                          <a href={sessionToday.zoomLink} target="_blank" rel="noopener noreferrer"
+                          <a href={sessionToday.zoomLink.startsWith("http") ? sessionToday.zoomLink : `https://${sessionToday.zoomLink}`}
+                            target="_blank" rel="noopener noreferrer"
                             className="shrink-0 bg-white text-blue-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
                             Join Zoom →
                           </a>
@@ -569,7 +570,9 @@ export default function StudentPortal() {
                       </div>
                       {s.zoomLink && (
                         <div className="mt-2">
-                          <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
+                          <a href={s.zoomLink.startsWith("http") ? s.zoomLink : `https://${s.zoomLink}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
                             Join Zoom Meeting →
                           </a>
                         </div>

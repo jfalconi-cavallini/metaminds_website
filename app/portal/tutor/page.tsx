@@ -639,7 +639,7 @@ export default function TutorPortal() {
                       <div className="flex flex-wrap gap-3 text-xs">
                         {/* Zoom */}
                         {s.zoomLink ? (
-                          <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                          <a href={s.zoomLink!.startsWith("http") ? s.zoomLink! : `https://${s.zoomLink}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">
                             Join Zoom →
                           </a>
@@ -760,7 +760,7 @@ export default function TutorPortal() {
                     <div className="flex items-center gap-3">
                       <Badge status={s.sessionType} />
                       {s.zoomLink
-                        ? <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 underline">Zoom</a>
+                        ? <a href={s.zoomLink!.startsWith("http") ? s.zoomLink! : `https://${s.zoomLink}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 underline">Zoom</a>
                         : <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }} className="text-xs text-gray-400 hover:text-blue-600">+ Zoom</button>}
                       <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
                         {cancellingId === s.id ? "…" : "Cancel"}
@@ -1739,7 +1739,7 @@ export default function TutorPortal() {
                 </div>
               ) : sd.zoomLink ? (
                 <div className="flex items-center gap-3">
-                  <a href={sd.zoomLink} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate">{sd.zoomLink}</a>
+                  <a href={sd.zoomLink!.startsWith("http") ? sd.zoomLink! : `https://${sd.zoomLink}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate">{sd.zoomLink}</a>
                   <button onClick={() => { setZoomEditId(sd.id); setZoomEditVal(sd.zoomLink ?? ""); }} className="text-xs text-gray-400 hover:text-gray-600 shrink-0">Edit</button>
                 </div>
               ) : (
