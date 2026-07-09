@@ -14,15 +14,24 @@ export function formatTime24to12(time: string): string {
 }
 
 /** Extracts a usable URL from a zoom link field.
- * Handles bare domains, full URLs, and pasted Zoom invitation text. */
+ * Handles bare domains, full URLs, and pasted Zoom invitation text
+ * (including single-slash https:/ variants from Zoom invites). */
 export function resolveZoomUrl(raw: string): string {
   if (!raw) return "#";
-  // Already a proper URL
+  // Already a clean URL
   if (/^https?:\/\//i.test(raw)) return raw;
-  // Contains a URL somewhere in the text (e.g. full invitation paste)
-  const match = raw.match(/https?:\/\/[^\s]+/);
-  if (match) return match[0];
-  // Bare domain like zoom.us/j/...
+  // Prefer the /j/ join link inside invitation text (handles https:/ single-slash too)
+  const joinMatch = raw.match(/https?:\/{1,2}[^\s]*\/j\/[^\s]+/i);
+  if (joinMatch) {
+    const url = joinMatch[0].replace(/^https?:\/(?!\/)/, "https://");
+    return url;
+  }
+  // Any https:// URL in the text
+  const anyMatch = raw.match(/https?:\/{1,2}[^\s]+/);
+  if (anyMatch) {
+    return anyMatch[0].replace(/^https?:\/(?!\/)/, "https://");
+  }
+  // Bare domain
   return `https://${raw}`;
 }
 
