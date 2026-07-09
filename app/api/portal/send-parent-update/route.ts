@@ -7,7 +7,6 @@ const admin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
 
 function buildEmail({
@@ -107,11 +106,13 @@ export async function POST(req: NextRequest) {
     const recipients = [studentEmail, parentEmail].filter(Boolean) as string[];
 
     // Skip sending if API key is not configured
-    if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY.startsWith("re_placeholder")) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey || apiKey.startsWith("re_placeholder")) {
       console.warn("[send-parent-update] RESEND_API_KEY not configured — email skipped");
       return NextResponse.json({ sent: false, reason: "email_not_configured" });
     }
 
+    const resend = new Resend(apiKey);
     await resend.emails.send({
       from:    FROM,
       to:      recipients,
