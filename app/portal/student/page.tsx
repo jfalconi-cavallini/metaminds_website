@@ -368,11 +368,15 @@ export default function StudentPortal() {
                           <p className="text-blue-200 text-xs mt-0.5">{sessionToday.durationHours} hr · <Badge status={sessionToday.sessionType} /></p>
                         </div>
                         {sessionToday.zoomLink && (
-                          <a href={resolveZoomUrl(sessionToday.zoomLink)}
-                            target="_blank" rel="noopener noreferrer"
+                          <button
+                            onClick={() => {
+                              const url = resolveZoomUrl(sessionToday.zoomLink!);
+                              console.log("[Zoom] opening:", url);
+                              window.open(url, "_blank", "noopener,noreferrer");
+                            }}
                             className="shrink-0 bg-white text-blue-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
                             Join Zoom →
-                          </a>
+                          </button>
                         )}
                       </div>
                     </div>
