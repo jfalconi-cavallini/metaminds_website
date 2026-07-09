@@ -363,6 +363,26 @@ export async function insertSessionNote(payload: {
   return rowToNote(data);
 }
 
+export async function updateSessionNote(
+  noteId: number,
+  topic: string,
+  notes: string,
+): Promise<SessionNote> {
+  const { data, error } = await supabase
+    .from("session_notes")
+    .update({ topic, notes })
+    .eq("id", noteId)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToNote(data);
+}
+
+export async function deleteSessionNote(noteId: number): Promise<void> {
+  const { error } = await supabase.from("session_notes").delete().eq("id", noteId);
+  if (error) throw error;
+}
+
 // ── HOMEWORK ──────────────────────────────────────────────────────────────────
 
 export async function fetchHomework(studentId: number): Promise<Homework[]> {
@@ -683,11 +703,12 @@ export async function autoCompletePastSessions(): Promise<void> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToParentUpdate(r: any): ParentUpdate {
   return {
-    id:        r.id,
-    tutorId:   r.tutor_id,
-    studentId: r.student_id,
-    message:   r.message,
-    createdAt: r.created_at,
+    id:         r.id,
+    tutorId:    r.tutor_id,
+    studentId:  r.student_id,
+    message:    r.message,
+    createdAt:  r.created_at,
+    sessionIds: r.session_ids ?? [],
   };
 }
 
@@ -715,10 +736,11 @@ export async function insertParentUpdate(
   tutorId: number,
   studentId: number,
   message: string,
+  sessionIds: number[] = [],
 ): Promise<ParentUpdate> {
   const { data, error } = await supabase
     .from("parent_updates")
-    .insert({ tutor_id: tutorId, student_id: studentId, message })
+    .insert({ tutor_id: tutorId, student_id: studentId, message, session_ids: sessionIds })
     .select()
     .single();
   if (error) throw error;

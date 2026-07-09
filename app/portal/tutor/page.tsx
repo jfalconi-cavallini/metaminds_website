@@ -23,6 +23,7 @@ import {
   fetchParentUpdatesByTutor, insertParentUpdate,
   autoCompletePastSessions,
   fetchBlockedSlots, toggleBlockedSlot,
+  updateSessionNote, deleteSessionNote,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
@@ -215,6 +216,12 @@ export default function TutorPortal() {
   const [zoomEditVal, setZoomEditVal] = useState("");
   const [zoomSaving,  setZoomSaving]  = useState(false);
 
+  // ── NOTE EDIT ────────────────────────────────────────────────────
+  const [noteEditId,    setNoteEditId]    = useState<number | null>(null);
+  const [noteEditTopic, setNoteEditTopic] = useState("");
+  const [noteEditText,  setNoteEditText]  = useState("");
+  const [noteEditSaving, setNoteEditSaving] = useState(false);
+
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
   const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update">("homework");
@@ -226,10 +233,11 @@ export default function TutorPortal() {
   const [panelHwError,        setPanelHwError]        = useState("");
 
   // ── PARENT UPDATES ───────────────────────────────────────────────
-  const [parentUpdates,       setParentUpdates]       = useState<ParentUpdate[]>([]);
-  const [parentUpdateText,    setParentUpdateText]    = useState("");
-  const [parentUpdateSaving,  setParentUpdateSaving]  = useState(false);
-  const [parentUpdateSuccess, setParentUpdateSuccess] = useState(false);
+  const [parentUpdates,        setParentUpdates]        = useState<ParentUpdate[]>([]);
+  const [parentUpdateText,     setParentUpdateText]     = useState("");
+  const [parentUpdateSaving,   setParentUpdateSaving]   = useState(false);
+  const [parentUpdateSuccess,  setParentUpdateSuccess]  = useState(false);
+  const [puSelectedSessionIds, setPuSelectedSessionIds] = useState<number[]>([]);
 
   // ── SESSION EDIT ─────────────────────────────────────────────────
   const [editingSession,  setEditingSession]  = useState(false);
@@ -360,6 +368,24 @@ export default function TutorPortal() {
     } catch { /* silent */ } finally { setZoomSaving(false); }
   }
 
+  async function saveNoteEdit(noteId: number) {
+    if (!noteEditTopic.trim() || !noteEditText.trim()) return;
+    setNoteEditSaving(true);
+    try {
+      const updated = await updateSessionNote(noteId, noteEditTopic.trim(), noteEditText.trim());
+      setSessionNotes((prev) => prev.map((n) => n.id === noteId ? updated : n));
+      setNoteEditId(null);
+    } catch { /* silent */ } finally { setNoteEditSaving(false); }
+  }
+
+  async function removeSessionNote(noteId: number) {
+    try {
+      await deleteSessionNote(noteId);
+      setSessionNotes((prev) => prev.filter((n) => n.id !== noteId));
+      if (noteEditId === noteId) setNoteEditId(null);
+    } catch { /* silent */ }
+  }
+
   async function submitSessionDetailNote() {
     if (!sdNoteTopic || !sdNoteText || !sessionDetail) { setSdNoteError("Fill in topic and notes."); return; }
     setSdNoteSaving(true); setSdNoteError("");
@@ -465,9 +491,10 @@ export default function TutorPortal() {
     if (!parentUpdateText.trim()) return;
     setParentUpdateSaving(true); setParentUpdateSuccess(false);
     try {
-      const update = await insertParentUpdate(tutorId, studentId, parentUpdateText.trim());
+      const update = await insertParentUpdate(tutorId, studentId, parentUpdateText.trim(), puSelectedSessionIds);
       setParentUpdates((prev) => [update, ...prev]);
       setParentUpdateText("");
+      setPuSelectedSessionIds([]);
       setParentUpdateSuccess(true); setTimeout(() => setParentUpdateSuccess(false), 3000);
     } catch { /* silent */ }
     finally { setParentUpdateSaving(false); }
@@ -535,11 +562,17 @@ export default function TutorPortal() {
         const todaySessions  = upcoming.filter((s) => s.date === todayIso).sort((a, b) => timeTo24h(a.time).localeCompare(timeTo24h(b.time)));
         const futureSessions = upcoming.filter((s) => s.date > todayIso);
         const hwNeedsGrading = homework.filter((h) => h.status === "submitted");
+        const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
         const studentsNeedingUpdate = myStudents.filter((st) => {
-          const lastUpdate = parentUpdates.filter((u) => u.studentId === st.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-          if (!lastUpdate) return true;
-          const daysSince = (Date.now() - new Date(lastUpdate.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-          return daysSince > 14;
+          const pastSessions = localSessions.filter((s) =>
+            s.studentId === st.id && (s.status === "completed" || s.date < todayIso)
+          );
+          if (pastSessions.length === 0) return false;
+          const lastUpdate = parentUpdates
+            .filter((u) => u.studentId === st.id)
+            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+          const lastUpdateDate = lastUpdate?.createdAt.slice(0, 10) ?? "0000-00-00";
+          return pastSessions.some((s) => s.date >= weekAgoIso && s.date > lastUpdateDate);
         });
         const hasActionItems = hwNeedsGrading.length > 0 || studentsNeedingUpdate.length > 0;
 
@@ -566,7 +599,13 @@ export default function TutorPortal() {
                   const lastNote = sessionNotes.filter((n) => n.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
                   const lastUpdate = parentUpdates.filter((u) => u.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
                   const updateDays = lastUpdate ? Math.floor((Date.now() - new Date(lastUpdate.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : null;
-                  const updateOverdue = updateDays === null || updateDays > 14;
+                  const weekAgoIso2 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                  const pastSessionsForStudent = localSessions.filter((ps) =>
+                    ps.studentId === s.studentId && (ps.status === "completed" || ps.date < todayIso)
+                  );
+                  const lastUpdateDate2 = lastUpdate?.createdAt.slice(0, 10) ?? "0000-00-00";
+                  const updateOverdue = pastSessionsForStudent.length > 0 &&
+                    pastSessionsForStudent.some((ps) => ps.date >= weekAgoIso2 && ps.date > lastUpdateDate2);
 
                   return (
                     <div key={s.id} className="bg-white rounded-xl border-2 border-blue-200 p-5 cursor-pointer hover:border-blue-400 transition-colors"
@@ -684,7 +723,7 @@ export default function TutorPortal() {
                       className="w-full flex items-start gap-4 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 text-left hover:bg-orange-100 transition-colors">
                       <span className="text-xl shrink-0">📣</span>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-orange-800 text-sm">{studentsNeedingUpdate.length} student{studentsNeedingUpdate.length > 1 ? "s" : ""} need a parent update (&gt;14 days)</p>
+                        <p className="font-semibold text-orange-800 text-sm">{studentsNeedingUpdate.length} student{studentsNeedingUpdate.length > 1 ? "s" : ""} need a parent update this week</p>
                         <p className="text-xs text-orange-600 mt-0.5">{studentsNeedingUpdate.map((s) => s.name).join(", ")}</p>
                       </div>
                       <span className="text-orange-600 text-sm font-medium shrink-0">Send →</span>
@@ -956,41 +995,95 @@ export default function TutorPortal() {
                       )}
 
                       {/* ── Parent Update sub-tab ── */}
-                      {studentPanelTab === "update" && (
-                        <div className="p-4 space-y-4">
-                          <div className="space-y-2">
-                            <label className="text-sm font-semibold text-gray-700 block">
-                              Send an update to {s.name}&apos;s parent
-                            </label>
-                            <textarea
-                              value={parentUpdateText}
-                              onChange={(e) => setParentUpdateText(e.target.value)}
-                              placeholder={`Share ${s.name}'s progress, upcoming topics, or anything the parent should know…`}
-                              rows={4}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
-                            {parentUpdateSuccess && <p className="text-xs text-green-600 font-medium">Update sent!</p>}
-                            <button onClick={() => sendParentUpdate(s.id)} disabled={parentUpdateSaving || !parentUpdateText.trim()}
-                              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">
-                              {parentUpdateSaving ? "Sending…" : "Send Update"}
-                            </button>
-                          </div>
+                      {studentPanelTab === "update" && (() => {
+                        const weekAgoIso3 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                        const recentPastSessions = localSessions
+                          .filter((sess) =>
+                            sess.studentId === s.id &&
+                            (sess.status === "completed" || sess.date < todayIso) &&
+                            sess.date >= weekAgoIso3
+                          )
+                          .sort((a, b) => b.date.localeCompare(a.date));
+                        return (
+                          <div className="p-4 space-y-4">
+                            <div className="space-y-3">
+                              <label className="text-sm font-semibold text-gray-700 block">
+                                Send a weekly update to {s.name}&apos;s parent
+                              </label>
 
-                          {sUpdates.length > 0 && (
-                            <div>
-                              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Past Updates</p>
-                              <div className="space-y-2 max-h-56 overflow-y-auto">
-                                {sUpdates.map((u) => (
-                                  <div key={u.id} className="bg-gray-50 rounded-lg border border-gray-100 p-3">
-                                    <p className="text-xs text-gray-400 mb-1">{formatDate(u.createdAt.slice(0, 10))}</p>
-                                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{u.message}</p>
+                              {/* Session checkboxes */}
+                              {recentPastSessions.length > 0 && (
+                                <div>
+                                  <p className="text-xs text-gray-500 mb-2">Tag sessions this update covers (optional):</p>
+                                  <div className="space-y-1.5">
+                                    {recentPastSessions.map((sess) => {
+                                      const checked = puSelectedSessionIds.includes(sess.id);
+                                      return (
+                                        <label key={sess.id} className="flex items-center gap-2 cursor-pointer group">
+                                          <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() =>
+                                              setPuSelectedSessionIds((prev) =>
+                                                checked ? prev.filter((id) => id !== sess.id) : [...prev, sess.id]
+                                              )
+                                            }
+                                            className="w-4 h-4 accent-blue-600 shrink-0"
+                                          />
+                                          <span className="text-sm text-gray-700 group-hover:text-gray-900">
+                                            {formatDate(sess.date)} at {sess.time} · {sess.subject} · {sess.durationHours} hr
+                                          </span>
+                                        </label>
+                                      );
+                                    })}
                                   </div>
-                                ))}
-                              </div>
+                                </div>
+                              )}
+
+                              <textarea
+                                value={parentUpdateText}
+                                onChange={(e) => setParentUpdateText(e.target.value)}
+                                placeholder={`Share ${s.name}'s progress, what was covered this week, upcoming topics, or anything the parent should know…`}
+                                rows={4}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              {parentUpdateSuccess && <p className="text-xs text-green-600 font-medium">Update sent!</p>}
+                              <button onClick={() => sendParentUpdate(s.id)} disabled={parentUpdateSaving || !parentUpdateText.trim()}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">
+                                {parentUpdateSaving ? "Sending…" : "Send Update"}
+                              </button>
                             </div>
-                          )}
-                        </div>
-                      )}
+
+                            {sUpdates.length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Past Updates</p>
+                                <div className="space-y-2 max-h-56 overflow-y-auto">
+                                  {sUpdates.map((u) => {
+                                    const taggedSessions = u.sessionIds
+                                      .map((id) => localSessions.find((sess) => sess.id === id))
+                                      .filter(Boolean) as Session[];
+                                    return (
+                                      <div key={u.id} className="bg-gray-50 rounded-lg border border-gray-100 p-3">
+                                        <p className="text-xs text-gray-400 mb-1">{formatDate(u.createdAt.slice(0, 10))}</p>
+                                        {taggedSessions.length > 0 && (
+                                          <div className="flex flex-wrap gap-1 mb-1.5">
+                                            {taggedSessions.map((sess) => (
+                                              <span key={sess.id} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">
+                                                {formatDate(sess.date)} · {sess.subject}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )}
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{u.message}</p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -1282,12 +1375,35 @@ export default function TutorPortal() {
           <div className="space-y-4">
             {sessionNotes.map((n) => (
               <div key={n.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold text-gray-900">{getStudent(n.studentId)?.name ?? "Student"}</p>
-                  <p className="text-xs text-gray-500">{formatDate(n.createdAt.slice(0, 10))}</p>
-                </div>
-                <p className="text-sm font-medium text-blue-600 mb-1">{n.topic}</p>
-                <p className="text-sm text-gray-600">{n.notes}</p>
+                {noteEditId === n.id ? (
+                  <div className="space-y-3">
+                    <p className="text-xs text-gray-400">{getStudent(n.studentId)?.name ?? "Student"} · {formatDate(n.createdAt.slice(0, 10))}</p>
+                    <input value={noteEditTopic} onChange={(e) => setNoteEditTopic(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <textarea value={noteEditText} onChange={(e) => setNoteEditText(e.target.value)}
+                      rows={4} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <div className="flex gap-2">
+                      <button onClick={() => saveNoteEdit(n.id)} disabled={noteEditSaving || !noteEditTopic.trim() || !noteEditText.trim()}
+                        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-40">
+                        {noteEditSaving ? "Saving…" : "Save Changes"}
+                      </button>
+                      <button onClick={() => setNoteEditId(null)} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-gray-900">{getStudent(n.studentId)?.name ?? "Student"}</p>
+                      <div className="flex items-center gap-3">
+                        <p className="text-xs text-gray-500">{formatDate(n.createdAt.slice(0, 10))}</p>
+                        <button onClick={() => { setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes); }}
+                          className="text-xs text-gray-400 hover:text-blue-600 font-medium">Edit</button>
+                      </div>
+                    </div>
+                    <p className="text-sm font-medium text-blue-600 mb-1">{n.topic}</p>
+                    <p className="text-sm text-gray-600">{n.notes}</p>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -1630,9 +1746,35 @@ export default function TutorPortal() {
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {sdNotes.map((n) => (
                   <div key={n.id} className="bg-white border border-gray-100 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-blue-600 mb-0.5">{n.topic}</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.notes}</p>
-                    <p className="text-xs text-gray-400 mt-1">{formatDate(n.createdAt.slice(0, 10))}</p>
+                    {noteEditId === n.id ? (
+                      <div className="space-y-2">
+                        <input value={noteEditTopic} onChange={(e) => setNoteEditTopic(e.target.value)}
+                          className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        <textarea value={noteEditText} onChange={(e) => setNoteEditText(e.target.value)}
+                          rows={3} className="w-full rounded border border-gray-300 px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        <div className="flex gap-2">
+                          <button onClick={() => saveNoteEdit(n.id)} disabled={noteEditSaving || !noteEditTopic.trim() || !noteEditText.trim()}
+                            className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-semibold disabled:opacity-40">
+                            {noteEditSaving ? "Saving…" : "Save"}
+                          </button>
+                          <button onClick={() => setNoteEditId(null)} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-semibold text-blue-600 mb-0.5">{n.topic}</p>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button onClick={() => { setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes); }}
+                              className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-0.5 font-medium">Edit</button>
+                            <button onClick={() => removeSessionNote(n.id)}
+                              className="text-xs text-red-400 hover:text-red-600 border border-red-200 rounded px-2 py-0.5 font-medium">Remove</button>
+                          </div>
+                        </div>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.notes}</p>
+                        <p className="text-xs text-gray-400 mt-1">{formatDate(n.createdAt.slice(0, 10))}</p>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
@@ -1641,7 +1783,11 @@ export default function TutorPortal() {
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-1.5">Attached Resources</p>
                 {sdLinks.map((n) => (
-                  <a key={n.id} href={n.notes} target="_blank" rel="noopener noreferrer" className="block text-sm text-blue-600 underline truncate mb-1">📎 {n.notes}</a>
+                  <div key={n.id} className="flex items-center gap-2 mb-1">
+                    <a href={n.notes} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate flex-1">📎 {n.notes}</a>
+                    <button onClick={() => removeSessionNote(n.id)}
+                      className="shrink-0 text-xs text-red-400 hover:text-red-600 font-medium">Remove</button>
+                  </div>
                 ))}
               </div>
             )}

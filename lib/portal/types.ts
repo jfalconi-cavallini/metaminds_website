@@ -107,6 +107,7 @@ export interface ParentUpdate {
   studentId: number;
   message: string;
   createdAt: string;      // ISO timestamp
+  sessionIds: number[];   // sessions this update covers
 }
 
 export interface BlockedSlot {
