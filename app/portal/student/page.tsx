@@ -318,7 +318,7 @@ export default function StudentPortal() {
     );
   }
 
-  if (!student || !balance) {
+  if (!student) {
     return (
       <DashboardShell role="student" userName="Student" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
         <div className="flex items-center justify-center h-64 text-red-500 text-sm">Could not load your data. Check your Supabase connection.</div>
@@ -439,7 +439,7 @@ export default function StudentPortal() {
 
             {/* Stats */}
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <StatCard label="Hours Remaining" value={balance.remaining} />
+              <StatCard label="Hours Remaining" value={balance?.remaining ?? 0} />
               <StatCard label="Sessions Done"   value={completed.length}  />
               <StatCard label="Homework Pending" value={homeworkList.filter((h) => h.status === "pending").length} />
             </div>
@@ -499,7 +499,7 @@ export default function StudentPortal() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
-            {balance.remaining === 0 && (
+            {(balance?.remaining ?? 0) === 0 && (
               <span className="text-sm text-red-500 font-medium">No hours remaining — buy more to book.</span>
             )}
           </div>
@@ -527,7 +527,7 @@ export default function StudentPortal() {
             availability={availability}
             sessions={tutorSessions}
             blockedDates={blockedDates.map((b) => b.blockedDate)}
-            mode={balance.remaining > 0 ? "book" : "view"}
+            mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
             selectedSlot={selectedSlot}
             bookingLeadHours={tutor?.bookingLeadHours ?? 24}
             onSlotSelect={(date, time) => {
@@ -616,7 +616,7 @@ export default function StudentPortal() {
           })()}
 
           {/* Booking modal */}
-          {selectedSlot && balance.remaining > 0 && (
+          {selectedSlot && (balance?.remaining ?? 0) > 0 && (
             <Modal
               onClose={() => { setSelectedSlot(null); setBookError(""); }}
               title="Book Session"
@@ -666,15 +666,15 @@ export default function StudentPortal() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm resize-none"
                 />
 
-                {balance.remaining < bookDuration && (
-                  <p className="text-xs text-amber-600">You only have {balance.remaining} hr remaining. Select a shorter duration.</p>
+                {(balance?.remaining ?? 0) < bookDuration && (
+                  <p className="text-xs text-amber-600">You only have {balance?.remaining ?? 0} hr remaining. Select a shorter duration.</p>
                 )}
 
                 {bookError && <p className="text-xs text-red-500">{bookError}</p>}
 
                 <button
                   onClick={submitBooking}
-                  disabled={balance.remaining < bookDuration}
+                  disabled={(balance?.remaining ?? 0) < bookDuration}
                   className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   Confirm Booking
@@ -929,24 +929,30 @@ export default function StudentPortal() {
             </div>
           )}
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-            <div className="flex items-center justify-between mb-3">
-              <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Pack</p>
-              <p className="text-sm text-gray-500">Expires {balance.expiresAt}</p>
-            </div>
-            <div className="flex items-center gap-4 mb-3">
-              <div className="flex-1 bg-gray-200 rounded-full h-3">
-                <div className="bg-blue-600 h-3 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+          {balance ? (
+            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Pack</p>
+                <p className="text-sm text-gray-500">Expires {balance.expiresAt}</p>
               </div>
-              <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                {balance.totalUsed}/{balance.totalPurchased} hrs used
-              </span>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex-1 bg-gray-200 rounded-full h-3">
+                  <div className="bg-blue-600 h-3 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+                </div>
+                <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  {balance.totalUsed}/{balance.totalPurchased} hrs used
+                </span>
+              </div>
+              <p className="text-3xl font-bold text-blue-600">
+                {balance.remaining}{" "}
+                <span className="text-base font-normal text-gray-500">hours remaining</span>
+              </p>
             </div>
-            <p className="text-3xl font-bold text-blue-600">
-              {balance.remaining}{" "}
-              <span className="text-base font-normal text-gray-500">hours remaining</span>
-            </p>
-          </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-6 text-center text-gray-500 text-sm">
+              No package yet. Contact MetaMinds to get started.
+            </div>
+          )}
 
           <h3 className="font-semibold text-gray-900 mb-3">Session History</h3>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
