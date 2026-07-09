@@ -493,6 +493,12 @@ export default function TutorPortal() {
     try {
       const update = await insertParentUpdate(tutorId, studentId, parentUpdateText.trim(), puSelectedSessionIds);
       setParentUpdates((prev) => [update, ...prev]);
+      // Fire email non-blocking — failures don't block the UI
+      fetch("/api/portal/send-parent-update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tutorId, studentId, message: parentUpdateText.trim(), sessionIds: puSelectedSessionIds }),
+      }).catch(console.error);
       setParentUpdateText("");
       setPuSelectedSessionIds([]);
       setParentUpdateSuccess(true); setTimeout(() => setParentUpdateSuccess(false), 3000);

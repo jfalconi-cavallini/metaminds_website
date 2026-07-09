@@ -26,6 +26,7 @@ const navItems = [
   { id: "overview",  label: "Overview"      },
   { id: "sessions",  label: "Schedule"      },
   { id: "notes",     label: "Session Notes" },
+  { id: "updates",   label: "Updates"       },
   { id: "homework",  label: "Homework"      },
   { id: "hours",     label: "Hours"         },
 ];
@@ -444,18 +445,21 @@ export default function StudentPortal() {
               <StatCard label="Homework Pending" value={homeworkList.filter((h) => h.status === "pending").length} />
             </div>
 
-            {/* Latest note */}
-            {sessionNotes[0] && (
-              <>
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Latest Session Note</h2>
-                <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-                  <div className="flex items-center justify-between mb-1">
-                    <p className="font-medium text-blue-600">{sessionNotes[0].topic}</p>
-                    <p className="text-xs text-gray-500">{formatDate(sessionNotes[0].createdAt.slice(0, 10))}</p>
-                  </div>
-                  <p className="text-sm text-gray-600">{sessionNotes[0].notes}</p>
+            {/* Latest parent update */}
+            {parentUpdates[0] && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold text-gray-900">Latest Update from Tutor</h2>
+                  <button onClick={() => setTab("updates")}
+                    className="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    See all →
+                  </button>
                 </div>
-              </>
+                <div className="bg-white rounded-xl border border-gray-200 p-5">
+                  <p className="text-xs text-gray-400 mb-2">{formatDate(parentUpdates[0].createdAt.slice(0, 10))}</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{parentUpdates[0].message}</p>
+                </div>
+              </div>
             )}
 
             {/* Tutor card */}
@@ -487,20 +491,6 @@ export default function StudentPortal() {
               </div>
             )}
 
-            {/* Messages from tutor */}
-            {parentUpdates.length > 0 && (
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Messages from Your Tutor</h2>
-                <div className="space-y-3">
-                  {parentUpdates.map((u) => (
-                    <div key={u.id} className="bg-white rounded-xl border border-gray-200 p-4">
-                      <p className="text-xs text-gray-400 mb-1.5">{formatDate(u.createdAt.slice(0, 10))}</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{u.message}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         );
       })()}
@@ -697,25 +687,70 @@ export default function StudentPortal() {
       )}
 
       {/* ── SESSION NOTES ── */}
-      {tab === "notes" && (
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Session Notes</h1>
-          {sessionNotes.length === 0 && (
-            <p className="text-sm text-gray-400">No session notes yet. Your tutor will add notes after each session.</p>
-          )}
-          <div className="space-y-4">
-            {sessionNotes.map((n) => (
-              <div key={n.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="font-semibold text-gray-900">{n.topic}</p>
-                  <p className="text-xs text-gray-500">{formatDate(n.createdAt.slice(0, 10))}</p>
-                </div>
-                <p className="text-sm text-gray-600">{n.notes}</p>
-              </div>
-            ))}
+      {tab === "notes" && (() => {
+        const regularNotes = sessionNotes.filter((n) => n.topic !== "_resource_");
+        const resourceNotes = sessionNotes.filter((n) => n.topic === "_resource_");
+        return (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">Session Notes</h1>
+            <p className="text-sm text-gray-500 mb-5">Notes from your tutor about what was covered each session.</p>
+            {regularNotes.length === 0 && (
+              <p className="text-sm text-gray-400">No session notes yet. Your tutor will add notes after each session.</p>
+            )}
+            <div className="space-y-4">
+              {regularNotes.map((n) => {
+                const links = resourceNotes.filter((r) => r.sessionId === n.sessionId && n.sessionId !== null);
+                return (
+                  <div key={n.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="font-semibold text-gray-900 text-base">{n.topic}</p>
+                      <p className="text-xs text-gray-400 shrink-0 ml-4">{formatDate(n.createdAt.slice(0, 10))}</p>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{n.notes}</p>
+                    {links.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Resources</p>
+                        {links.map((r) => (
+                          <a key={r.id} href={r.notes} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline">
+                            <span>📎</span><span className="truncate">{r.notes}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
+
+      {/* ── UPDATES ── */}
+      {tab === "updates" && (() => {
+        return (
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Updates from Your Tutor</h1>
+            <p className="text-sm text-gray-500 mb-6">Your tutor sends a weekly update summarising progress and what was covered.</p>
+            {parentUpdates.length === 0 ? (
+              <div className="text-center py-16 text-gray-400">
+                <p className="text-4xl mb-3">📬</p>
+                <p className="text-sm font-medium">No updates yet.</p>
+                <p className="text-xs mt-1">Your tutor will send updates here after sessions.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {parentUpdates.map((u) => (
+                  <div key={u.id} className="bg-white rounded-xl border border-gray-200 p-5">
+                    <p className="text-xs text-gray-400 mb-3">{formatDate(u.createdAt.slice(0, 10))}</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{u.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
