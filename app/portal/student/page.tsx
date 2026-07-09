@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
-import { purchaseOptions, formatDate } from "@/lib/portal/utils";
+import { purchaseOptions, formatDate, resolveZoomUrl } from "@/lib/portal/utils";
 import WeeklyCalendar, { parseTimeToHour } from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
 import {
@@ -368,7 +368,7 @@ export default function StudentPortal() {
                           <p className="text-blue-200 text-xs mt-0.5">{sessionToday.durationHours} hr · <Badge status={sessionToday.sessionType} /></p>
                         </div>
                         {sessionToday.zoomLink && (
-                          <a href={sessionToday.zoomLink.startsWith("http") ? sessionToday.zoomLink : `https://${sessionToday.zoomLink}`}
+                          <a href={resolveZoomUrl(sessionToday.zoomLink)}
                             target="_blank" rel="noopener noreferrer"
                             className="shrink-0 bg-white text-blue-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
                             Join Zoom →
@@ -570,7 +570,7 @@ export default function StudentPortal() {
                       </div>
                       {s.zoomLink && (
                         <div className="mt-2">
-                          <a href={s.zoomLink.startsWith("http") ? s.zoomLink : `https://${s.zoomLink}`}
+                          <a href={resolveZoomUrl(s.zoomLink!)}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
                             Join Zoom Meeting →
