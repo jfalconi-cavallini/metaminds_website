@@ -16,6 +16,8 @@ export default function LoginPage() {
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
 
+  const [showPassword, setShowPassword] = useState(false);
+
   // Forgot-password state
   const [mode,        setMode]        = useState<"login" | "reset" | "reset-sent">("login");
   const [resetEmail,  setResetEmail]  = useState("");
@@ -98,9 +100,18 @@ export default function LoginPage() {
                   <input type="email" placeholder="Email address" value={email}
                     onChange={(e) => setEmail(e.target.value)} required
                     className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  <input type="password" placeholder="Password" value={password}
-                    onChange={(e) => setPassword(e.target.value)} required
-                    className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <div className="relative">
+                    <input type={showPassword ? "text" : "password"} placeholder="Password" value={password}
+                      onChange={(e) => setPassword(e.target.value)} required
+                      className="w-full rounded-lg border border-gray-300 px-4 py-3 pr-16 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium"
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
+                  </div>
                   <button type="submit" disabled={loading}
                     className="w-full rounded-lg bg-blue-600 text-white font-semibold py-3 text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors">
                     {loading ? "Signing in…" : "Sign In"}

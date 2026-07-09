@@ -93,6 +93,44 @@ export default function AdminPortal() {
   const [showArchivedTutors,   setShowArchivedTutors]   = useState(false);
   const [archivingId,          setArchivingId]          = useState<number | null>(null);
 
+  // ── DELETE (permanent) ──────────────────────────────────────────
+  const [deleteTarget,   setDeleteTarget]   = useState<{ id: number; name: string; type: "student" | "tutor" } | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError,    setDeleteError]    = useState("");
+  const [deleteLoading,  setDeleteLoading]  = useState(false);
+  const [showDeletePw,   setShowDeletePw]   = useState(false);
+
+  async function submitDelete() {
+    if (!deleteTarget || !deletePassword) return;
+    setDeleteLoading(true); setDeleteError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired — please refresh and sign in again.");
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          role: deleteTarget.type,
+          linkedId: deleteTarget.id,
+          adminPassword: deletePassword,
+        }),
+      });
+      const result = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(result.error ?? "Delete failed");
+      if (deleteTarget.type === "student") {
+        setStudents((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      } else {
+        setTutors((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      }
+      setDeleteTarget(null); setDeletePassword("");
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+    } finally { setDeleteLoading(false); }
+  }
+
   async function handleArchiveStudent(id: number) {
     setArchivingId(id);
     try {
@@ -700,10 +738,16 @@ export default function AdminPortal() {
                               </button>
                             )}
                             {s.archived ? (
-                              <button onClick={() => handleRestoreStudent(s.id)} disabled={archivingId === s.id}
-                                className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
-                                {archivingId === s.id ? "…" : "Restore"}
-                              </button>
+                              <>
+                                <button onClick={() => handleRestoreStudent(s.id)} disabled={archivingId === s.id}
+                                  className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
+                                  {archivingId === s.id ? "…" : "Restore"}
+                                </button>
+                                <button onClick={() => { setDeleteTarget({ id: s.id, name: s.name, type: "student" }); setDeletePassword(""); setDeleteError(""); setShowDeletePw(false); }}
+                                  className="text-xs text-red-500 hover:underline font-medium">
+                                  Delete
+                                </button>
+                              </>
                             ) : (
                               <button onClick={() => handleArchiveStudent(s.id)} disabled={archivingId === s.id}
                                 className="text-xs text-gray-400 hover:text-red-500 font-medium disabled:opacity-40 transition-colors">
@@ -830,10 +874,16 @@ export default function AdminPortal() {
                           </button>
                         )}
                         {t.archived ? (
-                          <button onClick={() => handleRestoreTutor(t.id)} disabled={archivingId === t.id}
-                            className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
-                            {archivingId === t.id ? "…" : "Restore"}
-                          </button>
+                          <>
+                            <button onClick={() => handleRestoreTutor(t.id)} disabled={archivingId === t.id}
+                              className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
+                              {archivingId === t.id ? "…" : "Restore"}
+                            </button>
+                            <button onClick={() => { setDeleteTarget({ id: t.id, name: t.name, type: "tutor" }); setDeletePassword(""); setDeleteError(""); setShowDeletePw(false); }}
+                              className="text-xs text-red-500 hover:underline font-medium">
+                              Delete
+                            </button>
+                          </>
                         ) : (
                           <button onClick={() => handleArchiveTutor(t.id)} disabled={archivingId === t.id}
                             className="text-xs text-gray-400 hover:text-red-500 font-medium disabled:opacity-40 transition-colors">
@@ -1305,6 +1355,58 @@ export default function AdminPortal() {
         </Modal>
       );
     })()}
+
+    {/* ── DELETE CONFIRMATION MODAL ── */}
+    {deleteTarget && (
+      <Modal
+        onClose={() => { setDeleteTarget(null); setDeletePassword(""); setDeleteError(""); }}
+        title="Permanently Delete"
+        subtitle={deleteTarget.name}
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            <strong>This cannot be undone.</strong> The {deleteTarget.type} account and all associated data will be permanently removed.
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Enter your admin password to confirm</label>
+            <div className="relative">
+              <input
+                type={showDeletePw ? "text" : "password"}
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Admin password"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-14 text-sm"
+                onKeyDown={(e) => { if (e.key === "Enter") submitDelete(); }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowDeletePw((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium"
+              >
+                {showDeletePw ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+          <div className="flex gap-3">
+            <button
+              onClick={submitDelete}
+              disabled={deleteLoading || !deletePassword}
+              className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleteLoading ? "Deleting…" : "Permanently Delete"}
+            </button>
+            <button
+              onClick={() => { setDeleteTarget(null); setDeletePassword(""); setDeleteError(""); }}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+    )}
 
     {/* ── TUTOR PROFILE MODAL ── */}
     {profileTutor && (() => {
