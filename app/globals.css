@@ -11,6 +11,7 @@
 }
 
 html {
+  font-size: 14px; /* SaaS baseline — scales all rem values ~12.5% smaller */
   scroll-behavior: smooth;
 }
 

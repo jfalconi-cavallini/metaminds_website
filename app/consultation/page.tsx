@@ -227,7 +227,7 @@ export default function ConsultationPage() {
             <main className="bg-white">
 
                 {/* ── Hero ── */}
-                <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-32 pb-24 px-6 text-center overflow-hidden">
+                <section className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 pt-24 pb-14 px-6 text-center overflow-hidden">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px]" />
                     <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[120px]" />
                     <div className="relative max-w-4xl mx-auto">
@@ -236,7 +236,7 @@ export default function ConsultationPage() {
                                 Free · 30 Minutes · No Obligation
                             </span>
                         </motion.div>
-                        <motion.h1 {...fade(0.1)} className="text-5xl md:text-7xl font-black text-white mb-6 leading-[1.05]">
+                        <motion.h1 {...fade(0.1)} className="text-4xl md:text-5xl font-black text-white mb-6 leading-[1.05]">
                             Let's Build Your<br className="hidden md:block" /> Student's<br className="hidden md:block" /> Success Plan
                         </motion.h1>
                         <motion.p {...fade(0.2)} className="text-xl text-blue-100 max-w-2xl mx-auto mb-6 leading-relaxed">
@@ -277,9 +277,9 @@ export default function ConsultationPage() {
                 </section>
 
                 {/* ── Benefits ── */}
-                <section className="py-20 px-6 bg-gray-50">
+                <section className="py-12 px-6 bg-gray-50">
                     <div className="max-w-5xl mx-auto">
-                        <motion.div {...fade()} className="text-center mb-12">
+                        <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why This 30-Minute Call Is Worth It</h2>
                             <p className="text-gray-500 max-w-xl mx-auto">Most parents leave the call saying they wish they'd done it sooner.</p>
                         </motion.div>
@@ -298,9 +298,9 @@ export default function ConsultationPage() {
                 </section>
 
                 {/* ── What Parents Will Learn ── */}
-                <section className="py-20 px-6">
+                <section className="py-12 px-6">
                     <div className="max-w-4xl mx-auto">
-                        <motion.div {...fade()} className="text-center mb-12">
+                        <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">What You'll Learn on the Call</h2>
                             <p className="text-gray-500 max-w-xl mx-auto">Clear, specific answers — not generic advice.</p>
                         </motion.div>
@@ -316,9 +316,9 @@ export default function ConsultationPage() {
                 </section>
 
                 {/* ── What to Prepare ── */}
-                <section className="py-20 px-6 bg-slate-900">
+                <section className="py-12 px-6 bg-slate-900">
                     <div className="max-w-3xl mx-auto">
-                        <motion.div {...fade()} className="text-center mb-12">
+                        <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-white mb-3">What to Have Ready</h2>
                             <p className="text-blue-200 max-w-xl mx-auto">These help us give the most specific advice. Missing items won't stop us.</p>
                         </motion.div>
@@ -344,9 +344,9 @@ export default function ConsultationPage() {
                 </section>
 
                 {/* ── Why MetaMinds ── */}
-                <section className="py-20 px-6 bg-white">
+                <section className="py-12 px-6 bg-white">
                     <div className="max-w-5xl mx-auto">
-                        <motion.div {...fade()} className="text-center mb-12">
+                        <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why Families Choose MetaMinds</h2>
                             <p className="text-gray-500 max-w-xl mx-auto">We're not a tutoring marketplace or a franchise. Every session is with a working professional who has mastered the material firsthand.</p>
                         </motion.div>
@@ -367,9 +367,9 @@ export default function ConsultationPage() {
 
                 {/* ── Testimonials ── */}
                 {siteData.testimonials?.length > 0 && (
-                    <section className="py-20 px-6 bg-blue-50">
+                    <section className="py-12 px-6 bg-blue-50">
                         <div className="max-w-5xl mx-auto">
-                            <motion.div {...fade()} className="text-center mb-12">
+                            <motion.div {...fade()} className="text-center mb-7">
                                 <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Real Results From Real Families</h2>
                                 <p className="text-gray-500">These students booked the same free consultation you're looking at right now.</p>
                             </motion.div>
@@ -399,9 +399,9 @@ export default function ConsultationPage() {
                 )}
 
                 {/* ── FAQ ── */}
-                <section className="py-20 px-6 bg-white">
+                <section className="py-12 px-6 bg-white">
                     <div className="max-w-3xl mx-auto">
-                        <motion.div {...fade()} className="text-center mb-12">
+                        <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Common Questions</h2>
                             <p className="text-gray-500">Everything you need to know before booking.</p>
                         </motion.div>
@@ -416,7 +416,7 @@ export default function ConsultationPage() {
                 </section>
 
                 {/* ── Embedded Calendly ── */}
-                <section id="schedule" className="py-20 px-6 bg-gray-50">
+                <section id="schedule" className="py-12 px-6 bg-gray-50">
                     <div className="max-w-3xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-10">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Pick a Time That Works for You</h2>
