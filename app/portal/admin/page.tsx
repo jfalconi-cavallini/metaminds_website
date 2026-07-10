@@ -484,6 +484,17 @@ export default function AdminPortal() {
         phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
         parentPhone: pfParentPhone, notes: pfNotes,
       });
+      // Sync auth email if it changed
+      if (pfEmail && pfEmail !== profileStudent.email) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          fetch("/api/admin/update-email", {
+            method: "POST",
+            headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+            body: JSON.stringify({ role: "student", linkedId: profileStudent.id, newEmail: pfEmail }),
+          }).catch(console.error);
+        }
+      }
       setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
       setProfileStudent(updated); setEditingProfile(false);
     } catch { /* silent */ } finally { setProfileSaving(false); }
@@ -498,6 +509,17 @@ export default function AdminPortal() {
         subjects: pfTutSubjects.split(",").map((s) => s.trim()).filter(Boolean),
         phone: pfTutPhone, bio: pfTutBio, photoUrl: pfTutPhoto,
       });
+      // Sync auth email if it changed
+      if (pfTutEmail && pfTutEmail !== profileTutor.email) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          fetch("/api/admin/update-email", {
+            method: "POST",
+            headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+            body: JSON.stringify({ role: "tutor", linkedId: profileTutor.id, newEmail: pfTutEmail }),
+          }).catch(console.error);
+        }
+      }
       setTutors((prev) => prev.map((t) => t.id === updated.id ? updated : t));
       setProfileTutor(updated); setEditingProfile(false);
     } catch { /* silent */ } finally { setProfileSaving(false); }
