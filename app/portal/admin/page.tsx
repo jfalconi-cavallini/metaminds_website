@@ -488,11 +488,16 @@ export default function AdminPortal() {
       if (pfEmail && pfEmail !== profileStudent.email) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          fetch("/api/admin/update-email", {
+          const emailRes = await fetch("/api/admin/update-email", {
             method: "POST",
             headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
             body: JSON.stringify({ role: "student", linkedId: profileStudent.id, newEmail: pfEmail }),
-          }).catch(console.error);
+          });
+          const emailJson = await emailRes.json();
+          console.log("[update-email student]", emailJson);
+          if (!emailRes.ok) {
+            alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
+          }
         }
       }
       setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
@@ -513,11 +518,16 @@ export default function AdminPortal() {
       if (pfTutEmail && pfTutEmail !== profileTutor.email) {
         const { data: { session } } = await supabase.auth.getSession();
         if (session) {
-          fetch("/api/admin/update-email", {
+          const emailRes = await fetch("/api/admin/update-email", {
             method: "POST",
             headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
             body: JSON.stringify({ role: "tutor", linkedId: profileTutor.id, newEmail: pfTutEmail }),
-          }).catch(console.error);
+          });
+          const emailJson = await emailRes.json();
+          console.log("[update-email tutor]", emailJson);
+          if (!emailRes.ok) {
+            alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
+          }
         }
       }
       setTutors((prev) => prev.map((t) => t.id === updated.id ? updated : t));

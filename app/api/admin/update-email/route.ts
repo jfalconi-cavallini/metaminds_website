@@ -35,7 +35,10 @@ export async function POST(request: Request) {
 
   if (!profile) return NextResponse.json({ ok: true, note: "no auth user found" });
 
-  const { error } = await admin.auth.admin.updateUserById(profile.id, { email: newEmail });
+  const { error } = await admin.auth.admin.updateUserById(profile.id, {
+    email: newEmail,
+    email_confirm: true,
+  });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });
