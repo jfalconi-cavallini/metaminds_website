@@ -295,11 +295,11 @@ export const siteData = {
             credentials: [
                 "B.S. Mathematics–Computer Science, UC San Diego",
                 "M.S. Business Analytics, UC San Diego",
+                "MBA Candidate, Georgia Institute of Technology",
                 "Former robotics instructor at Magikid Robotics Lab",
                 "Professional tutor at EdLadder",
-                "3+ years STEM summer camp instruction",
             ],
-            bio: "Christian specializes in mathematics, programming, and data-driven problem solving. With experience teaching robotics and coding camps, he enjoys helping students explore technology through hands-on experimentation and creative engineering challenges.",
+            bio: "Christian holds a B.S. in Mathematics–Computer Science and an M.S. in Business Analytics from UC San Diego, and is currently pursuing his MBA at Georgia Tech. He specializes in mathematics, programming, and data-driven problem solving, helping students build strong analytical and coding skills grounded in both engineering and business.",
         },
     ],
 
