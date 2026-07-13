@@ -19,16 +19,21 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
+import {
+  LayoutDashboard, Calendar, FileText, Bell, BookOpen,
+  Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
+} from "lucide-react";
 
 const CANCEL_LOCK_HOURS = 48;
 
 const navItems = [
-  { id: "overview",  label: "Overview"      },
-  { id: "sessions",  label: "Schedule"      },
-  { id: "notes",     label: "Session Notes" },
-  { id: "updates",   label: "Updates"       },
-  { id: "homework",  label: "Homework"      },
-  { id: "hours",     label: "Hours"         },
+  { id: "overview",  label: "Dashboard",     icon: LayoutDashboard },
+  { id: "sessions",  label: "Schedule",      icon: Calendar        },
+  { id: "homework",  label: "Homework",      icon: BookOpen        },
+  { id: "notes",     label: "Session Notes", icon: FileText        },
+  { id: "updates",   label: "Updates",       icon: Bell            },
+  { id: "hours",     label: "Hours",         icon: Clock           },
+  { id: "lab",       label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon" },
 ];
 
 /** Returns hours from now until the session starts (negative if past) */
@@ -338,164 +343,255 @@ export default function StudentPortal() {
         const weekOut      = new Date(); weekOut.setDate(weekOut.getDate() + 7);
         const weekOutIso   = weekOut.toISOString().slice(0, 10);
         const dueWeekHw    = homeworkList.filter((h) => h.status === "pending" && h.dueDate && h.dueDate > todayIso && h.dueDate <= weekOutIso);
-        const otherPending = homeworkList.filter((h) => h.status === "pending" && (!h.dueDate || h.dueDate > weekOutIso));
-        const submittedHw  = homeworkList.filter((h) => h.status === "submitted");
+        const pendingHwCount = homeworkList.filter((h) => h.status === "pending").length;
+        const firstName    = student.name.split(" ")[0];
+        const dayLabel     = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-        const hasChecklist = sessionToday || overdueHw.length > 0 || dueTodayHw.length > 0 || dueWeekHw.length > 0 || submittedHw.length > 0;
+        const planItems = [
+          ...overdueHw.map((h) => ({ key: `od-${h.id}`, dot: "bg-red-500", label: h.task, sub: `Overdue · ${formatDate(h.dueDate!)}`, labelColor: "text-red-700", subColor: "text-red-400", onClick: () => setTab("homework") })),
+          ...dueTodayHw.map((h) => ({ key: `dt-${h.id}`, dot: "bg-amber-400", label: h.task, sub: "Due today", labelColor: "text-amber-700", subColor: "text-amber-500", onClick: () => setTab("homework") })),
+          ...dueWeekHw.slice(0, 3).map((h) => ({ key: `dw-${h.id}`, dot: "bg-gray-300", label: h.task, sub: `Due ${formatDate(h.dueDate!)}`, labelColor: "text-gray-700", subColor: "text-gray-400", onClick: () => setTab("homework") })),
+        ];
 
         return (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">
-              Welcome back, {student.name.split(" ")[0]}!
-            </h1>
+          <div className="space-y-6">
 
-            {/* Today's Checklist */}
-            <div className="mb-8">
-              <h2 className="text-lg font-semibold text-gray-900 mb-3">Today&apos;s Checklist</h2>
-              {!hasChecklist ? (
-                <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-sm text-green-700 font-medium">
-                  You&apos;re all caught up — nothing needs attention today!
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {/* Session today */}
-                  {sessionToday && (
-                    <div className="bg-blue-600 text-white rounded-xl p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="text-blue-200 text-xs font-medium mb-0.5">Session Today</p>
-                          <p className="font-bold text-base">{sessionToday.time} · {sessionToday.subject} with {tutor?.name ?? "your tutor"}</p>
-                          <p className="text-blue-200 text-xs mt-0.5">{sessionToday.durationHours} hr · <Badge status={sessionToday.sessionType} /></p>
-                        </div>
-                        {sessionToday.zoomLink && (
-                          <button
-                            onClick={() => {
-                              const url = resolveZoomUrl(sessionToday.zoomLink!);
-                              console.log("[Zoom] opening:", url);
-                              window.open(url, "_blank", "noopener,noreferrer");
-                            }}
-                            className="shrink-0 bg-white text-blue-600 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-blue-50 transition-colors">
-                            Join Zoom →
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Overdue */}
-                  {overdueHw.map((h) => (
-                    <button key={h.id} onClick={() => setTab("homework")}
-                      className="w-full flex items-start gap-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-left hover:bg-red-100 transition-colors">
-                      <span className="text-base shrink-0">🔴</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-red-800 text-sm">Overdue: {h.task}</p>
-                        <p className="text-xs text-red-500 mt-0.5">Was due {formatDate(h.dueDate!)}</p>
-                      </div>
-                      <span className="text-red-500 text-sm font-medium shrink-0">Submit →</span>
-                    </button>
-                  ))}
-
-                  {/* Due today */}
-                  {dueTodayHw.map((h) => (
-                    <button key={h.id} onClick={() => setTab("homework")}
-                      className="w-full flex items-start gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-left hover:bg-amber-100 transition-colors">
-                      <span className="text-base shrink-0">🟡</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-amber-800 text-sm">Due today: {h.task}</p>
-                      </div>
-                      <span className="text-amber-600 text-sm font-medium shrink-0">Submit →</span>
-                    </button>
-                  ))}
-
-                  {/* Due this week */}
-                  {dueWeekHw.map((h) => (
-                    <button key={h.id} onClick={() => setTab("homework")}
-                      className="w-full flex items-start gap-4 bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-left hover:bg-yellow-100 transition-colors">
-                      <span className="text-base shrink-0">📅</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-yellow-800 text-sm">Due {formatDate(h.dueDate!)}: {h.task}</p>
-                      </div>
-                    </button>
-                  ))}
-
-                  {/* Other pending */}
-                  {otherPending.length > 0 && (
-                    <button onClick={() => setTab("homework")}
-                      className="w-full flex items-start gap-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-left hover:bg-gray-100 transition-colors">
-                      <span className="text-base shrink-0">📝</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-700 text-sm">{otherPending.length} other homework assignment{otherPending.length > 1 ? "s" : ""} pending</p>
-                      </div>
-                      <span className="text-gray-500 text-sm font-medium shrink-0">View →</span>
-                    </button>
-                  )}
-
-                  {/* Submitted waiting for grade */}
-                  {submittedHw.length > 0 && (
-                    <div className="flex items-start gap-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-                      <span className="text-base shrink-0">✅</span>
-                      <div>
-                        <p className="font-semibold text-green-800 text-sm">{submittedHw.length} submitted — waiting for your tutor to review</p>
-                      </div>
-                    </div>
-                  )}
+            {/* Welcome header + upcoming session */}
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Welcome back, {firstName}! 👋</h1>
+                <p className="text-sm text-gray-400 mt-1">{dayLabel} · Keep the momentum going!</p>
+              </div>
+              {nextSession && (
+                <div className="shrink-0 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-4 sm:min-w-[210px] shadow-lg shadow-blue-200">
+                  <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1.5">Upcoming Session</p>
+                  <p className="font-bold text-sm leading-snug">{formatDate(nextSession.date)}</p>
+                  <p className="text-blue-100 text-sm mt-0.5">{nextSession.time} · {nextSession.subject}</p>
+                  <p className="text-blue-200 text-xs mt-0.5">{nextSession.durationHours} hr · {nextSession.sessionType}</p>
+                  <div className="mt-3">
+                    {nextSession.zoomLink ? (
+                      <button
+                        onClick={() => window.open(resolveZoomUrl(nextSession.zoomLink!), "_blank", "noopener,noreferrer")}
+                        className="bg-white text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                      >
+                        Join Zoom →
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setTab("sessions")}
+                        className="bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-white/30 transition-colors"
+                      >
+                        View Schedule →
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <StatCard label="Hours Remaining" value={balance?.remaining ?? 0} />
-              <StatCard label="Sessions Done"   value={completed.length}  />
-              <StatCard label="Homework Pending" value={homeworkList.filter((h) => h.status === "pending").length} />
+            {/* Stats row */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: "Hours Left",     value: balance?.remaining ?? 0, sub: `of ${balance?.totalPurchased ?? 0} purchased`, Icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   valColor: "text-blue-700"  },
+                { label: "Sessions Done",  value: completed.length,         sub: "total completed",                              Icon: CalendarDays, iconBg: "bg-green-50",  iconColor: "text-green-600",  valColor: "text-gray-900"  },
+                { label: "HW Pending",     value: pendingHwCount,           sub: pendingHwCount === 0 ? "all done! 🎉" : "assignments pending", Icon: BookOpen, iconBg: pendingHwCount > 0 ? "bg-amber-50" : "bg-green-50", iconColor: pendingHwCount > 0 ? "text-amber-500" : "text-green-600", valColor: pendingHwCount > 0 ? "text-amber-700" : "text-green-700" },
+                { label: "Upcoming",       value: upcoming.length,          sub: "sessions booked",                              Icon: Calendar,     iconBg: "bg-purple-50", iconColor: "text-purple-600", valColor: "text-gray-900"  },
+              ].map(({ label, value, sub, Icon, iconBg, iconColor, valColor }) => (
+                <div key={label} className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+                    <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center shrink-0`}>
+                      <Icon className={`w-4 h-4 ${iconColor}`} />
+                    </div>
+                  </div>
+                  <p className={`text-3xl font-bold ${valColor}`}>{value}</p>
+                  <p className="text-xs text-gray-400 mt-1">{sub}</p>
+                </div>
+              ))}
             </div>
 
-            {/* Latest parent update */}
-            {parentUpdates[0] && (
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold text-gray-900">Latest Update from Tutor</h2>
-                  <button onClick={() => setTab("updates")}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-                    See all →
-                  </button>
-                </div>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <p className="text-xs text-gray-400 mb-2">{formatDate(parentUpdates[0].createdAt.slice(0, 10))}</p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{parentUpdates[0].message}</p>
-                </div>
-              </div>
-            )}
+            {/* 3-column section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
 
-            {/* Tutor card */}
-            {tutor && (
-              <div className="mb-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">My Tutor</h2>
-                <div className="bg-white rounded-xl border border-gray-200 p-5">
-                  <div className="flex items-start gap-4">
-                    {tutor.photoUrl ? (
-                      <img src={tutor.photoUrl} alt={tutor.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shrink-0" />
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0 select-none">
-                        {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+              {/* Today's Plan */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                    Today&apos;s Plan
+                  </h3>
+                  <span className="text-xs text-gray-400">{new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+                </div>
+
+                <div className="space-y-3">
+                  {sessionToday && (
+                    <div className="flex items-start gap-3">
+                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-white text-[9px] font-bold">S</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{sessionToday.subject} Session</p>
+                        <p className="text-xs text-gray-400">{sessionToday.time} · {sessionToday.durationHours} hr</p>
+                      </div>
+                      {sessionToday.zoomLink && (
+                        <button
+                          onClick={() => window.open(resolveZoomUrl(sessionToday.zoomLink!), "_blank", "noopener,noreferrer")}
+                          className="text-xs text-blue-600 font-semibold hover:underline shrink-0"
+                        >
+                          Join →
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {planItems.map((item) => (
+                    <button key={item.key} onClick={item.onClick} className="w-full flex items-start gap-3 text-left">
+                      <div className={`w-2 h-2 rounded-full ${item.dot} shrink-0 mt-1.5`} />
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm font-semibold truncate ${item.labelColor}`}>{item.label}</p>
+                        <p className={`text-xs ${item.subColor}`}>{item.sub}</p>
+                      </div>
+                    </button>
+                  ))}
+
+                  {!sessionToday && planItems.length === 0 && (
+                    <div className="text-center py-5">
+                      <p className="text-2xl mb-1">🎉</p>
+                      <p className="text-sm font-semibold text-gray-600">All caught up!</p>
+                      <p className="text-xs text-gray-400 mt-0.5">Nothing needs attention today.</p>
+                    </div>
+                  )}
+                </div>
+
+                {pendingHwCount > 0 && (
+                  <button onClick={() => setTab("homework")}
+                    className="mt-4 w-full text-xs text-blue-600 font-semibold hover:text-blue-700 flex items-center justify-center gap-1 pt-3 border-t border-gray-100">
+                    View all homework <ChevronRight className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+
+              {/* Recent Tutor Update */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-gray-900">Recent Tutor Update</h3>
+                  {parentUpdates.length > 1 && (
+                    <button onClick={() => setTab("updates")} className="text-xs text-blue-600 hover:text-blue-700 font-semibold">
+                      See all →
+                    </button>
+                  )}
+                </div>
+
+                {parentUpdates[0] ? (
+                  <div>
+                    {tutor && (
+                      <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
+                        {tutor.photoUrl ? (
+                          <img src={tutor.photoUrl} alt={tutor.name}
+                            className="w-9 h-9 rounded-full object-cover border-2 border-gray-100 shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none">
+                            {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{tutor.name}</p>
+                          <p className="text-xs text-gray-400">{formatDate(parentUpdates[0].createdAt.slice(0, 10))}</p>
+                        </div>
                       </div>
                     )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-base">{tutor.name}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {tutor.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
+                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap line-clamp-6">
+                      {parentUpdates[0].message}
+                    </p>
+                    {parentUpdates[0].message.length > 200 && (
+                      <button onClick={() => setTab("updates")} className="mt-2 text-xs text-blue-600 font-semibold hover:text-blue-700">
+                        Read more →
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    {tutor && (
+                      <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+                        {tutor.photoUrl ? (
+                          <img src={tutor.photoUrl} alt={tutor.name}
+                            className="w-9 h-9 rounded-full object-cover border-2 border-gray-100 shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none">
+                            {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{tutor.name}</p>
+                          <p className="text-xs text-gray-400">Your tutor</p>
+                        </div>
                       </div>
-                      {tutor.bio && <p className="text-sm text-gray-500 mt-2 leading-relaxed">{tutor.bio}</p>}
-                      <div className="mt-3 flex flex-wrap gap-4 text-sm">
-                        {tutor.email && <a href={`mailto:${tutor.email}`} className="text-blue-600 hover:underline">✉ {tutor.email}</a>}
-                        {tutor.phone && <a href={`tel:${tutor.phone}`} className="text-blue-600 hover:underline">📞 {tutor.phone}</a>}
+                    )}
+                    <div className="text-center py-4">
+                      <p className="text-3xl mb-2">📬</p>
+                      <p className="text-sm font-medium text-gray-500">No updates yet</p>
+                      <p className="text-xs text-gray-400 mt-1">Your tutor will send updates after sessions.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Actions */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <h3 className="font-bold text-gray-900 mb-4">Quick Actions</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setTab((balance?.remaining ?? 0) > 0 ? "sessions" : "hours")}
+                    className="w-full flex items-center justify-between px-4 py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      {(balance?.remaining ?? 0) > 0 ? "Book a Session" : "Buy More Hours"}
+                    </span>
+                    <ChevronRight className="w-4 h-4 opacity-70" />
+                  </button>
+
+                  {([
+                    { label: "View Schedule",  Icon: CalendarDays, target: "sessions", color: "text-purple-600", bg: "bg-purple-50 hover:bg-purple-100" },
+                    { label: "My Homework",    Icon: BookOpen,     target: "homework", color: "text-amber-600",  bg: "bg-amber-50 hover:bg-amber-100"   },
+                    { label: "Session Notes",  Icon: FileText,     target: "notes",    color: "text-blue-600",   bg: "bg-blue-50 hover:bg-blue-100"     },
+                    { label: "Tutor Updates",  Icon: Bell,         target: "updates",  color: "text-green-600",  bg: "bg-green-50 hover:bg-green-100"   },
+                  ] as const).map(({ label, Icon, target, color, bg }) => (
+                    <button key={label} onClick={() => setTab(target)}
+                      className={`w-full flex items-center justify-between px-4 py-3 ${bg} rounded-xl text-sm font-medium transition-colors`}
+                    >
+                      <span className={`flex items-center gap-2 ${color}`}>
+                        <Icon className="w-4 h-4" />
+                        {label}
+                      </span>
+                      <ChevronRight className={`w-4 h-4 ${color} opacity-40`} />
+                    </button>
+                  ))}
+                </div>
+
+                {tutor && (
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">My Tutor</p>
+                    <div className="flex items-center gap-3">
+                      {tutor.photoUrl ? (
+                        <img src={tutor.photoUrl} alt={tutor.name}
+                          className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none">
+                          {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{tutor.name}</p>
+                        {tutor.email && (
+                          <a href={`mailto:${tutor.email}`} className="text-xs text-blue-600 hover:underline truncate block">{tutor.email}</a>
+                        )}
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
-
+            </div>
           </div>
         );
       })()}
@@ -1028,6 +1124,24 @@ export default function StudentPortal() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ── METAMINDS LAB ── */}
+      {tab === "lab" && (
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+          <div className="w-24 h-24 bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl flex items-center justify-center mb-6 shadow-inner">
+            <FlaskConical className="w-12 h-12 text-blue-500" />
+          </div>
+          <span className="inline-flex items-center gap-2 bg-blue-50 text-blue-600 text-xs font-bold px-4 py-2 rounded-full border border-blue-200 mb-5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse inline-block" />
+            Coming Soon
+          </span>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">MetaMinds Lab</h2>
+          <p className="text-gray-500 max-w-md leading-relaxed mb-2">
+            An AI-powered learning environment built just for you. Practice problems, interactive tools, and personalized feedback — all in one place.
+          </p>
+          <p className="text-sm text-gray-400">We&apos;re building something special. Stay tuned!</p>
         </div>
       )}
 
