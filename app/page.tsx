@@ -3,6 +3,7 @@ import HeroTutoring from "@/components/HeroTutoring";
 import PlatformFeatures from "@/components/PlatformFeatures";
 import FoundingTeam from "@/components/FoundingTeam";
 import PricingComparison from "@/components/PricingComparison";
+import ReferralBanner from "@/components/ReferralBanner";
 import ResultsShowcase from "@/components/ResultsShowcase";
 import FinalCTA from "@/components/FinalCTA";
 import Footer from "@/components/Footer";
@@ -18,6 +19,7 @@ export default function Home() {
                 <PlatformFeatures />
                 <FoundingTeam />
                 <PricingComparison />
+                <ReferralBanner />
                 <ResultsShowcase />
                 <FAQ />
                 <FinalCTA />

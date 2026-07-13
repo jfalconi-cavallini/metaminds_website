@@ -138,15 +138,16 @@ export default function ProgramsAndResults() {
                 </div>
             </Section>
 
-            <Section id="results" className="bg-gray-50 py-14">
+            <section id="results" className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 py-14 scroll-mt-20">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-10">
                     <motion.div initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="inline-block mb-3">
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Student Success</span>
+                        <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Student Success</span>
                     </motion.div>
-                    <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
+                    <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-white mb-3">
                         Proven Results That Speak for Themselves
                     </motion.h2>
-                    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                    <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed">
                         Our students consistently achieve significant improvements in test scores, coding mastery, and academic confidence.
                     </motion.p>
                 </div>
@@ -154,7 +155,7 @@ export default function ProgramsAndResults() {
                 <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto mb-10">
                     {results.map((result, idx) => (
                         <motion.div key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                            className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                            className="bg-white rounded-xl p-5 border border-white/20 shadow-lg hover:shadow-xl transition-shadow">
                             <div className="text-center">
                                 <div className="text-xs font-bold text-gray-500 mb-4">SAT Score Improvement</div>
                                 <div className="flex items-end justify-center gap-3 mb-4">
@@ -182,8 +183,8 @@ export default function ProgramsAndResults() {
                     ))}
                 </div>
 
-                <div className="bg-white rounded-xl p-8 max-w-4xl mx-auto border border-gray-200">
-                    <h3 className="text-xl font-bold text-gray-900 mb-5 text-center">What Our Success Looks Like</h3>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-8 max-w-4xl mx-auto">
+                    <h3 className="text-xl font-bold text-white mb-5 text-center">What Our Success Looks Like</h3>
                     <div className="grid md:grid-cols-2 gap-5">
                         {[
                             { title: "Higher Test Scores", body: "Students average +200 SAT point improvements and +3 ACT point increases." },
@@ -192,16 +193,17 @@ export default function ProgramsAndResults() {
                             { title: "Confidence & Competence", body: "Students develop real skills they can use, leading to lasting confidence in academics." },
                         ].map(({ title, body }) => (
                             <div key={title} className="flex gap-3">
-                                <Trophy className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                                <Trophy className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="font-bold text-gray-900 text-sm mb-1">{title}</p>
-                                    <p className="text-gray-600 text-sm">{body}</p>
+                                    <p className="font-bold text-white text-sm mb-1">{title}</p>
+                                    <p className="text-slate-300 text-sm">{body}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
-            </Section>
+                </div>
+            </section>
         </>
     );
 }
