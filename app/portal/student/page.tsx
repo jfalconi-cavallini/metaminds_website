@@ -599,90 +599,142 @@ export default function StudentPortal() {
       {/* ── SCHEDULE ── */}
       {tab === "sessions" && (
         <div>
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
-            {(balance?.remaining ?? 0) === 0 && (
-              <span className="text-sm text-red-500 font-medium">No hours remaining — buy more to book.</span>
+          {/* Header */}
+          <div className="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
+              <p className="text-sm text-gray-400 mt-1">View and manage your upcoming tutoring sessions.</p>
+            </div>
+            {(balance?.remaining ?? 0) > 0 ? (
+              <button
+                onClick={() => {
+                  document.getElementById("weekly-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
+              >
+                <Plus className="w-4 h-4" />
+                Book Session
+              </button>
+            ) : (
+              <button
+                onClick={() => setTab("hours")}
+                className="shrink-0 text-sm font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl transition-colors"
+              >
+                Buy Hours →
+              </button>
             )}
           </div>
 
-          {availability.length === 0 && (
-            <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl px-4 py-3 text-sm">
-              Your tutor hasn&apos;t set their availability yet. Check back soon or contact MetaMinds support.
-            </div>
-          )}
-
-          {bookSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
-              Session booked! It&apos;s now blocked on your tutor&apos;s calendar.
-            </div>
-          )}
-
-          {cancelError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
-              {cancelError}
-            </div>
-          )}
-
-          {/* Weekly calendar — uses ALL tutor sessions to block occupied slots */}
-          <WeeklyCalendar
-            availability={availability}
-            sessions={tutorSessions}
-            blockedDates={blockedDates.map((b) => b.blockedDate)}
-            mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
-            selectedSlot={selectedSlot}
-            bookingLeadHours={tutor?.bookingLeadHours ?? 24}
-            onSlotSelect={(date, time) => {
-              setSelectedSlot({ date, time });
-              setBookError("");
-              if (!bookSubject && student.subjects[0]) setBookSubject(student.subjects[0]);
-            }}
-          />
-
-          {/* Upcoming sessions with cancel/reschedule */}
+          {/* Upcoming Sessions card grid */}
           {upcoming.length > 0 && (
-            <div className="mt-6">
-              <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">Upcoming Sessions</h2>
-              <div className="space-y-2">
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upcoming Sessions</h2>
+                <span className="text-xs text-gray-400">{upcoming.length} booked</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {upcoming.map((s) => {
-                  const hrs = hoursUntilSession(s);
+                  const isToday = s.date === todayIso;
+                  const hrs    = hoursUntilSession(s);
                   const locked = hrs < CANCEL_LOCK_HOURS;
+                  const inPerson = s.sessionType === "in-person";
+
                   return (
-                    <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">{s.subject}</p>
-                          <p className="text-xs text-gray-500">{formatDate(s.date)} at {s.time} · {s.durationHours} hr</p>
+                    <div key={s.id} className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
+                      isToday ? "border-blue-300" : "border-gray-100"
+                    }`}>
+                      <div className={`h-1 ${isToday ? "bg-blue-600" : inPerson ? "bg-violet-500" : "bg-gray-200"}`} />
+                      <div className="p-4">
+                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
+                          isToday ? "text-blue-600" : "text-gray-400"
+                        }`}>
+                          {isToday ? "Today" : formatDate(s.date)} · {s.time}
+                        </p>
+                        <p className="font-bold text-gray-900 text-base leading-snug truncate">{s.subject}</p>
+                        <div className="flex items-center gap-1.5 mt-1.5">
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                            inPerson
+                              ? "bg-violet-50 text-violet-600"
+                              : "bg-blue-50 text-blue-600"
+                          }`}>
+                            {inPerson ? "In-Person" : "Online"}
+                          </span>
+                          <span className="text-[11px] text-gray-400">{s.durationHours} hr</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge status={s.sessionType} />
-                          {locked ? (
-                            <span className="text-xs text-gray-400 italic">Locked</span>
+
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                          {s.zoomLink ? (
+                            <button
+                              onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
+                              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                            >
+                              Join Zoom <ChevronRight className="w-3.5 h-3.5" />
+                            </button>
                           ) : (
-                            <>
-                              <button onClick={() => handleReschedule(s)} disabled={cancellingId === s.id} className="text-xs text-blue-600 hover:underline disabled:opacity-40">Reschedule</button>
-                              <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id} className="text-xs text-red-500 hover:underline disabled:opacity-40">
+                            <span />
+                          )}
+                          {locked ? (
+                            <span className="text-xs text-gray-300 italic">Locked</span>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleReschedule(s)}
+                                disabled={cancellingId === s.id}
+                                className="text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40"
+                              >
+                                Reschedule
+                              </button>
+                              <button
+                                onClick={() => handleCancelSession(s)}
+                                disabled={cancellingId === s.id}
+                                className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
+                              >
                                 {cancellingId === s.id ? "Cancelling…" : "Cancel"}
                               </button>
-                            </>
+                            </div>
                           )}
                         </div>
                       </div>
-                      {s.zoomLink && (
-                        <div className="mt-2">
-                          <a href={resolveZoomUrl(s.zoomLink!)}
-                            target="_blank" rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs bg-blue-50 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-100 font-medium">
-                            Join Zoom Meeting →
-                          </a>
-                        </div>
-                      )}
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
+
+          {/* Banners */}
+          {availability.length === 0 && (
+            <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl px-4 py-3 text-sm">
+              Your tutor hasn&apos;t set their availability yet. Check back soon or contact MetaMinds support.
+            </div>
+          )}
+          {bookSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+              Session booked! It&apos;s now blocked on your tutor&apos;s calendar.
+            </div>
+          )}
+          {cancelError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
+              {cancelError}
+            </div>
+          )}
+
+          {/* Weekly calendar */}
+          <div id="weekly-calendar">
+            <WeeklyCalendar
+              availability={availability}
+              sessions={tutorSessions}
+              blockedDates={blockedDates.map((b) => b.blockedDate)}
+              mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
+              selectedSlot={selectedSlot}
+              bookingLeadHours={tutor?.bookingLeadHours ?? 24}
+              onSlotSelect={(date, time) => {
+                setSelectedSlot({ date, time });
+                setBookError("");
+                if (!bookSubject && student.subjects[0]) setBookSubject(student.subjects[0]);
+              }}
+            />
+          </div>
 
           {/* Past sessions */}
           {(() => {
@@ -692,24 +744,24 @@ export default function StudentPortal() {
             if (pastSessions.length === 0) return null;
             return (
               <div className="mt-8">
-                <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Past Sessions</h2>
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Past Sessions</h2>
                 <div className="space-y-2">
                   {pastSessions.map((s) => {
                     const hasNotes = sessionNotes.some((n) => n.sessionId === s.id);
                     const hasHw    = homeworkList.some((h) => h.assignedDate === s.date);
                     return (
                       <div key={s.id}
-                        className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-blue-300 transition-colors"
+                        className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-blue-200 hover:shadow-sm transition-all"
                         onClick={() => setPastSessionDetail(s)}
                       >
                         <div>
-                          <p className="font-medium text-gray-900 text-sm">{s.subject}</p>
-                          <p className="text-xs text-gray-500">{formatDate(s.date)} at {s.time} · {s.durationHours} hr · {s.sessionType}</p>
+                          <p className="font-semibold text-gray-900 text-sm">{s.subject}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{formatDate(s.date)} · {s.time} · {s.durationHours} hr · {s.sessionType}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           {hasNotes && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">Notes</span>}
-                          {hasHw    && <span className="text-xs bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded-full font-medium">Homework</span>}
-                          <span className="text-xs text-blue-500 font-medium">View →</span>
+                          {hasHw    && <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">Homework</span>}
+                          <ChevronRight className="w-4 h-4 text-gray-300" />
                         </div>
                       </div>
                     );

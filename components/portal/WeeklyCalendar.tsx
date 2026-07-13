@@ -105,23 +105,34 @@ export default function WeeklyCalendar({
   return (
     <div>
       {/* ── Week navigation ── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 gap-2">
         <button
-          onClick={() => setWeekOffset((o) => o - 1)}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          onClick={() => setWeekOffset(0)}
+          className={`px-3 py-1.5 text-sm font-semibold rounded-lg border transition-colors shadow-sm shrink-0 ${
+            weekOffset === 0
+              ? "bg-blue-600 text-white border-blue-600"
+              : "text-gray-600 bg-white border-gray-200 hover:bg-gray-50"
+          }`}
         >
-          ← Prev
+          Today
         </button>
-        <div className="text-center">
-          <p className="text-sm font-bold text-gray-800">{weekLabel}</p>
-          {weekOffset === 0 && <p className="text-[10px] text-blue-500 font-medium mt-0.5">This Week</p>}
+        <p className="text-sm font-bold text-gray-800 text-center flex-1">{weekLabel}</p>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={() => setWeekOffset((o) => o - 1)}
+            className="p-1.5 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            aria-label="Previous week"
+          >
+            ←
+          </button>
+          <button
+            onClick={() => setWeekOffset((o) => o + 1)}
+            className="p-1.5 text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            aria-label="Next week"
+          >
+            →
+          </button>
         </div>
-        <button
-          onClick={() => setWeekOffset((o) => o + 1)}
-          className="flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          Next →
-        </button>
       </div>
 
       {/* ── Mode hint ── */}
