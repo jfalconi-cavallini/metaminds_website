@@ -19,10 +19,13 @@ import {
 import { supabase } from "@/lib/supabase";
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
+import { motion } from "framer-motion";
 import {
   LayoutDashboard, Calendar, FileText, Bell, BookOpen,
   Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
+  Video, RotateCcw, X, Timer,
 } from "lucide-react";
+import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 
 const CANCEL_LOCK_HOURS = 48;
 
@@ -597,249 +600,369 @@ export default function StudentPortal() {
       })()}
 
       {/* ── SCHEDULE ── */}
-      {tab === "sessions" && (
-        <div>
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
-              <p className="text-sm text-gray-400 mt-1">View and manage your upcoming tutoring sessions.</p>
-            </div>
-            {(balance?.remaining ?? 0) > 0 ? (
-              <button
-                onClick={() => {
-                  document.getElementById("weekly-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
-              >
-                <Plus className="w-4 h-4" />
-                Book Session
-              </button>
-            ) : (
-              <button
-                onClick={() => setTab("hours")}
-                className="shrink-0 text-sm font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl transition-colors"
-              >
-                Buy Hours →
-              </button>
-            )}
-          </div>
+      {tab === "sessions" && (() => {
+        const sessionToday = upcoming.find((s) => s.date === todayIso);
+        const nextSession  = upcoming[0];
+        const daysToNext   = nextSession
+          ? Math.round((new Date(nextSession.date + "T12:00:00").getTime() - new Date(todayIso + "T12:00:00").getTime()) / 86400000)
+          : null;
+        const nextLabel = daysToNext === null ? "None booked"
+          : daysToNext === 0 ? "Today"
+          : daysToNext === 1 ? "Tomorrow"
+          : `${daysToNext} days`;
 
-          {/* Upcoming Sessions card grid */}
-          {upcoming.length > 0 && (
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upcoming Sessions</h2>
-                <span className="text-xs text-gray-400">{upcoming.length} booked</span>
+        const pastSessions = mySessions
+          .filter((s) => s.status === "completed" || (s.status === "upcoming" && s.date < todayIso))
+          .sort((a, b) => b.date.localeCompare(a.date));
+
+        const calendarActions = (session: Session): CalendarSessionAction[] => {
+          if (session.studentId !== student.id) return [];
+          if (session.status === "cancelled" || session.date < todayIso) return [];
+          const acts: CalendarSessionAction[] = [];
+          if (session.zoomLink) {
+            acts.push({
+              label: "Join Zoom",
+              variant: "primary",
+              onClick: (e) => { e.stopPropagation(); window.open(resolveZoomUrl(session.zoomLink!), "_blank", "noopener,noreferrer"); },
+            });
+          }
+          if (hoursUntilSession(session) >= CANCEL_LOCK_HOURS) {
+            acts.push({ label: "Reschedule", onClick: (e) => { e.stopPropagation(); handleReschedule(session); } });
+            acts.push({ label: "Cancel", variant: "danger", onClick: (e) => { e.stopPropagation(); handleCancelSession(session); } });
+          }
+          return acts;
+        };
+
+        return (
+          <div className="space-y-6">
+
+            {/* ── Header ── */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
+                <p className="text-sm text-gray-400 mt-1">Manage your tutoring sessions and book new appointments.</p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {upcoming.map((s) => {
-                  const isToday = s.date === todayIso;
-                  const hrs    = hoursUntilSession(s);
-                  const locked = hrs < CANCEL_LOCK_HOURS;
-                  const inPerson = s.sessionType === "in-person";
+              {(balance?.remaining ?? 0) > 0 ? (
+                <motion.button
+                  whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                  onClick={() => document.getElementById("schedule-calendar")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+                  className="shrink-0 flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
+                >
+                  <Plus className="w-4 h-4" />
+                  Book Session
+                </motion.button>
+              ) : (
+                <button onClick={() => setTab("hours")}
+                  className="shrink-0 text-sm font-semibold text-red-500 border border-red-200 bg-red-50 hover:bg-red-100 px-4 py-2.5 rounded-xl transition-colors">
+                  Buy More Hours →
+                </button>
+              )}
+            </div>
 
-                  return (
-                    <div key={s.id} className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm transition-shadow hover:shadow-md ${
-                      isToday ? "border-blue-300" : "border-gray-100"
-                    }`}>
-                      <div className={`h-1 ${isToday ? "bg-blue-600" : inPerson ? "bg-violet-500" : "bg-gray-200"}`} />
-                      <div className="p-4">
-                        <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
-                          isToday ? "text-blue-600" : "text-gray-400"
-                        }`}>
-                          {isToday ? "Today" : formatDate(s.date)} · {s.time}
-                        </p>
-                        <p className="font-bold text-gray-900 text-base leading-snug truncate">{s.subject}</p>
-                        <div className="flex items-center gap-1.5 mt-1.5">
-                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                            inPerson
-                              ? "bg-violet-50 text-violet-600"
-                              : "bg-blue-50 text-blue-600"
-                          }`}>
-                            {inPerson ? "In-Person" : "Online"}
-                          </span>
-                          <span className="text-[11px] text-gray-400">{s.durationHours} hr</span>
-                        </div>
-
-                        <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                          {s.zoomLink ? (
-                            <button
-                              onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
-                              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                            >
-                              Join Zoom <ChevronRight className="w-3.5 h-3.5" />
-                            </button>
-                          ) : (
-                            <span />
-                          )}
-                          {locked ? (
-                            <span className="text-xs text-gray-300 italic">Locked</span>
-                          ) : (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleReschedule(s)}
-                                disabled={cancellingId === s.id}
-                                className="text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40"
-                              >
-                                Reschedule
-                              </button>
-                              <button
-                                onClick={() => handleCancelSession(s)}
-                                disabled={cancellingId === s.id}
-                                className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40"
-                              >
-                                {cancellingId === s.id ? "Cancelling…" : "Cancel"}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
+            {/* ── Quick Stats Row ── */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {([
+                {
+                  label: "Upcoming",
+                  value: upcoming.length,
+                  sub: upcoming.length === 1 ? "session booked" : "sessions booked",
+                  Icon: CalendarDays,
+                  iconBg: "bg-blue-50",
+                  iconColor: "text-blue-600",
+                  valColor: "text-gray-900",
+                },
+                {
+                  label: "Today's Session",
+                  value: sessionToday ? sessionToday.time : "—",
+                  sub: sessionToday ? sessionToday.subject : "Free today",
+                  Icon: Clock,
+                  iconBg: sessionToday ? "bg-emerald-50" : "bg-gray-50",
+                  iconColor: sessionToday ? "text-emerald-600" : "text-gray-400",
+                  valColor: sessionToday ? "text-emerald-700" : "text-gray-400",
+                },
+                {
+                  label: "Hours Remaining",
+                  value: `${balance?.remaining ?? 0}`,
+                  sub: `of ${balance?.totalPurchased ?? 0} hrs purchased`,
+                  Icon: Timer,
+                  iconBg: (balance?.remaining ?? 0) > 0 ? "bg-blue-50" : "bg-red-50",
+                  iconColor: (balance?.remaining ?? 0) > 0 ? "text-blue-600" : "text-red-500",
+                  valColor: (balance?.remaining ?? 0) > 0 ? "text-blue-700" : "text-red-600",
+                },
+                {
+                  label: "Next Session",
+                  value: nextLabel,
+                  sub: nextSession ? `${nextSession.subject} · ${nextSession.time}` : "No sessions yet",
+                  Icon: RotateCcw,
+                  iconBg: nextSession ? "bg-purple-50" : "bg-gray-50",
+                  iconColor: nextSession ? "text-purple-600" : "text-gray-400",
+                  valColor: nextSession ? "text-gray-900" : "text-gray-400",
+                },
+              ] as const).map(({ label, value, sub, Icon, iconBg, iconColor, valColor }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: i * 0.06 }}
+                  className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+                    <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center shrink-0`}>
+                      <Icon className={`w-4 h-4 ${iconColor}`} />
                     </div>
-                  );
-                })}
+                  </div>
+                  <p className={`text-2xl font-bold ${valColor} leading-none`}>{value}</p>
+                  <p className="text-xs text-gray-400 mt-1.5 truncate">{sub}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* ── Alert banners ── */}
+            {bookSuccess && (
+              <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                Session booked successfully! It&apos;s now on your tutor&apos;s calendar.
               </div>
-            </div>
-          )}
+            )}
+            {cancelError && (
+              <div className="flex items-center gap-3 bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm">
+                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                {cancelError}
+              </div>
+            )}
+            {availability.length === 0 && (
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl px-4 py-3 text-sm">
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                Your tutor hasn&apos;t set their availability yet. Check back soon or contact MetaMinds support.
+              </div>
+            )}
 
-          {/* Banners */}
-          {availability.length === 0 && (
-            <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-xl px-4 py-3 text-sm">
-              Your tutor hasn&apos;t set their availability yet. Check back soon or contact MetaMinds support.
-            </div>
-          )}
-          {bookSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
-              Session booked! It&apos;s now blocked on your tutor&apos;s calendar.
-            </div>
-          )}
-          {cancelError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm mb-4">
-              {cancelError}
-            </div>
-          )}
+            {/* ── Calendar ── */}
+            <motion.div
+              id="schedule-calendar"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: 0.15 }}
+            >
+              <WeeklyCalendar
+                availability={availability}
+                sessions={tutorSessions}
+                blockedDates={blockedDates.map((b) => b.blockedDate)}
+                mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
+                selectedSlot={selectedSlot}
+                bookingLeadHours={tutor?.bookingLeadHours ?? 24}
+                onSlotSelect={(date, time) => {
+                  setSelectedSlot({ date, time });
+                  setBookError("");
+                  if (!bookSubject && student.subjects[0]) setBookSubject(student.subjects[0]);
+                }}
+                onSessionClick={(session) => {
+                  if (session.status === "completed" || session.date < todayIso) {
+                    setPastSessionDetail(session);
+                  }
+                }}
+                getSessionActions={calendarActions}
+              />
+            </motion.div>
 
-          {/* Weekly calendar */}
-          <div id="weekly-calendar">
-            <WeeklyCalendar
-              availability={availability}
-              sessions={tutorSessions}
-              blockedDates={blockedDates.map((b) => b.blockedDate)}
-              mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
-              selectedSlot={selectedSlot}
-              bookingLeadHours={tutor?.bookingLeadHours ?? 24}
-              onSlotSelect={(date, time) => {
-                setSelectedSlot({ date, time });
-                setBookError("");
-                if (!bookSubject && student.subjects[0]) setBookSubject(student.subjects[0]);
-              }}
-            />
-          </div>
+            {/* ── Upcoming Sessions ── */}
+            {upcoming.length === 0 && mySessions.length === 0 ? (
+              /* Empty state */
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <CalendarDays className="w-8 h-8 text-blue-400" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">No sessions scheduled yet</h3>
+                <p className="text-sm text-gray-400 mb-5 max-w-xs mx-auto">
+                  Click a green slot on the calendar above to book your first session with your tutor.
+                </p>
+                {(balance?.remaining ?? 0) > 0 ? (
+                  <button
+                    onClick={() => document.getElementById("schedule-calendar")?.scrollIntoView({ behavior: "smooth" })}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Book Your First Session
+                  </button>
+                ) : (
+                  <button onClick={() => setTab("hours")}
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 transition-colors">
+                    Buy Hours to Get Started
+                  </button>
+                )}
+              </div>
+            ) : upcoming.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upcoming Sessions</h2>
+                  <span className="text-xs text-gray-400 font-medium">{upcoming.length} booked</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {upcoming.map((s, i) => {
+                    const isToday  = s.date === todayIso;
+                    const hrs      = hoursUntilSession(s);
+                    const locked   = hrs < CANCEL_LOCK_HOURS;
+                    const inPerson = s.sessionType === "in-person";
 
-          {/* Past sessions */}
-          {(() => {
-            const pastSessions = mySessions
-              .filter((s) => s.status === "completed" || (s.status === "upcoming" && s.date < todayIso))
-              .sort((a, b) => b.date.localeCompare(a.date));
-            if (pastSessions.length === 0) return null;
-            return (
-              <div className="mt-8">
-                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Past Sessions</h2>
-                <div className="space-y-2">
-                  {pastSessions.map((s) => {
-                    const hasNotes = sessionNotes.some((n) => n.sessionId === s.id);
-                    const hasHw    = homeworkList.some((h) => h.assignedDate === s.date);
                     return (
-                      <div key={s.id}
-                        className="bg-white border border-gray-100 rounded-xl p-4 flex items-center justify-between cursor-pointer hover:border-blue-200 hover:shadow-sm transition-all"
-                        onClick={() => setPastSessionDetail(s)}
+                      <motion.div
+                        key={s.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2, delay: i * 0.05 }}
+                        className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
+                          isToday ? "border-blue-300" : "border-gray-100"
+                        }`}
                       >
-                        <div>
-                          <p className="font-semibold text-gray-900 text-sm">{s.subject}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{formatDate(s.date)} · {s.time} · {s.durationHours} hr · {s.sessionType}</p>
+                        {/* Color strip */}
+                        <div className={`h-1.5 ${isToday ? "bg-blue-600" : inPerson ? "bg-violet-500" : "bg-slate-300"}`} />
+                        <div className="p-4">
+                          {/* Date/time */}
+                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
+                            isToday ? "text-blue-600" : "text-gray-400"
+                          }`}>
+                            {isToday ? "Today" : formatDate(s.date)} · {s.time}
+                          </p>
+                          {/* Subject */}
+                          <p className="font-bold text-gray-900 text-base leading-snug truncate">{s.subject}</p>
+                          {/* Type + duration */}
+                          <div className="flex items-center gap-2 mt-1.5">
+                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              inPerson
+                                ? "bg-violet-50 text-violet-600"
+                                : "bg-blue-50 text-blue-600"
+                            }`}>
+                              {inPerson ? <X className="w-2.5 h-2.5" /> : <Video className="w-2.5 h-2.5" />}
+                              {inPerson ? "In-Person" : "Online"}
+                            </span>
+                            <span className="text-[11px] text-gray-400">{s.durationHours} hr</span>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                            {s.zoomLink ? (
+                              <button
+                                onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
+                                className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                Join Zoom
+                              </button>
+                            ) : (
+                              <span />
+                            )}
+                            {locked ? (
+                              <span className="text-xs text-gray-300 italic">Locked</span>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <button onClick={() => handleReschedule(s)} disabled={cancellingId === s.id}
+                                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40">
+                                  <RotateCcw className="w-3 h-3" /> Reschedule
+                                </button>
+                                <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id}
+                                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
+                                  <X className="w-3 h-3" /> {cancellingId === s.id ? "…" : "Cancel"}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {hasNotes && <span className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full font-medium">Notes</span>}
-                          {hasHw    && <span className="text-xs bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full font-medium">Homework</span>}
-                          <ChevronRight className="w-4 h-4 text-gray-300" />
-                        </div>
-                      </div>
+                      </motion.div>
                     );
                   })}
                 </div>
               </div>
-            );
-          })()}
+            )}
 
-          {/* Booking modal */}
-          {selectedSlot && (balance?.remaining ?? 0) > 0 && (
-            <Modal
-              onClose={() => { setSelectedSlot(null); setBookError(""); }}
-              title="Book Session"
-              subtitle={`${formatDate(selectedSlot.date)} at ${selectedSlot.time}`}
-            >
-              <div className="space-y-4">
-                {/* Online / In-Person */}
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                  {(["online", "in-person"] as const).map((type, i) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setBookSessionType(type)}
-                      className={`flex-1 px-4 py-2.5 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${bookSessionType === type ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                    >
-                      {type === "online" ? "Online" : "In-Person"}
-                    </button>
-                  ))}
+            {/* ── Recent Sessions ── */}
+            {pastSessions.length > 0 && (
+              <div>
+                <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Recent Sessions</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50/60">
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Date</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Subject</th>
+                        <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wide hidden sm:table-cell">Duration</th>
+                        <th className="px-5 py-3 text-right text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {pastSessions.slice(0, 8).map((s) => {
+                        const hasNotes = sessionNotes.some((n) => n.sessionId === s.id);
+                        const hasHw    = homeworkList.some((h) => h.assignedDate === s.date);
+                        return (
+                          <tr key={s.id}
+                            className="hover:bg-gray-50/60 cursor-pointer transition-colors"
+                            onClick={() => setPastSessionDetail(s)}
+                          >
+                            <td className="px-5 py-3 text-gray-600 font-medium whitespace-nowrap">{formatDate(s.date)}</td>
+                            <td className="px-5 py-3 text-gray-900 font-semibold">{s.subject}</td>
+                            <td className="px-5 py-3 text-gray-400 hidden sm:table-cell">{s.durationHours} hr</td>
+                            <td className="px-5 py-3 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                {hasNotes && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Notes</span>}
+                                {hasHw    && <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">HW</span>}
+                                <ChevronRight className="w-3.5 h-3.5 text-gray-300" />
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-
-                {/* Subject */}
-                <select
-                  value={bookSubject}
-                  onChange={(e) => setBookSubject(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
-                >
-                  {student.subjects.map((s) => <option key={s}>{s}</option>)}
-                </select>
-
-                {/* Duration */}
-                <select
-                  value={bookDuration}
-                  onChange={(e) => setBookDuration(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
-                >
-                  <option value={1}>1 hour</option>
-                  <option value={1.5}>1.5 hours</option>
-                  <option value={2}>2 hours</option>
-                </select>
-
-                {/* Notes */}
-                <textarea
-                  value={bookNotes}
-                  onChange={(e) => setBookNotes(e.target.value)}
-                  placeholder="Any notes for your tutor? (optional)"
-                  rows={2}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm resize-none"
-                />
-
-                {(balance?.remaining ?? 0) < bookDuration && (
-                  <p className="text-xs text-amber-600">You only have {balance?.remaining ?? 0} hr remaining. Select a shorter duration.</p>
-                )}
-
-                {bookError && <p className="text-xs text-red-500">{bookError}</p>}
-
-                <button
-                  onClick={submitBooking}
-                  disabled={(balance?.remaining ?? 0) < bookDuration}
-                  className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Confirm Booking
-                </button>
               </div>
-            </Modal>
-          )}
-        </div>
-      )}
+            )}
+
+            {/* ── Booking modal ── */}
+            {selectedSlot && (balance?.remaining ?? 0) > 0 && (
+              <Modal
+                onClose={() => { setSelectedSlot(null); setBookError(""); }}
+                title="Book Session"
+                subtitle={`${formatDate(selectedSlot.date)} at ${selectedSlot.time}`}
+              >
+                <div className="space-y-4">
+                  <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
+                    {(["online", "in-person"] as const).map((type, i) => (
+                      <button
+                        key={type} type="button"
+                        onClick={() => setBookSessionType(type)}
+                        className={`flex-1 px-4 py-2.5 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${bookSessionType === type ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                      >
+                        {type === "online" ? "🎥 Online" : "📍 In-Person"}
+                      </button>
+                    ))}
+                  </div>
+                  <select value={bookSubject} onChange={(e) => setBookSubject(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    {student.subjects.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                  <select value={bookDuration} onChange={(e) => setBookDuration(Number(e.target.value))}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value={1}>1 hour</option>
+                    <option value={1.5}>1.5 hours</option>
+                    <option value={2}>2 hours</option>
+                  </select>
+                  <textarea value={bookNotes} onChange={(e) => setBookNotes(e.target.value)}
+                    placeholder="Any notes for your tutor? (optional)" rows={2}
+                    className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
+                  {(balance?.remaining ?? 0) < bookDuration && (
+                    <p className="text-xs text-amber-600">You only have {balance?.remaining ?? 0} hr remaining. Select a shorter duration.</p>
+                  )}
+                  {bookError && <p className="text-xs text-red-500">{bookError}</p>}
+                  <button onClick={submitBooking} disabled={(balance?.remaining ?? 0) < bookDuration}
+                    className="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    Confirm Booking
+                  </button>
+                </div>
+              </Modal>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── SESSION NOTES ── */}
       {tab === "notes" && (() => {
