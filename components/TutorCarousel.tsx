@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import { siteData } from "@/lib/data";
 
 export default function TutorCarousel() {
@@ -60,6 +60,11 @@ export default function TutorCarousel() {
 
                             {/* Tutor Info */}
                             <div className="space-y-2 mb-6">
+                                <div className="flex items-center justify-center gap-1.5 mb-1">
+                                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wide">Founding Tutor</span>
+                                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                                </div>
                                 <p className="text-white font-bold text-xl sm:text-2xl">{currentTutor.name}</p>
                                 <p className="text-blue-300 font-semibold text-sm">{currentTutor.title}</p>
                                 
