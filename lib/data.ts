@@ -174,9 +174,9 @@ export const siteData = {
             },
         ],
         competitors: [
-            { name: "Revolution Prep", pricePerHour: "$200+/hr", type: "Corporate tutoring company", url: "https://revolutionprep.com/tutoring/pricing/" },
-            { name: "Princeton Review", pricePerHour: "$200+/hr", type: "Large franchise model", url: "https://www.princetonreview.com/tutoring" },
-            { name: "TKO Prep", pricePerHour: "$200+/hr", type: "Premium test prep service", url: "https://www.tkoprep.com" },
+            { name: "Revolution Prep", pricePerHour: "$200+/hr", type: "Corporate tutoring company", url: "https://www.revolutionprep.com/programs/test-prep/sat/" },
+            { name: "Princeton Review", pricePerHour: "$200+/hr", type: "Large franchise model", url: "https://www.princetonreview.com/college/sat-test-prep?ceid=promo-sat" },
+            { name: "TKO Prep", pricePerHour: "$200+/hr", type: "Premium test prep service", url: "https://www.tkoprep.com/tutoring" },
         ],
         differentiators: [
             "No middleman — your money goes directly to your tutor, not a sales team",
@@ -353,7 +353,6 @@ export const siteData = {
             image: "/images/tutors/christian_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Mathematics–Computer Science, UC San Diego",
-                "M.S. Business Analytics, UC San Diego",
                 "MBA Candidate, Georgia Institute of Technology",
                 "Professional tutor at EdLadder",
             ],
