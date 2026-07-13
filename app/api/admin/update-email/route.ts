@@ -30,15 +30,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing fields" }, { status: 400 });
   }
 
-  const { data: profile } = await admin
+  // Primary lookup: by linked_id + role
+  let { data: profile } = await admin
     .from("profiles").select("id").eq("linked_id", linkedId).eq("role", role).maybeSingle();
 
-  if (!profile) return NextResponse.json({ ok: true, note: "no auth user found" });
+  // Fallback: role column may not be set — try without it
+  if (!profile) {
+    const { data: fallback } = await admin
+      .from("profiles").select("id").eq("linked_id", linkedId).maybeSingle();
+    profile = fallback;
+  }
+
+  if (!profile) {
+    return NextResponse.json(
+      { error: `No auth account is linked to this ${role} (linked_id=${linkedId}). Their login account may not exist or was created before profile linking was set up.` },
+      { status: 404 },
+    );
+  }
 
   const { error } = await admin.auth.admin.updateUserById(profile.id, {
     email: newEmail,
     email_confirm: true,
   });
+
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ ok: true });

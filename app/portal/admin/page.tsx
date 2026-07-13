@@ -51,6 +51,8 @@ export default function AdminPortal() {
   const [profileTutor,    setProfileTutor]    = useState<Tutor | null>(null);
   const [editingProfile,  setEditingProfile]  = useState(false);
   const [profileSaving,   setProfileSaving]   = useState(false);
+  const [syncEmailLoading, setSyncEmailLoading] = useState(false);
+  const [syncEmailMsg,     setSyncEmailMsg]     = useState<{ ok: boolean; text: string } | null>(null);
   // Student edit fields
   const [pfName,         setPfName]         = useState("");
   const [pfEmail,        setPfEmail]        = useState("");
@@ -533,6 +535,27 @@ export default function AdminPortal() {
       setTutors((prev) => prev.map((t) => t.id === updated.id ? updated : t));
       setProfileTutor(updated); setEditingProfile(false);
     } catch { /* silent */ } finally { setProfileSaving(false); }
+  }
+
+  async function syncStudentAuthEmail(student: Student) {
+    setSyncEmailLoading(true);
+    setSyncEmailMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired — please refresh.");
+      const res = await fetch("/api/admin/update-email", {
+        method: "POST",
+        headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+        body: JSON.stringify({ role: "student", linkedId: student.id, newEmail: student.email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setSyncEmailMsg({ ok: true, text: `✓ Login email synced to ${student.email}` });
+    } catch (e: unknown) {
+      setSyncEmailMsg({ ok: false, text: e instanceof Error ? e.message : "Sync failed" });
+    } finally {
+      setSyncEmailLoading(false);
+    }
   }
 
   const adminName = user?.fullName ?? "Jose Falconi";
@@ -1360,7 +1383,21 @@ export default function AdminPortal() {
                   <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{ps.notes}</p>
                 </div>
               )}
-              <button onClick={() => setEditingProfile(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={() => { setEditingProfile(true); setSyncEmailMsg(null); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+                <button
+                  onClick={() => syncStudentAuthEmail(ps)}
+                  disabled={syncEmailLoading}
+                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {syncEmailLoading ? "Syncing…" : "Resync Login Email"}
+                </button>
+              </div>
+              {syncEmailMsg && (
+                <p className={`text-xs font-medium ${syncEmailMsg.ok ? "text-green-600" : "text-red-500"}`}>
+                  {syncEmailMsg.text}
+                </p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
