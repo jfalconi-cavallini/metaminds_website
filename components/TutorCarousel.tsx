@@ -69,16 +69,17 @@ export default function TutorCarousel() {
                                 <p className="text-blue-300 font-semibold text-sm">{currentTutor.title}</p>
                                 
                                 {/* Credentials */}
-                                <div className="pt-4 border-t border-white/10 mt-4">
-                                    <p className="text-green-400 text-xs font-bold leading-relaxed">
-                                        {currentTutor.credentials?.[0]}
-                                    </p>
+                                <div className="pt-4 border-t border-white/10 mt-4 space-y-1.5">
+                                    {currentTutor.credentials?.slice(0, 3).map((cred, i) => {
+                                        const isAdvanced = /M\.S\.|MBA|Master/i.test(cred);
+                                        return (
+                                            <p key={i} className={`text-xs font-bold leading-relaxed flex items-start gap-1.5 ${isAdvanced ? "text-amber-400" : "text-green-400"}`}>
+                                                <span className="flex-shrink-0 mt-0.5">{isAdvanced ? "★" : "✓"}</span>
+                                                <span>{cred}</span>
+                                            </p>
+                                        );
+                                    })}
                                 </div>
-
-                                {/* Brief bio */}
-                                <p className="text-blue-100 text-xs leading-relaxed pt-3">
-                                    {currentTutor.bio}
-                                </p>
                             </div>
                         </motion.div>
                     </AnimatePresence>
