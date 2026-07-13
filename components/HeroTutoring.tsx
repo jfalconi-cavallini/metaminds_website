@@ -33,7 +33,7 @@ export default function HeroTutoring() {
                         </h1>
 
                         <p className="text-base md:text-lg text-blue-100 mb-7 leading-relaxed max-w-xl">
-                            Expert tutoring in SAT/ACT, Math, Coding, Robotics, and 3D Design from UC graduates.
+                            Expert tutoring in SAT/ACT, Math, Coding, and STEM from degreed professionals who work in their fields every day — not grad students or career tutors.
                         </p>
 
                         {/* CTA Buttons */}
@@ -70,7 +70,7 @@ export default function HeroTutoring() {
                             >
                                 <Users className="w-5 h-5 text-green-400 mb-2" />
                                 <div className="text-xs font-bold text-white">Expert Tutors</div>
-                                <div className="text-xs text-blue-200 mt-0.5">UC graduates</div>
+                                <div className="text-xs text-blue-200 mt-0.5">Active professionals</div>
                             </motion.div>
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}

@@ -18,7 +18,7 @@ export default function PlatformFeatures() {
     const { platform } = siteData;
 
     return (
-        <Section id="platform" className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 py-20">
+        <Section id="platform" className="bg-white py-20">
             <div className="text-center mb-14">
                 <motion.div
                     initial={{ opacity: 0, y: -10 }}
@@ -26,13 +26,13 @@ export default function PlatformFeatures() {
                     viewport={{ once: true }}
                     className="inline-block mb-3"
                 >
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Beyond the Session</span>
+                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Beyond the Session</span>
                 </motion.div>
                 <motion.h2
                     initial={{ opacity: 0, y: -10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-3xl md:text-4xl font-black text-white mb-4"
+                    className="text-3xl md:text-4xl font-black text-gray-900 mb-4"
                 >
                     {platform.headline}
                 </motion.h2>
@@ -41,7 +41,7 @@ export default function PlatformFeatures() {
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.1 }}
-                    className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed"
+                    className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed"
                 >
                     {platform.subheadline}
                 </motion.p>
@@ -57,13 +57,13 @@ export default function PlatformFeatures() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true, margin: "-50px" }}
                             transition={{ delay: idx * 0.08 }}
-                            className="bg-white/5 backdrop-blur border border-white/10 rounded-xl p-6 hover:bg-white/10 hover:border-blue-500/40 transition-all group"
+                            className="bg-slate-50 border border-blue-100 rounded-xl p-6 hover:shadow-md hover:border-blue-300 transition-all group"
                         >
-                            <div className="w-11 h-11 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center mb-4 group-hover:bg-blue-600/30 transition-colors">
-                                <Icon className="w-5 h-5 text-blue-400" />
+                            <div className="w-11 h-11 rounded-xl bg-blue-600 flex items-center justify-center mb-4 group-hover:bg-blue-700 transition-colors shadow-sm">
+                                <Icon className="w-5 h-5 text-white" />
                             </div>
-                            <h3 className="text-base font-bold text-white mb-2">{feature.title}</h3>
-                            <p className="text-sm text-blue-200 leading-relaxed">{feature.description}</p>
+                            <h3 className="text-base font-bold text-gray-900 mb-2">{feature.title}</h3>
+                            <p className="text-sm text-gray-600 leading-relaxed">{feature.description}</p>
                         </motion.div>
                     );
                 })}
@@ -76,9 +76,9 @@ export default function PlatformFeatures() {
                 transition={{ delay: 0.3 }}
                 className="mt-12 text-center"
             >
-                <div className="inline-flex items-center gap-2 bg-blue-600/20 border border-blue-500/30 rounded-full px-5 py-2.5">
-                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    <span className="text-sm text-blue-200 font-medium">Platform access included with every tutoring package</span>
+                <div className="inline-flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-full px-5 py-2.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-sm text-blue-700 font-semibold">Platform access included with every tutoring package</span>
                 </div>
             </motion.div>
         </Section>
