@@ -7,19 +7,19 @@ import { siteData } from "@/lib/data";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: `${siteData.brand.name} | DFW Robotics Summer Camp`,
+  title: `${siteData.brand.name} | ${siteData.brand.tagline}`,
   description: siteData.brand.description,
   openGraph: {
-    title: "MetaMinds STEM Academy — Robotics Summer Camp",
-    description: "Build robots, learn to code & 3D print. Ages 6+, 9AM–3PM. Limited founding spots from $399/week.",
+    title: `MetaMinds STEM Academy — ${siteData.brand.tagline}`,
+    description: siteData.brand.description,
     url: "https://www.metamindsstemacademy.com/",
     siteName: "MetaMinds STEM Academy",
     images: [
       {
-        url: "https://www.metamindsstemacademy.com/images/metaminds-logo-mobile.png",
+        url: "https://www.metamindsstemacademy.com/images/metaminds-logo2.png",
         width: 1200,
         height: 630,
-        alt: "MetaMinds STEM Academy — Kids building robots",
+        alt: "MetaMinds STEM Academy — Expert STEM Tutoring",
       },
     ],
     type: "website",
