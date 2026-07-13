@@ -174,9 +174,9 @@ export const siteData = {
             },
         ],
         competitors: [
-            { name: "Revolution Prep", pricePerHour: "$200+/hr", type: "Corporate tutoring company", url: "https://www.revolutionprep.com/programs/test-prep/sat/" },
-            { name: "Princeton Review", pricePerHour: "$200+/hr", type: "Large franchise model", url: "https://www.princetonreview.com/college/sat-test-prep?ceid=promo-sat" },
             { name: "TKO Prep", pricePerHour: "$200+/hr", type: "Premium test prep service", url: "https://www.tkoprep.com/tutoring" },
+            { name: "Princeton Review", pricePerHour: "$200+/hr", type: "Large franchise model", url: "https://www.princetonreview.com/college/sat-test-prep?ceid=promo-sat" },
+            { name: "Revolution Prep", pricePerHour: "$200+/hr", type: "Corporate tutoring company", url: "https://www.revolutionprep.com/programs/test-prep/sat/" },
         ],
         differentiators: [
             "No middleman — your money goes directly to your tutor, not a sales team",
@@ -275,10 +275,10 @@ export const siteData = {
     },
 
     nav: [
-        { label: "Programs", href: "#programs" },
         { label: "Platform", href: "#platform" },
         { label: "Our Team", href: "#team" },
         { label: "Pricing", href: "#pricing" },
+        { label: "Programs", href: "#programs" },
         { label: "Results", href: "#results" },
         { label: "FAQ", href: "#faq" },
     ],
