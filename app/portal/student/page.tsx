@@ -23,7 +23,8 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard, Calendar, FileText, Bell, BookOpen,
   Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
-  Video, RotateCcw, X, Timer,
+  Video, RotateCcw, X, Timer, CheckCircle, AlertCircle,
+  Paperclip, Upload, Lightbulb,
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 
@@ -140,6 +141,8 @@ export default function StudentPortal() {
   const [hwUploadingId,   setHwUploadingId]   = useState<number | null>(null);
   const [hwUploadErrors,  setHwUploadErrors]  = useState<Record<number, string>>({});
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
+  const [hwFilter,        setHwFilter]        = useState<"todo" | "completed" | "all">("todo");
+  const [hwExpandedIds,   setHwExpandedIds]   = useState<Set<number>>(new Set());
 
   const todayIso  = new Date().toISOString().slice(0, 10);
   const upcoming  = mySessions.filter((s) => s.status === "upcoming" && s.date >= todayIso).sort((a, b) => a.date.localeCompare(b.date));
@@ -1032,178 +1035,323 @@ export default function StudentPortal() {
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const pending   = homeworkList.filter((h) => h.status === "pending");
-        const submitted = homeworkList.filter((h) => h.status === "submitted");
-        const completed = homeworkList.filter((h) => h.status === "completed");
+        const today       = new Date().toISOString().slice(0, 10);
+        const overdue     = homeworkList.filter((h) => h.status === "pending" && !!h.dueDate && h.dueDate < today);
+        const pending     = homeworkList.filter((h) => h.status === "pending");
+        const submitted   = homeworkList.filter((h) => h.status === "submitted");
+        const completedHw = homeworkList.filter((h) => h.status === "completed");
+
+        const todoList     = [...pending, ...submitted];
+        const filteredList =
+          hwFilter === "todo"      ? todoList
+          : hwFilter === "completed" ? completedHw
+          : homeworkList;
 
         const AssignmentCard = ({ h }: { h: (typeof homeworkList)[0] }) => {
-          const isOverdue = h.dueDate && h.dueDate < today && h.status === "pending";
-          const file = hwSelectedFiles[h.id];
+          const isOverdue   = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+          const isExpanded  = hwExpandedIds.has(h.id);
+          const file        = hwSelectedFiles[h.id];
           const isUploading = hwUploadingId === h.id;
           const uploadError = hwUploadErrors[h.id];
 
-          const borderColor =
-            h.status === "completed" ? "border-green-200" :
-            h.status === "submitted" ? "border-blue-200" :
-            isOverdue               ? "border-red-200"  : "border-gray-200";
+          const stripColor =
+            h.status === "completed" ? "bg-emerald-500"
+            : h.status === "submitted" ? "bg-blue-400"
+            : isOverdue ? "bg-red-500"
+            : "bg-amber-400";
 
-          const statusChip =
+          const iconBg =
+            h.status === "completed" ? "bg-emerald-50"
+            : h.status === "submitted" ? "bg-blue-50"
+            : isOverdue ? "bg-red-50"
+            : "bg-amber-50";
+
+          const iconColor =
+            h.status === "completed" ? "text-emerald-600"
+            : h.status === "submitted" ? "text-blue-600"
+            : isOverdue ? "text-red-600"
+            : "text-amber-600";
+
+          const statusBadge =
             h.status === "completed" ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />GRADED
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />GRADED
               </span>
             ) : h.status === "submitted" ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />SUBMITTED
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />SUBMITTED
               </span>
             ) : isOverdue ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />OVERDUE
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />OVERDUE
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-yellow-700 bg-yellow-50 border border-yellow-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-yellow-400" />PENDING
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />PENDING
               </span>
             );
 
+          const toggleExpand = () =>
+            setHwExpandedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(h.id)) next.delete(h.id); else next.add(h.id);
+              return next;
+            });
+
           return (
-            <div className={`bg-white rounded-xl border-2 ${borderColor} overflow-hidden`}>
-              <div className="p-5">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  {statusChip}
-                  {h.dueDate && h.status === "pending" && (
-                    <span className={`text-xs font-medium ${isOverdue ? "text-red-500" : "text-gray-400"}`}>
-                      Due {formatDate(h.dueDate)}{isOverdue ? " — Overdue" : ""}
-                    </span>
-                  )}
-                </div>
-                <p className="font-semibold text-gray-900 text-lg leading-snug mb-1">{h.task}</p>
-                <p className="text-xs text-gray-400">
-                  Assigned {formatDate(h.assignedDate)}
-                  {h.dueDate && h.status !== "pending" ? ` · Due ${formatDate(h.dueDate)}` : ""}
-                  {h.submittedAt ? ` · Submitted ${formatDate(h.submittedAt.slice(0, 10))}` : ""}
-                </p>
-              </div>
-
-              {/* Submission area */}
-              <div className={`border-t px-5 py-4 ${h.status === "completed" ? "bg-green-50 border-green-100" : h.status === "submitted" ? "bg-blue-50 border-blue-100" : "bg-gray-50 border-gray-100"}`}>
-
-                {/* Already submitted — show file */}
-                {h.submissionUrl && h.submissionFilename && (
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-xl">📄</span>
-                    <span className="text-sm font-medium text-gray-800 flex-1 truncate">{h.submissionFilename}</span>
-                    <button onClick={() => openSubmission(h)} disabled={hwOpeningId === h.id}
-                      className="text-sm text-blue-600 hover:underline font-semibold shrink-0 disabled:opacity-50">
-                      {hwOpeningId === h.id ? "Opening…" : "View →"}
+            <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow hover:shadow-md ${isExpanded ? "ring-1 ring-blue-100" : ""}`}>
+              <div className="flex items-stretch">
+                <div className={`w-1 shrink-0 ${stripColor}`} />
+                <div className="flex-1 flex items-center gap-4 p-4">
+                  <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
+                    <BookOpen className={`w-5 h-5 ${iconColor}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-gray-900 text-sm truncate">{h.task}</p>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {h.dueDate ? (
+                        <span className={`text-xs font-medium ${isOverdue ? "text-red-500" : "text-gray-400"}`}>
+                          Due {formatDate(h.dueDate)}{isOverdue ? " — Overdue" : ""}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">Assigned {formatDate(h.assignedDate)}</span>
+                      )}
+                      {h.submittedAt && (
+                        <span className="text-xs text-gray-400">· Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <div className="hidden sm:block">{statusBadge}</div>
+                    <button
+                      onClick={toggleExpand}
+                      className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
+                        isExpanded
+                          ? "bg-gray-100 text-gray-600 border-gray-200"
+                          : h.status === "pending" && isOverdue
+                          ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                          : h.status === "pending"
+                          ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                          : h.status === "submitted"
+                          ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                      }`}>
+                      {isExpanded
+                        ? "Close"
+                        : h.status === "pending" && isOverdue
+                        ? "Submit Now"
+                        : h.status === "pending"
+                        ? "Start Assignment"
+                        : h.status === "submitted"
+                        ? "View File"
+                        : "View Details"}
                     </button>
                   </div>
-                )}
+                </div>
+              </div>
 
-                {/* Grade + comments from tutor */}
-                {h.status === "completed" && (h.grade || h.feedback) && (
-                  <div className="mb-3 bg-white border border-green-200 rounded-xl p-3 space-y-2">
-                    {h.grade && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Grade</span>
-                        <span className="text-base font-bold text-green-700 bg-green-100 px-3 py-0.5 rounded-full">{h.grade}</span>
-                      </div>
-                    )}
-                    {h.feedback && (
-                      <div>
-                        <p className="text-xs font-semibold text-green-700 mb-0.5">Tutor Comments</p>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">{h.feedback}</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Pending: file upload */}
-                {h.status === "pending" && (
-                  <div>
-                    {/* Selected file preview */}
-                    {file && (
-                      <div className="flex items-center gap-2 mb-3 bg-white border border-gray-200 rounded-lg px-3 py-2">
-                        <span>📄</span>
-                        <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
-                        <button
-                          onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
-                          className="text-xs text-gray-400 hover:text-red-500 font-medium shrink-0 transition-colors">
-                          Remove
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Two action buttons */}
-                    <div className="flex items-center gap-3">
-                      <label className="cursor-pointer">
-                        <input
-                          type="file"
-                          accept=".pdf,application/pdf"
-                          className="hidden"
-                          onChange={(e) => {
-                            const f = e.target.files?.[0];
-                            if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f }));
-                            e.target.value = "";
-                          }}
-                        />
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-colors font-medium select-none">
-                          📎 {file ? "Change File" : "Attach Document"}
-                        </span>
-                      </label>
+              {isExpanded && (
+                <div className={`border-t px-5 py-4 ${
+                  h.status === "completed"
+                    ? "bg-emerald-50/50 border-emerald-100"
+                    : h.status === "submitted"
+                    ? "bg-blue-50/50 border-blue-100"
+                    : "bg-gray-50 border-gray-100"
+                }`}>
+                  {h.submissionUrl && h.submissionFilename && (
+                    <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span className="text-sm font-medium text-gray-700 flex-1 truncate">{h.submissionFilename}</span>
                       <button
-                        onClick={() => handleHomeworkUpload(h)}
-                        disabled={!file || isUploading}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                        {isUploading ? "Submitting…" : "Submit Assignment"}
+                        onClick={() => openSubmission(h)}
+                        disabled={hwOpeningId === h.id}
+                        className="text-sm text-blue-600 hover:text-blue-700 font-semibold shrink-0 disabled:opacity-50">
+                        {hwOpeningId === h.id ? "Opening…" : "Open →"}
                       </button>
                     </div>
-
-                    {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
-                    <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
-                  </div>
-                )}
-
-                {h.status === "submitted" && (
-                  <p className="text-xs text-blue-600 font-medium">Submitted — awaiting tutor review</p>
-                )}
-              </div>
+                  )}
+                  {h.status === "completed" && (h.grade || h.feedback) && (
+                    <div className="mb-3 bg-white border border-emerald-200 rounded-xl p-4 space-y-2">
+                      {h.grade && (
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Grade</span>
+                          <span className="font-bold text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full text-sm">{h.grade}</span>
+                        </div>
+                      )}
+                      {h.feedback && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 mb-1">Tutor Feedback</p>
+                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{h.feedback}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {h.status === "pending" && (
+                    <div>
+                      {file && (
+                        <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                          <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                          <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
+                          <button
+                            onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
+                            className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-3">
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            accept=".pdf,application/pdf"
+                            className="hidden"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f }));
+                              e.target.value = "";
+                            }}
+                          />
+                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
+                            <Paperclip className="w-3.5 h-3.5" />
+                            {file ? "Change File" : "Attach PDF"}
+                          </span>
+                        </label>
+                        <button
+                          onClick={() => handleHomeworkUpload(h)}
+                          disabled={!file || isUploading}
+                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                          <Upload className="w-3.5 h-3.5" />
+                          {isUploading ? "Submitting…" : "Submit"}
+                        </button>
+                      </div>
+                      {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
+                      <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
+                    </div>
+                  )}
+                  {h.status === "submitted" && !h.submissionUrl && (
+                    <p className="text-sm text-blue-600 font-medium">Submitted — awaiting your tutor&apos;s review.</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         };
 
         return (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Assignments</h1>
-              <div className="flex gap-2 text-xs font-medium">
-                {pending.length > 0 && (
-                  <span className="bg-yellow-100 text-yellow-700 px-2.5 py-1 rounded-full">
-                    {pending.length} pending
-                  </span>
-                )}
-                {submitted.length > 0 && (
-                  <span className="bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
-                    {submitted.length} submitted
-                  </span>
-                )}
+          <div className="space-y-6">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Homework</h1>
+                <p className="text-sm text-gray-400 mt-1">Stay on top of your assignments and never miss a due date.</p>
               </div>
+              <button
+                onClick={() => setTab("sessions")}
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+                <Calendar className="w-4 h-4" />
+                View Calendar
+              </button>
             </div>
 
-            {homeworkList.length === 0 && (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-4xl mb-3">📚</p>
-                <p className="text-sm font-medium">No assignments yet.</p>
-                <p className="text-xs mt-1">Your tutor will assign work here.</p>
+            {/* Stats Row */}
+            <div className="grid grid-cols-3 gap-4">
+              {([
+                { label: "To Do",      value: pending.length,     sub: pending.length     === 1 ? "assignment" : "assignments", Icon: BookOpen,    iconBg: "bg-blue-50",    iconColor: "text-blue-600",    valColor: "text-gray-900"    },
+                { label: "Completed",  value: completedHw.length, sub: completedHw.length === 1 ? "assignment" : "assignments", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", valColor: "text-emerald-700" },
+                { label: "Late",       value: overdue.length,     sub: overdue.length     === 1 ? "assignment" : "assignments", Icon: AlertCircle, iconBg: overdue.length > 0 ? "bg-red-50"   : "bg-gray-50",  iconColor: overdue.length > 0 ? "text-red-500"    : "text-gray-300", valColor: overdue.length > 0 ? "text-red-600"    : "text-gray-300" },
+              ] as const).map(({ label, value, sub, Icon, iconBg, iconColor, valColor }, i) => (
+                <motion.div
+                  key={label}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: i * 0.06 }}
+                  className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+                  <div className="flex items-start justify-between mb-3">
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
+                    <div className={`w-8 h-8 ${iconBg} rounded-lg flex items-center justify-center shrink-0`}>
+                      <Icon className={`w-4 h-4 ${iconColor}`} />
+                    </div>
+                  </div>
+                  <p className={`text-3xl font-bold ${valColor}`}>{value}</p>
+                  <p className="text-xs text-gray-400 mt-1">{sub}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Filter Tabs */}
+            <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
+              {([
+                { key: "todo"      as const, label: "To Do",          count: todoList.length     },
+                { key: "completed" as const, label: "Completed",      count: completedHw.length  },
+                { key: "all"       as const, label: "All Assignments", count: homeworkList.length },
+              ]).map(({ key, label, count }) => (
+                <button
+                  key={key}
+                  onClick={() => setHwFilter(key)}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+                    hwFilter === key
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}>
+                  {label}{" "}
+                  <span className={`text-xs ${hwFilter === key ? "text-blue-600" : "text-gray-400"}`}>({count})</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Empty state */}
+            {filteredList.length === 0 && (
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <BookOpen className="w-7 h-7 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500">
+                  {hwFilter === "todo"
+                    ? "No pending assignments — great work!"
+                    : hwFilter === "completed"
+                    ? "No completed assignments yet."
+                    : "No assignments yet."}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  {hwFilter === "todo" ? "Your tutor will assign new work after sessions." : ""}
+                </p>
               </div>
             )}
 
-            <div className="space-y-4">
-              {[...pending, ...submitted, ...completed].map((h) => (
-                <AssignmentCard key={h.id} h={h} />
-              ))}
-            </div>
+            {/* Assignment cards */}
+            {filteredList.length > 0 && (
+              <div className="space-y-3">
+                {filteredList.map((h, i) => (
+                  <motion.div
+                    key={h.id}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: i * 0.04 }}>
+                    <AssignmentCard h={h} />
+                  </motion.div>
+                ))}
+              </div>
+            )}
+
+            {/* Study Tip */}
+            {homeworkList.length > 0 && (
+              <div className="flex items-start gap-4 bg-blue-50/60 border border-blue-100 rounded-2xl p-5">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+                  <Lightbulb className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-gray-900 mb-1">Study Tip</p>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    Review your session notes before starting each assignment — it reinforces what you learned and makes the work feel easier.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setTab("notes")}
+                  className="shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 bg-white px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap">
+                  View Notes
+                </button>
+              </div>
+            )}
           </div>
         );
       })()}
