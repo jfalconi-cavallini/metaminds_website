@@ -1003,11 +1003,13 @@ export default function TutorPortal() {
                       {/* ── Parent Update sub-tab ── */}
                       {studentPanelTab === "update" && (() => {
                         const weekAgoIso3 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+                        const coveredSessionIds = new Set(sUpdates.flatMap((u) => u.sessionIds));
                         const recentPastSessions = localSessions
                           .filter((sess) =>
                             sess.studentId === s.id &&
                             (sess.status === "completed" || sess.date < todayIso) &&
-                            sess.date >= weekAgoIso3
+                            sess.date >= weekAgoIso3 &&
+                            !coveredSessionIds.has(sess.id)
                           )
                           .sort((a, b) => b.date.localeCompare(a.date));
                         return (
