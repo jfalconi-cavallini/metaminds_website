@@ -1130,20 +1130,16 @@ export default function StudentPortal() {
                           ? "bg-gray-100 text-gray-600 border-gray-200"
                           : h.status === "pending" && isOverdue
                           ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
-                          : h.status === "pending"
+                          : h.status !== "completed"
                           ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                          : h.status === "submitted"
-                          ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                           : "border-gray-200 text-gray-600 hover:bg-gray-50"
                       }`}>
                       {isExpanded
                         ? "Close"
                         : h.status === "pending" && isOverdue
                         ? "Submit Now"
-                        : h.status === "pending"
+                        : h.status !== "completed"
                         ? "Start Assignment"
-                        : h.status === "submitted"
-                        ? "View File"
                         : "View Details"}
                     </button>
                   </div>
@@ -1186,8 +1182,13 @@ export default function StudentPortal() {
                       )}
                     </div>
                   )}
-                  {h.status === "pending" && (
+                  {(h.status === "pending" || h.status === "submitted") && (
                     <div>
+                      {h.status === "submitted" && (
+                        <p className="text-xs text-gray-400 mb-3">
+                          Already submitted — upload a new file below to replace your submission.
+                        </p>
+                      )}
                       {file && (
                         <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
                           <FileText className="w-4 h-4 text-gray-400 shrink-0" />
@@ -1227,9 +1228,6 @@ export default function StudentPortal() {
                       {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                       <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
                     </div>
-                  )}
-                  {h.status === "submitted" && !h.submissionUrl && (
-                    <p className="text-sm text-blue-600 font-medium">Submitted — awaiting your tutor&apos;s review.</p>
                   )}
                 </div>
               )}
