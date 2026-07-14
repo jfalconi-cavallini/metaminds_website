@@ -1130,17 +1130,13 @@ export default function StudentPortal() {
                           ? "bg-gray-100 text-gray-600 border-gray-200"
                           : h.status === "pending" && isOverdue
                           ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
-                          : h.status !== "completed"
-                          ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50"
+                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                       }`}>
                       {isExpanded
                         ? "Close"
                         : h.status === "pending" && isOverdue
                         ? "Submit Now"
-                        : h.status !== "completed"
-                        ? "Start Assignment"
-                        : "View Details"}
+                        : "Start Assignment"}
                     </button>
                   </div>
                 </div>
@@ -1182,11 +1178,12 @@ export default function StudentPortal() {
                       )}
                     </div>
                   )}
-                  {(h.status === "pending" || h.status === "submitted") && (
-                    <div>
-                      {h.status === "submitted" && (
+                  <div>
+                      {h.status !== "pending" && (
                         <p className="text-xs text-gray-400 mb-3">
-                          Already submitted — upload a new file below to replace your submission.
+                          {h.status === "submitted"
+                            ? "Already submitted — upload a new file below to replace your submission."
+                            : "Already graded — you can still upload an improved version below."}
                         </p>
                       )}
                       {file && (
@@ -1228,7 +1225,6 @@ export default function StudentPortal() {
                       {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                       <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
                     </div>
-                  )}
                 </div>
               )}
             </div>
