@@ -141,7 +141,7 @@ export default function StudentPortal() {
   const [hwUploadingId,   setHwUploadingId]   = useState<number | null>(null);
   const [hwUploadErrors,  setHwUploadErrors]  = useState<Record<number, string>>({});
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
-  const [hwFilter,        setHwFilter]        = useState<"todo" | "completed" | "all">("todo");
+  const [hwFilter,        setHwFilter]        = useState<"todo" | "submitted" | "graded" | "all">("todo");
   const [hwExpandedIds,   setHwExpandedIds]   = useState<Set<number>>(new Set());
 
   const todayIso  = new Date().toISOString().slice(0, 10);
@@ -1035,22 +1035,17 @@ export default function StudentPortal() {
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
-        const today         = new Date().toISOString().slice(0, 10);
-        const pending       = homeworkList.filter((h) => h.status === "pending");
-        const submitted     = homeworkList.filter((h) => h.status === "submitted");
-        const completedHw   = homeworkList.filter((h) => h.status === "completed");
-        const overdue       = pending.filter((h) => !!h.dueDate && h.dueDate < today);
-        const urgentPending = pending.filter((h) => !h.dueDate || h.dueDate <= today);
-        const futurePending = pending.filter((h) => !!h.dueDate && h.dueDate > today);
+        const today       = new Date().toISOString().slice(0, 10);
+        const pending     = homeworkList.filter((h) => h.status === "pending");
+        const submitted   = homeworkList.filter((h) => h.status === "submitted");
+        const completedHw = homeworkList.filter((h) => h.status === "completed");
+        const overdue     = pending.filter((h) => !!h.dueDate && h.dueDate < today);
 
-        // Table rows by filter
         const tableItems =
-          hwFilter === "todo"        ? urgentPending
-          : hwFilter === "completed" ? completedHw
+          hwFilter === "todo"      ? pending
+          : hwFilter === "submitted" ? submitted
+          : hwFilter === "graded"    ? completedHw
           : homeworkList;
-
-        // Upcoming cards: future-due + submitted, only in "To Do" view
-        const upcomingCards = hwFilter === "todo" ? [...futurePending, ...submitted] : [];
 
         const toggleExpand = (id: number) =>
           setHwExpandedIds((prev) => {
@@ -1158,9 +1153,9 @@ export default function StudentPortal() {
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-4">
               {([
-                { label: "To Do",     value: urgentPending.length, sub: urgentPending.length === 1 ? "assignment" : "assignments", Icon: BookOpen,    iconBg: "bg-blue-50",    iconColor: "text-blue-600",    valColor: "text-gray-900"    },
-                { label: "Completed", value: completedHw.length,   sub: completedHw.length   === 1 ? "assignment" : "assignments", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", valColor: "text-emerald-700" },
-                { label: "Late",      value: overdue.length,        sub: overdue.length        === 1 ? "assignment" : "assignments", Icon: AlertCircle, iconBg: overdue.length > 0 ? "bg-red-50" : "bg-gray-50", iconColor: overdue.length > 0 ? "text-red-500" : "text-gray-300", valColor: overdue.length > 0 ? "text-red-600" : "text-gray-300" },
+                { label: "To Do",     value: pending.length,     sub: pending.length     === 1 ? "assignment" : "assignments", Icon: BookOpen,    iconBg: "bg-blue-50",    iconColor: "text-blue-600",    valColor: "text-gray-900"    },
+                { label: "Submitted", value: submitted.length,   sub: submitted.length   === 1 ? "assignment" : "assignments", Icon: CheckCircle, iconBg: "bg-violet-50",  iconColor: "text-violet-500",  valColor: "text-violet-700"  },
+                { label: "Late",      value: overdue.length,     sub: overdue.length     === 1 ? "assignment" : "assignments", Icon: AlertCircle, iconBg: overdue.length > 0 ? "bg-red-50" : "bg-gray-50", iconColor: overdue.length > 0 ? "text-red-500" : "text-gray-300", valColor: overdue.length > 0 ? "text-red-600" : "text-gray-300" },
               ] as const).map(({ label, value, sub, Icon, iconBg, iconColor, valColor }, i) => (
                 <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: i * 0.06 }}
                   className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
@@ -1176,18 +1171,34 @@ export default function StudentPortal() {
               ))}
             </div>
 
-            {/* Filter Tabs */}
-            <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
-              {([
-                { key: "todo"      as const, label: "To Do",          count: urgentPending.length },
-                { key: "completed" as const, label: "Completed",      count: completedHw.length   },
-                { key: "all"       as const, label: "All Assignments", count: homeworkList.length  },
-              ]).map(({ key, label, count }) => (
-                <button key={key} onClick={() => setHwFilter(key)}
-                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${hwFilter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-                  {label}{" "}<span className={`text-xs ${hwFilter === key ? "text-blue-600" : "text-gray-400"}`}>({count})</span>
-                </button>
-              ))}
+            {/* Filter Tabs + View All */}
+            <div className="flex items-center gap-3">
+              <div className="flex bg-gray-100 p-1 rounded-2xl gap-1 flex-1">
+                {([
+                  { key: "todo"      as const, label: "To Do",    count: pending.length   },
+                  { key: "submitted" as const, label: "Submitted", count: submitted.length },
+                  { key: "graded"    as const, label: "Graded",   count: completedHw.length },
+                ]).map(({ key, label, count }) => (
+                  <button key={key} onClick={() => setHwFilter(key)}
+                    className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+                      hwFilter === key
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}>
+                    {label}{" "}<span className={`text-xs ${hwFilter === key ? "text-blue-600" : "text-gray-400"}`}>({count})</span>
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setHwFilter(hwFilter === "all" ? "todo" : "all")}
+                className={`shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-xl border transition-all ${
+                  hwFilter === "all"
+                    ? "bg-gray-900 text-white border-gray-900"
+                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+                }`}>
+                <BookOpen className="w-3.5 h-3.5" />
+                {hwFilter === "all" ? "Filtered View" : "View All"}
+              </button>
             </div>
 
             {/* Main table */}
@@ -1226,11 +1237,17 @@ export default function StudentPortal() {
                             <td className="py-4 px-5">
                               <button onClick={() => toggleExpand(h.id)}
                                 className={`text-xs font-semibold px-3 py-1.5 rounded-xl border whitespace-nowrap transition-colors ${
-                                  isExpanded ? "bg-gray-100 text-gray-600 border-gray-200"
-                                  : isOverdue ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                                  isExpanded          ? "bg-gray-100 text-gray-600 border-gray-200"
+                                  : isOverdue         ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                                  : h.status === "submitted" ? "border-gray-200 text-gray-700 hover:bg-gray-50"
+                                  : h.status === "completed" ? "border-gray-200 text-gray-600 hover:bg-gray-50"
                                   : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                                 }`}>
-                                {isExpanded ? "Close" : isOverdue ? "Submit Now" : "Start Assignment"}
+                                {isExpanded ? "Close"
+                                  : isOverdue ? "Submit Now"
+                                  : h.status === "submitted" ? "Edit Submission"
+                                  : h.status === "completed" ? "View Details"
+                                  : "Start Assignment"}
                               </button>
                             </td>
                           </tr>
@@ -1251,59 +1268,11 @@ export default function StudentPortal() {
                   <BookOpen className="w-7 h-7 text-gray-300" />
                 </div>
                 <p className="text-sm font-semibold text-gray-500">
-                  {hwFilter === "todo" ? "No urgent assignments — great work!" : hwFilter === "completed" ? "No completed assignments yet." : "No assignments yet."}
+                  {hwFilter === "todo" ? "No pending assignments — great work!" : hwFilter === "submitted" ? "Nothing submitted yet." : hwFilter === "graded" ? "No graded assignments yet." : "No assignments yet."}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {hwFilter === "todo" ? "Your tutor will assign new work after sessions." : ""}
                 </p>
-              </div>
-            )}
-
-            {/* Upcoming Assignments */}
-            {upcomingCards.length > 0 && (
-              <div>
-                <h2 className="text-base font-bold text-gray-900 mb-3">Upcoming Assignments</h2>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                  {upcomingCards.slice(0, 5).map((h, i) => {
-                    const isExpanded = hwExpandedIds.has(h.id);
-                    const isOv       = h.status === "pending" && !!h.dueDate && h.dueDate < today;
-                    return (
-                      <div key={h.id}>
-                        <div className="flex items-center gap-4 p-4">
-                          <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-indigo-600">{i + 1}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-900 text-sm truncate">{h.task}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{tutor?.name ?? ""}</p>
-                          </div>
-                          {h.dueDate && (
-                            <div className="text-right shrink-0 hidden sm:block">
-                              <p className="text-[11px] text-gray-400 font-medium">Due Submission</p>
-                              <p className={`text-xs font-semibold mt-0.5 ${isOv ? "text-red-500" : "text-gray-600"}`}>{formatDate(h.dueDate)}</p>
-                            </div>
-                          )}
-                          <div className="hidden md:block shrink-0">{mkStatusBadge(h)}</div>
-                          <button onClick={() => toggleExpand(h.id)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-xl border shrink-0 transition-colors ${
-                              isExpanded ? "bg-gray-100 text-gray-600 border-gray-200"
-                              : h.status === "submitted" ? "border-gray-200 text-gray-700 hover:bg-gray-50"
-                              : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                            }`}>
-                            {isExpanded ? "Close" : h.status === "submitted" ? "Edit Submission" : "Start Assignment"}
-                          </button>
-                        </div>
-                        {isExpanded && mkExpandPanel(h)}
-                      </div>
-                    );
-                  })}
-                </div>
-                {upcomingCards.length > 5 && (
-                  <button onClick={() => setHwFilter("all")}
-                    className="mt-3 w-full text-sm text-blue-600 font-semibold py-2 text-center hover:text-blue-700 transition-colors">
-                    View All Assignments →
-                  </button>
-                )}
               </div>
             )}
 
