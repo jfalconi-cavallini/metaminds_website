@@ -1287,9 +1287,10 @@ export default function StudentPortal() {
                           <button onClick={() => toggleExpand(h.id)}
                             className={`text-xs font-semibold px-3 py-1.5 rounded-xl border shrink-0 transition-colors ${
                               isExpanded ? "bg-gray-100 text-gray-600 border-gray-200"
+                              : h.status === "submitted" ? "border-gray-200 text-gray-700 hover:bg-gray-50"
                               : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
                             }`}>
-                            {isExpanded ? "Close" : "Start Assignment"}
+                            {isExpanded ? "Close" : h.status === "submitted" ? "Edit Submission" : "Start Assignment"}
                           </button>
                         </div>
                         {isExpanded && mkExpandPanel(h)}
