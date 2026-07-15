@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 import Badge from "@/components/portal/Badge";
@@ -1035,198 +1035,108 @@ export default function StudentPortal() {
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
-        const today       = new Date().toISOString().slice(0, 10);
-        const overdue     = homeworkList.filter((h) => h.status === "pending" && !!h.dueDate && h.dueDate < today);
-        const pending     = homeworkList.filter((h) => h.status === "pending");
-        const submitted   = homeworkList.filter((h) => h.status === "submitted");
-        const completedHw = homeworkList.filter((h) => h.status === "completed");
+        const today         = new Date().toISOString().slice(0, 10);
+        const pending       = homeworkList.filter((h) => h.status === "pending");
+        const submitted     = homeworkList.filter((h) => h.status === "submitted");
+        const completedHw   = homeworkList.filter((h) => h.status === "completed");
+        const overdue       = pending.filter((h) => !!h.dueDate && h.dueDate < today);
+        const urgentPending = pending.filter((h) => !h.dueDate || h.dueDate <= today);
+        const futurePending = pending.filter((h) => !!h.dueDate && h.dueDate > today);
 
-        const todoList     = [...pending, ...submitted];
-        const filteredList =
-          hwFilter === "todo"      ? todoList
+        // Table rows by filter
+        const tableItems =
+          hwFilter === "todo"        ? urgentPending
           : hwFilter === "completed" ? completedHw
           : homeworkList;
 
-        const AssignmentCard = ({ h }: { h: (typeof homeworkList)[0] }) => {
-          const isOverdue   = h.status === "pending" && !!h.dueDate && h.dueDate < today;
-          const isExpanded  = hwExpandedIds.has(h.id);
+        // Upcoming cards: future-due + submitted, only in "To Do" view
+        const upcomingCards = hwFilter === "todo" ? [...futurePending, ...submitted] : [];
+
+        const toggleExpand = (id: number) =>
+          setHwExpandedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          });
+
+        const mkStatusBadge = (h: (typeof homeworkList)[0]) => {
+          const isOv = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+          const isDT = h.status === "pending" && h.dueDate === today;
+          if (h.status === "completed")
+            return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />Graded</span>;
+          if (h.status === "submitted")
+            return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />Submitted</span>;
+          if (isOv)
+            return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />Overdue</span>;
+          if (isDT)
+            return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />Due Today</span>;
+          return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" />Upcoming</span>;
+        };
+
+        const mkExpandPanel = (h: (typeof homeworkList)[0]) => {
           const file        = hwSelectedFiles[h.id];
           const isUploading = hwUploadingId === h.id;
           const uploadError = hwUploadErrors[h.id];
-
-          const stripColor =
-            h.status === "completed" ? "bg-emerald-500"
-            : h.status === "submitted" ? "bg-blue-400"
-            : isOverdue ? "bg-red-500"
-            : "bg-amber-400";
-
-          const iconBg =
-            h.status === "completed" ? "bg-emerald-50"
-            : h.status === "submitted" ? "bg-blue-50"
-            : isOverdue ? "bg-red-50"
-            : "bg-amber-50";
-
-          const iconColor =
-            h.status === "completed" ? "text-emerald-600"
-            : h.status === "submitted" ? "text-blue-600"
-            : isOverdue ? "text-red-600"
-            : "text-amber-600";
-
-          const statusBadge =
-            h.status === "completed" ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />GRADED
-              </span>
-            ) : h.status === "submitted" ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />SUBMITTED
-              </span>
-            ) : isOverdue ? (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />OVERDUE
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />PENDING
-              </span>
-            );
-
-          const toggleExpand = () =>
-            setHwExpandedIds((prev) => {
-              const next = new Set(prev);
-              if (next.has(h.id)) next.delete(h.id); else next.add(h.id);
-              return next;
-            });
-
           return (
-            <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden transition-shadow hover:shadow-md ${isExpanded ? "ring-1 ring-blue-100" : ""}`}>
-              <div className="flex items-stretch">
-                <div className={`w-1 shrink-0 ${stripColor}`} />
-                <div className="flex-1 flex items-center gap-4 p-4">
-                  <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0`}>
-                    <BookOpen className={`w-5 h-5 ${iconColor}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900 text-sm truncate">{h.task}</p>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {h.dueDate ? (
-                        <span className={`text-xs font-medium ${isOverdue ? "text-red-500" : "text-gray-400"}`}>
-                          Due {formatDate(h.dueDate)}{isOverdue ? " — Overdue" : ""}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">Assigned {formatDate(h.assignedDate)}</span>
-                      )}
-                      {h.submittedAt && (
-                        <span className="text-xs text-gray-400">· Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="hidden sm:block">{statusBadge}</div>
-                    <button
-                      onClick={toggleExpand}
-                      className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
-                        isExpanded
-                          ? "bg-gray-100 text-gray-600 border-gray-200"
-                          : h.status === "pending" && isOverdue
-                          ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
-                          : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                      }`}>
-                      {isExpanded
-                        ? "Close"
-                        : h.status === "pending" && isOverdue
-                        ? "Submit Now"
-                        : "Start Assignment"}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div className={`border-t px-5 py-4 ${
-                  h.status === "completed"
-                    ? "bg-emerald-50/50 border-emerald-100"
-                    : h.status === "submitted"
-                    ? "bg-blue-50/50 border-blue-100"
-                    : "bg-gray-50 border-gray-100"
-                }`}>
-                  {h.submissionUrl && h.submissionFilename && (
-                    <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                      <span className="text-sm font-medium text-gray-700 flex-1 truncate">{h.submissionFilename}</span>
-                      <button
-                        onClick={() => openSubmission(h)}
-                        disabled={hwOpeningId === h.id}
-                        className="text-sm text-blue-600 hover:text-blue-700 font-semibold shrink-0 disabled:opacity-50">
-                        {hwOpeningId === h.id ? "Opening…" : "Open →"}
-                      </button>
-                    </div>
-                  )}
-                  {h.status === "completed" && (h.grade || h.feedback) && (
-                    <div className="mb-3 bg-white border border-emerald-200 rounded-xl p-4 space-y-2">
-                      {h.grade && (
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Grade</span>
-                          <span className="font-bold text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full text-sm">{h.grade}</span>
-                        </div>
-                      )}
-                      {h.feedback && (
-                        <div>
-                          <p className="text-xs font-semibold text-gray-500 mb-1">Tutor Feedback</p>
-                          <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{h.feedback}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  <div>
-                      {h.status !== "pending" && (
-                        <p className="text-xs text-gray-400 mb-3">
-                          {h.status === "submitted"
-                            ? "Already submitted — upload a new file below to replace your submission."
-                            : "Already graded — you can still upload an improved version below."}
-                        </p>
-                      )}
-                      {file && (
-                        <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-                          <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                          <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
-                          <button
-                            onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
-                            className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">
-                            Remove
-                          </button>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <label className="cursor-pointer">
-                          <input
-                            type="file"
-                            accept=".pdf,application/pdf"
-                            className="hidden"
-                            onChange={(e) => {
-                              const f = e.target.files?.[0];
-                              if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f }));
-                              e.target.value = "";
-                            }}
-                          />
-                          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
-                            <Paperclip className="w-3.5 h-3.5" />
-                            {file ? "Change File" : "Attach PDF"}
-                          </span>
-                        </label>
-                        <button
-                          onClick={() => handleHomeworkUpload(h)}
-                          disabled={!file || isUploading}
-                          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                          <Upload className="w-3.5 h-3.5" />
-                          {isUploading ? "Submitting…" : "Submit"}
-                        </button>
-                      </div>
-                      {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
-                      <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
-                    </div>
+            <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-3">
+              {h.submissionUrl && h.submissionFilename && (
+                <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                  <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="text-sm font-medium text-gray-700 flex-1 truncate">{h.submissionFilename}</span>
+                  <button onClick={() => openSubmission(h)} disabled={hwOpeningId === h.id}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-semibold shrink-0 disabled:opacity-50">
+                    {hwOpeningId === h.id ? "Opening…" : "Open →"}
+                  </button>
                 </div>
               )}
+              {h.status === "completed" && (h.grade || h.feedback) && (
+                <div className="bg-white border border-emerald-200 rounded-xl p-4 space-y-2">
+                  {h.grade && (
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Grade</span>
+                      <span className="font-bold text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full text-sm">{h.grade}</span>
+                    </div>
+                  )}
+                  {h.feedback && (
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 mb-1">Tutor Feedback</p>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{h.feedback}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div>
+                {h.status !== "pending" && (
+                  <p className="text-xs text-gray-400 mb-3">
+                    {h.status === "submitted"
+                      ? "Upload a new file to replace your current submission."
+                      : "Upload an improved version below."}
+                  </p>
+                )}
+                {file && (
+                  <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                    <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                    <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
+                    <button onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
+                      className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Remove</button>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <label className="cursor-pointer">
+                    <input type="file" accept=".pdf,application/pdf" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f })); e.target.value = ""; }} />
+                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
+                      <Paperclip className="w-3.5 h-3.5" />{file ? "Change File" : "Attach PDF"}
+                    </span>
+                  </label>
+                  <button onClick={() => handleHomeworkUpload(h)} disabled={!file || isUploading}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    <Upload className="w-3.5 h-3.5" />{isUploading ? "Submitting…" : "Submit"}
+                  </button>
+                </div>
+                {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
+                <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
+              </div>
             </div>
           );
         };
@@ -1239,26 +1149,20 @@ export default function StudentPortal() {
                 <h1 className="text-2xl font-bold text-gray-900">Homework</h1>
                 <p className="text-sm text-gray-400 mt-1">Stay on top of your assignments and never miss a due date.</p>
               </div>
-              <button
-                onClick={() => setTab("sessions")}
+              <button onClick={() => setTab("sessions")}
                 className="shrink-0 flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
-                <Calendar className="w-4 h-4" />
-                View Calendar
+                <Calendar className="w-4 h-4" />View Calendar
               </button>
             </div>
 
             {/* Stats Row */}
             <div className="grid grid-cols-3 gap-4">
               {([
-                { label: "To Do",      value: pending.length,     sub: pending.length     === 1 ? "assignment" : "assignments", Icon: BookOpen,    iconBg: "bg-blue-50",    iconColor: "text-blue-600",    valColor: "text-gray-900"    },
-                { label: "Completed",  value: completedHw.length, sub: completedHw.length === 1 ? "assignment" : "assignments", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", valColor: "text-emerald-700" },
-                { label: "Late",       value: overdue.length,     sub: overdue.length     === 1 ? "assignment" : "assignments", Icon: AlertCircle, iconBg: overdue.length > 0 ? "bg-red-50"   : "bg-gray-50",  iconColor: overdue.length > 0 ? "text-red-500"    : "text-gray-300", valColor: overdue.length > 0 ? "text-red-600"    : "text-gray-300" },
+                { label: "To Do",     value: urgentPending.length, sub: urgentPending.length === 1 ? "assignment" : "assignments", Icon: BookOpen,    iconBg: "bg-blue-50",    iconColor: "text-blue-600",    valColor: "text-gray-900"    },
+                { label: "Completed", value: completedHw.length,   sub: completedHw.length   === 1 ? "assignment" : "assignments", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600", valColor: "text-emerald-700" },
+                { label: "Late",      value: overdue.length,        sub: overdue.length        === 1 ? "assignment" : "assignments", Icon: AlertCircle, iconBg: overdue.length > 0 ? "bg-red-50" : "bg-gray-50", iconColor: overdue.length > 0 ? "text-red-500" : "text-gray-300", valColor: overdue.length > 0 ? "text-red-600" : "text-gray-300" },
               ] as const).map(({ label, value, sub, Icon, iconBg, iconColor, valColor }, i) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: i * 0.06 }}
+                <motion.div key={label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25, delay: i * 0.06 }}
                   className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
                   <div className="flex items-start justify-between mb-3">
                     <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">{label}</p>
@@ -1275,36 +1179,79 @@ export default function StudentPortal() {
             {/* Filter Tabs */}
             <div className="flex bg-gray-100 p-1 rounded-2xl gap-1">
               {([
-                { key: "todo"      as const, label: "To Do",          count: todoList.length     },
-                { key: "completed" as const, label: "Completed",      count: completedHw.length  },
-                { key: "all"       as const, label: "All Assignments", count: homeworkList.length },
+                { key: "todo"      as const, label: "To Do",          count: urgentPending.length },
+                { key: "completed" as const, label: "Completed",      count: completedHw.length   },
+                { key: "all"       as const, label: "All Assignments", count: homeworkList.length  },
               ]).map(({ key, label, count }) => (
-                <button
-                  key={key}
-                  onClick={() => setHwFilter(key)}
-                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
-                    hwFilter === key
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}>
-                  {label}{" "}
-                  <span className={`text-xs ${hwFilter === key ? "text-blue-600" : "text-gray-400"}`}>({count})</span>
+                <button key={key} onClick={() => setHwFilter(key)}
+                  className={`flex-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${hwFilter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+                  {label}{" "}<span className={`text-xs ${hwFilter === key ? "text-blue-600" : "text-gray-400"}`}>({count})</span>
                 </button>
               ))}
             </div>
 
-            {/* Empty state */}
-            {filteredList.length === 0 && (
+            {/* Main table */}
+            {tableItems.length > 0 ? (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-100 bg-gray-50/80">
+                      <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-5">Assignment</th>
+                      <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-5 hidden sm:table-cell">Tutor</th>
+                      <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-5 hidden md:table-cell">Due Date</th>
+                      <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-5">Status</th>
+                      <th className="text-left text-[11px] font-semibold text-gray-400 uppercase tracking-wider py-3 px-5">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {tableItems.map((h) => {
+                      const isOverdue  = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+                      const isExpanded = hwExpandedIds.has(h.id);
+                      return (
+                        <Fragment key={h.id}>
+                          <tr className={`transition-colors ${isExpanded ? "bg-blue-50/20" : "hover:bg-gray-50/60"}`}>
+                            <td className="py-4 px-5">
+                              <p className="font-semibold text-gray-900 text-sm">{h.task}</p>
+                              {h.assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {formatDate(h.assignedDate)}</p>}
+                            </td>
+                            <td className="py-4 px-5 hidden sm:table-cell">
+                              <p className="text-sm text-gray-500">{tutor?.name ?? "—"}</p>
+                            </td>
+                            <td className="py-4 px-5 hidden md:table-cell">
+                              <p className={`text-sm font-medium ${isOverdue ? "text-red-500" : "text-gray-600"}`}>
+                                {h.dueDate ? formatDate(h.dueDate) : "No due date"}
+                              </p>
+                            </td>
+                            <td className="py-4 px-5">{mkStatusBadge(h)}</td>
+                            <td className="py-4 px-5">
+                              <button onClick={() => toggleExpand(h.id)}
+                                className={`text-xs font-semibold px-3 py-1.5 rounded-xl border whitespace-nowrap transition-colors ${
+                                  isExpanded ? "bg-gray-100 text-gray-600 border-gray-200"
+                                  : isOverdue ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
+                                  : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                                }`}>
+                                {isExpanded ? "Close" : isOverdue ? "Submit Now" : "Start Assignment"}
+                              </button>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={5} className="p-0">{mkExpandPanel(h)}</td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
               <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
                 <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
                   <BookOpen className="w-7 h-7 text-gray-300" />
                 </div>
                 <p className="text-sm font-semibold text-gray-500">
-                  {hwFilter === "todo"
-                    ? "No pending assignments — great work!"
-                    : hwFilter === "completed"
-                    ? "No completed assignments yet."
-                    : "No assignments yet."}
+                  {hwFilter === "todo" ? "No urgent assignments — great work!" : hwFilter === "completed" ? "No completed assignments yet." : "No assignments yet."}
                 </p>
                 <p className="text-xs text-gray-400 mt-1">
                   {hwFilter === "todo" ? "Your tutor will assign new work after sessions." : ""}
@@ -1312,18 +1259,50 @@ export default function StudentPortal() {
               </div>
             )}
 
-            {/* Assignment cards */}
-            {filteredList.length > 0 && (
-              <div className="space-y-3">
-                {filteredList.map((h, i) => (
-                  <motion.div
-                    key={h.id}
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.2, delay: i * 0.04 }}>
-                    <AssignmentCard h={h} />
-                  </motion.div>
-                ))}
+            {/* Upcoming Assignments */}
+            {upcomingCards.length > 0 && (
+              <div>
+                <h2 className="text-base font-bold text-gray-900 mb-3">Upcoming Assignments</h2>
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+                  {upcomingCards.slice(0, 5).map((h, i) => {
+                    const isExpanded = hwExpandedIds.has(h.id);
+                    const isOv       = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+                    return (
+                      <div key={h.id}>
+                        <div className="flex items-center gap-4 p-4">
+                          <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                            <span className="text-xs font-bold text-indigo-600">{i + 1}</span>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-gray-900 text-sm truncate">{h.task}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{tutor?.name ?? ""}</p>
+                          </div>
+                          {h.dueDate && (
+                            <div className="text-right shrink-0 hidden sm:block">
+                              <p className="text-[11px] text-gray-400 font-medium">Due Submission</p>
+                              <p className={`text-xs font-semibold mt-0.5 ${isOv ? "text-red-500" : "text-gray-600"}`}>{formatDate(h.dueDate)}</p>
+                            </div>
+                          )}
+                          <div className="hidden md:block shrink-0">{mkStatusBadge(h)}</div>
+                          <button onClick={() => toggleExpand(h.id)}
+                            className={`text-xs font-semibold px-3 py-1.5 rounded-xl border shrink-0 transition-colors ${
+                              isExpanded ? "bg-gray-100 text-gray-600 border-gray-200"
+                              : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
+                            }`}>
+                            {isExpanded ? "Close" : "Start Assignment"}
+                          </button>
+                        </div>
+                        {isExpanded && mkExpandPanel(h)}
+                      </div>
+                    );
+                  })}
+                </div>
+                {upcomingCards.length > 5 && (
+                  <button onClick={() => setHwFilter("all")}
+                    className="mt-3 w-full text-sm text-blue-600 font-semibold py-2 text-center hover:text-blue-700 transition-colors">
+                    View All Assignments →
+                  </button>
+                )}
               </div>
             )}
 
@@ -1339,8 +1318,7 @@ export default function StudentPortal() {
                     Review your session notes before starting each assignment — it reinforces what you learned and makes the work feel easier.
                   </p>
                 </div>
-                <button
-                  onClick={() => setTab("notes")}
+                <button onClick={() => setTab("notes")}
                   className="shrink-0 text-xs font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 bg-white px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap">
                   View Notes
                 </button>
