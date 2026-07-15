@@ -50,7 +50,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         <div className="p-5 border-b border-slate-700/60">
           <div className="bg-white rounded-xl p-2.5 mb-4">
             <img
-              src="/images/metaminds-logo2.png"
+              src="/images/dashboard_Logo.png"
               alt="MetaMinds"
               className="w-full h-auto"
             />
