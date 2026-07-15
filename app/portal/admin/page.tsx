@@ -62,7 +62,8 @@ export default function AdminPortal() {
   const [pfParentName,   setPfParentName]   = useState("");
   const [pfParentEmail,  setPfParentEmail]  = useState("");
   const [pfParentPhone,  setPfParentPhone]  = useState("");
-  const [pfNotes,        setPfNotes]        = useState("");
+  const [pfNotes,          setPfNotes]          = useState("");
+  const [pfAllowInPerson,  setPfAllowInPerson]  = useState(false);
   // Tutor edit fields
   const [pfTutName,      setPfTutName]      = useState("");
   const [pfTutEmail,     setPfTutEmail]     = useState("");
@@ -467,6 +468,7 @@ export default function AdminPortal() {
     setPfSubjects(s.subjects.join(", ")); setPfPhone(s.phone ?? "");
     setPfParentName(s.parentName ?? ""); setPfParentEmail(s.parentEmail ?? "");
     setPfParentPhone(s.parentPhone ?? ""); setPfNotes(s.notes ?? "");
+    setPfAllowInPerson(s.allowInPerson ?? false);
   }
 
   function openTutorProfile(t: Tutor) {
@@ -484,7 +486,7 @@ export default function AdminPortal() {
         name: pfName, email: pfEmail, grade: pfGrade,
         subjects: pfSubjects.split(",").map((s) => s.trim()).filter(Boolean),
         phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
-        parentPhone: pfParentPhone, notes: pfNotes,
+        parentPhone: pfParentPhone, notes: pfNotes, allowInPerson: pfAllowInPerson,
       });
       // Sync auth email if it changed
       if (pfEmail && pfEmail !== profileStudent.email) {
@@ -1415,6 +1417,16 @@ export default function AdminPortal() {
                 <input value={pfParentEmail} onChange={(e) => setPfParentEmail(e.target.value)} placeholder="Parent email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
               </div>
               <textarea value={pfNotes} onChange={(e) => setPfNotes(e.target.value)} placeholder="Internal notes about this student…" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
+              <label className="flex items-center justify-between gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 cursor-pointer select-none">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Allow In-Person Sessions</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Only enable if a tutor is available in this student&apos;s area.</p>
+                </div>
+                <button type="button" onClick={() => setPfAllowInPerson((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${pfAllowInPerson ? "bg-blue-600" : "bg-gray-300"}`}>
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform ${pfAllowInPerson ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
               <div className="flex gap-3">
                 <button onClick={saveStudentProfile} disabled={profileSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
                   {profileSaving ? "Saving…" : "Save"}

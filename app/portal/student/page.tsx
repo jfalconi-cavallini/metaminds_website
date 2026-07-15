@@ -929,15 +929,20 @@ export default function StudentPortal() {
               >
                 <div className="space-y-4">
                   <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm">
-                    {(["online", "in-person"] as const).map((type, i) => (
-                      <button
-                        key={type} type="button"
-                        onClick={() => setBookSessionType(type)}
-                        className={`flex-1 px-4 py-2.5 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${bookSessionType === type ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                      >
-                        {type === "online" ? "🎥 Online" : "📍 In-Person"}
+                    <button type="button" onClick={() => setBookSessionType("online")}
+                      className={`flex-1 px-4 py-2.5 font-medium transition-colors ${bookSessionType === "online" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                      🎥 Online
+                    </button>
+                    {student.allowInPerson ? (
+                      <button type="button" onClick={() => setBookSessionType("in-person")}
+                        className={`flex-1 px-4 py-2.5 font-medium border-l border-gray-200 transition-colors ${bookSessionType === "in-person" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        📍 In-Person
                       </button>
-                    ))}
+                    ) : (
+                      <div className="flex-1 px-4 py-2.5 font-medium border-l border-gray-200 bg-gray-50 text-gray-300 text-center cursor-not-allowed select-none" title="In-person sessions are not available for your account">
+                        📍 In-Person
+                      </div>
+                    )}
                   </div>
                   <select value={bookSubject} onChange={(e) => setBookSubject(e.target.value)}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">

@@ -16,8 +16,9 @@ function rowToStudent(r: any): Student {
     phone:       r.phone ?? undefined,
     parentName:  r.parent_name ?? undefined,
     parentEmail: r.parent_email ?? undefined,
-    parentPhone: r.parent_phone ?? undefined,
-    notes:       r.notes ?? undefined,
+    parentPhone:    r.parent_phone    ?? undefined,
+    notes:          r.notes           ?? undefined,
+    allowInPerson:  r.allow_in_person ?? false,
   };
 }
 
@@ -600,17 +601,19 @@ export async function addPackageHours(
 export async function updateStudentProfile(id: number, payload: Partial<{
   name: string; email: string; grade: string; subjects: string[];
   phone: string; parentName: string; parentEmail: string; parentPhone: string; notes: string;
+  allowInPerson: boolean;
 }>): Promise<Student> {
   const update: Record<string, unknown> = {};
-  if (payload.name        !== undefined) update.name         = payload.name;
-  if (payload.email       !== undefined) update.email        = payload.email;
-  if (payload.grade       !== undefined) update.grade        = payload.grade;
-  if (payload.subjects    !== undefined) update.subjects     = payload.subjects;
-  if (payload.phone       !== undefined) update.phone        = payload.phone;
-  if (payload.parentName  !== undefined) update.parent_name  = payload.parentName;
-  if (payload.parentEmail !== undefined) update.parent_email = payload.parentEmail;
-  if (payload.parentPhone !== undefined) update.parent_phone = payload.parentPhone;
-  if (payload.notes       !== undefined) update.notes        = payload.notes;
+  if (payload.name          !== undefined) update.name           = payload.name;
+  if (payload.email         !== undefined) update.email          = payload.email;
+  if (payload.grade         !== undefined) update.grade          = payload.grade;
+  if (payload.subjects      !== undefined) update.subjects       = payload.subjects;
+  if (payload.phone         !== undefined) update.phone          = payload.phone;
+  if (payload.parentName    !== undefined) update.parent_name    = payload.parentName;
+  if (payload.parentEmail   !== undefined) update.parent_email   = payload.parentEmail;
+  if (payload.parentPhone   !== undefined) update.parent_phone   = payload.parentPhone;
+  if (payload.notes         !== undefined) update.notes          = payload.notes;
+  if (payload.allowInPerson !== undefined) update.allow_in_person = payload.allowInPerson;
   const { data, error } = await supabase.from("students").update(update).eq("id", id).select().single();
   if (error) throw error;
   return rowToStudent(data);

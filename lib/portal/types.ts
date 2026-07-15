@@ -14,6 +14,7 @@ export interface Student {
   parentEmail?: string;
   parentPhone?: string;
   notes?: string;
+  allowInPerson?: boolean;
 }
 
 export interface Tutor {
