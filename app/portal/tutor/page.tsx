@@ -436,9 +436,13 @@ export default function TutorPortal() {
     if (!hw.submissionUrl) return;
     setHwOpeningId(hw.id);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/homework/signed-url", {
         method:  "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body:    JSON.stringify({ path: hw.submissionUrl }),
       });
       if (!res.ok) {
@@ -494,11 +498,16 @@ export default function TutorPortal() {
       const update = await insertParentUpdate(tutorId, studentId, parentUpdateText.trim(), puSelectedSessionIds);
       setParentUpdates((prev) => [update, ...prev]);
       // Fire email non-blocking — failures don't block the UI
-      fetch("/api/portal/send-parent-update", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ tutorId, studentId, message: parentUpdateText.trim(), sessionIds: puSelectedSessionIds }),
-      }).then((r) => r.json()).then((j) => console.log("[email]", j)).catch(console.error);
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        fetch("/api/portal/send-parent-update", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+          },
+          body: JSON.stringify({ tutorId, studentId, message: parentUpdateText.trim(), sessionIds: puSelectedSessionIds }),
+        }).then((r) => r.json()).then((j) => console.log("[email]", j)).catch(console.error);
+      });
       setParentUpdateText("");
       setPuSelectedSessionIds([]);
       setParentUpdateSuccess(true); setTimeout(() => setParentUpdateSuccess(false), 3000);

@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { authenticate, isAuthError } from "@/lib/apiAuth";
 
 export async function GET(req: NextRequest) {
+  const caller = await authenticate(req);
+  if (isAuthError(caller)) return caller;
+  if (caller.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden: admin only" }, { status: 403 });
+  }
+
   const to = req.nextUrl.searchParams.get("to");
   if (!to) return NextResponse.json({ error: "Pass ?to=your@email.com" }, { status: 400 });
 

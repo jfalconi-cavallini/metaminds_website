@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
-const admin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-);
+const admin = adminClient();
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
 
@@ -70,6 +67,9 @@ function buildEmail({
 }
 
 export async function POST(req: NextRequest) {
+  const caller = await authenticate(req);
+  if (isAuthError(caller)) return caller;
+
   try {
     const { tutorId, studentId, message, sessionIds } = await req.json() as {
       tutorId: number;
@@ -77,6 +77,10 @@ export async function POST(req: NextRequest) {
       message: string;
       sessionIds: number[];
     };
+
+    if (caller.role === "student" || (caller.role === "tutor" && caller.linkedId !== tutorId)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     // Fetch tutor, student, and tagged sessions in parallel
     const [tutorRes, studentRes, sessionsRes] = await Promise.all([

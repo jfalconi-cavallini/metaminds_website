@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import https from "node:https";
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
 // All outbound requests use node:https with rejectUnauthorized:false because
 // the dev network intercepts TLS (VPN / corporate proxy).
@@ -42,6 +43,9 @@ function httpsRequest(
 }
 
 export async function POST(request: Request) {
+  const caller = await authenticate(request);
+  if (isAuthError(caller)) return caller;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -65,8 +69,26 @@ export async function POST(request: Request) {
   if (!file || !hwId) {
     return NextResponse.json({ error: "Missing file or hwId" }, { status: 400 });
   }
+  const hwIdNum = Number.parseInt(hwId, 10);
+  if (!Number.isInteger(hwIdNum)) {
+    return NextResponse.json({ error: "Invalid hwId" }, { status: 400 });
+  }
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
+  }
+
+  // Ownership check: only the owning student (or an admin) may submit here.
+  const { data: hwRow, error: hwLookupError } = await adminClient()
+    .from("homework")
+    .select("student_id")
+    .eq("id", hwIdNum)
+    .single();
+  if (hwLookupError || !hwRow) {
+    return NextResponse.json({ error: "Homework not found" }, { status: 404 });
+  }
+  const owns = caller.role === "student" && caller.linkedId === hwRow.student_id;
+  if (!owns && caller.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const buffer   = Buffer.from(await file.arrayBuffer());
@@ -106,7 +128,7 @@ export async function POST(request: Request) {
   let db: HttpsResult;
   try {
     db = await httpsRequest(
-      `${base}/rest/v1/homework?id=eq.${parseInt(hwId)}&select=*`,
+      `${base}/rest/v1/homework?id=eq.${hwIdNum}&select=*`,
       "PATCH",
       {
         authorization:    `Bearer ${serviceKey}`,

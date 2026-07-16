@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import https from "node:https";
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
 // Fetch a private file from Supabase Storage using the service role key
 // and return it directly — avoids signed-URL API quirks entirely.
@@ -40,6 +41,9 @@ function httpsGet(
 }
 
 export async function POST(request: Request) {
+  const caller = await authenticate(request);
+  if (isAuthError(caller)) return caller;
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -54,6 +58,29 @@ export async function POST(request: Request) {
     storagePath = body.path;
   } catch {
     return NextResponse.json({ error: "Missing storage path" }, { status: 400 });
+  }
+
+  // Storage paths look like "hw_<homeworkId>/<timestamp>_<filename>" —
+  // recover the homework id so we can check the caller actually owns it.
+  const hwIdMatch = storagePath.match(/^hw_(\d+)\//);
+  if (!hwIdMatch) {
+    return NextResponse.json({ error: "Invalid storage path" }, { status: 400 });
+  }
+  const hwIdNum = Number.parseInt(hwIdMatch[1], 10);
+
+  const { data: hwRow, error: hwLookupError } = await adminClient()
+    .from("homework")
+    .select("student_id, tutor_id")
+    .eq("id", hwIdNum)
+    .single();
+  if (hwLookupError || !hwRow) {
+    return NextResponse.json({ error: "Homework not found" }, { status: 404 });
+  }
+  const owns =
+    (caller.role === "student" && caller.linkedId === hwRow.student_id) ||
+    (caller.role === "tutor" && caller.linkedId === hwRow.tutor_id);
+  if (!owns && caller.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const fileUrl = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/homework-submissions/${storagePath}`;

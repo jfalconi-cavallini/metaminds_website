@@ -318,9 +318,13 @@ export default function StudentPortal() {
     if (!hw.submissionUrl) return;
     setHwOpeningId(hw.id);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/homework/signed-url", {
         method:  "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body:    JSON.stringify({ path: hw.submissionUrl }),
       });
       if (!res.ok) {
