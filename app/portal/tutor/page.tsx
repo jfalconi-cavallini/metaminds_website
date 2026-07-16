@@ -316,7 +316,7 @@ export default function TutorPortal() {
   async function handleCancelSession(session: Session) {
     setCancellingId(session.id);
     try {
-      await cancelSession(session.id, session.durationHours, session.studentId);
+      await cancelSession(session.id);
       setLocalSessions((prev) => prev.map((s) => s.id === session.id ? { ...s, status: "cancelled" } : s));
       setBalances((prev) => prev.map((b) =>
         b.studentId === session.studentId

@@ -107,7 +107,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
       </aside>
 
       {/* Content area */}
-      <div className="md:ml-64 flex-1 flex flex-col">
+      <div className="md:ml-64 flex-1 flex flex-col min-w-0">
         {/* Mobile top bar */}
         <div className="md:hidden bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
           <div className="bg-white rounded-xl overflow-hidden inline-flex">
@@ -147,7 +147,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
           </div>
         </div>
 
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6 min-w-0">
           <div className="max-w-5xl mx-auto">{children}</div>
         </main>
       </div>

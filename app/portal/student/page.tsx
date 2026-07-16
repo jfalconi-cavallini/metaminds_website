@@ -225,8 +225,8 @@ export default function StudentPortal() {
       setBookNotes("");
       setBookDuration(1);
       setTimeout(() => setBookSuccess(false), 5000);
-    } catch {
-      setBookError("Failed to book session. Please try again.");
+    } catch (e: unknown) {
+      setBookError(e instanceof Error ? e.message : "Failed to book session. Please try again.");
     }
   }
 
@@ -235,7 +235,7 @@ export default function StudentPortal() {
     setCancellingId(session.id);
     setCancelError("");
     try {
-      await cancelSession(session.id, session.durationHours, student.id);
+      await cancelSession(session.id);
       setMySessions((prev) => prev.map((s) => s.id === session.id ? { ...s, status: "cancelled" } : s));
       setTutorSessions((prev) => prev.filter((s) => s.id !== session.id));
       setBalance((prev) => prev ? {
@@ -243,8 +243,8 @@ export default function StudentPortal() {
         totalUsed: Math.max(0, prev.totalUsed - session.durationHours),
         remaining: prev.remaining + session.durationHours,
       } : prev);
-    } catch {
-      setCancelError("Failed to cancel. Please try again.");
+    } catch (e: unknown) {
+      setCancelError(e instanceof Error ? e.message : "Failed to cancel. Please try again.");
     } finally {
       setCancellingId(null);
     }
@@ -254,7 +254,7 @@ export default function StudentPortal() {
     if (!student) return;
     setCancellingId(session.id);
     try {
-      await cancelSession(session.id, session.durationHours, student.id);
+      await cancelSession(session.id);
       setMySessions((prev) => prev.map((s) => s.id === session.id ? { ...s, status: "cancelled" } : s));
       setTutorSessions((prev) => prev.filter((s) => s.id !== session.id));
       setBalance((prev) => prev ? {
@@ -263,8 +263,8 @@ export default function StudentPortal() {
         remaining: prev.remaining + session.durationHours,
       } : prev);
       setTab("sessions");
-    } catch {
-      setCancelError("Failed to reschedule. Please try again.");
+    } catch (e: unknown) {
+      setCancelError(e instanceof Error ? e.message : "Failed to reschedule. Please try again.");
     } finally {
       setCancellingId(null);
     }
@@ -2835,20 +2835,22 @@ export default function StudentPortal() {
             </div>
 
             {/* Sub-nav */}
-            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto">
-              {settingsSections.map((sec) => (
-                <button
-                  key={sec.id}
-                  onClick={() => setSettingsSection(sec.id)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
-                    settingsSection === sec.id
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {sec.label}
-                </button>
-              ))}
+            <div className="overflow-x-auto">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit">
+                {settingsSections.map((sec) => (
+                  <button
+                    key={sec.id}
+                    onClick={() => setSettingsSection(sec.id)}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                      settingsSection === sec.id
+                        ? "bg-white text-gray-900 shadow-sm"
+                        : "text-gray-500 hover:text-gray-700"
+                    }`}
+                  >
+                    {sec.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* ── Profile section ── */}

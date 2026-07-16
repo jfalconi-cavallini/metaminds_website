@@ -390,7 +390,7 @@ export default function AdminPortal() {
   async function handleCancelSession(s: Session) {
     setCancellingId(s.id);
     try {
-      await cancelSession(s.id, s.durationHours, s.studentId);
+      await cancelSession(s.id);
       setSessions((prev) => prev.map((x) => x.id === s.id ? { ...x, status: "cancelled" } : x));
       setPackages((prev) => prev.map((b) =>
         b.studentId === s.studentId

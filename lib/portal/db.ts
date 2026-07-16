@@ -194,62 +194,28 @@ export async function insertSession(payload: {
   sessionDate: string; sessionTime: string; durationHours: number;
   sessionType: "online" | "in-person"; notes?: string;
 }): Promise<Session> {
-  const { data, error } = await supabase.from("sessions").insert({
-    student_id:     payload.studentId,
-    tutor_id:       payload.tutorId,
-    subject:        payload.subject,
-    session_date:   payload.sessionDate,
-    session_time:   payload.sessionTime,
-    duration_hours: payload.durationHours,
-    status:         "upcoming",
-    session_type:   payload.sessionType,
-    notes:          payload.notes ?? null,
-  }).select().single();
+  // book_session is a single Postgres transaction: it re-checks lead
+  // time, cancel/double-booking races, and remaining hours server-side,
+  // then writes the session and deducts hours together or not at all.
+  const { data, error } = await supabase.rpc("book_session", {
+    p_student_id:      payload.studentId,
+    p_tutor_id:        payload.tutorId,
+    p_subject:         payload.subject,
+    p_session_date:    payload.sessionDate,
+    p_session_time:    payload.sessionTime,
+    p_duration_hours:  payload.durationHours,
+    p_session_type:    payload.sessionType,
+    p_notes:           payload.notes ?? null,
+  }).single();
   if (error) throw error;
-
-  // Deduct hours from student's active package
-  const { data: pkg } = await supabase
-    .from("user_packages")
-    .select("id, hours_used")
-    .eq("student_id", payload.studentId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-  if (pkg) {
-    await supabase
-      .from("user_packages")
-      .update({ hours_used: Number(pkg.hours_used) + payload.durationHours })
-      .eq("id", pkg.id);
-  }
-
   return rowToSession(data);
 }
 
-export async function cancelSession(
-  sessionId: number,
-  durationHours: number,
-  studentId: number,
-): Promise<void> {
-  const { error: se } = await supabase
-    .from("sessions")
-    .update({ status: "cancelled" })
-    .eq("id", sessionId);
-  if (se) throw se;
-
-  // Restore hours to student's active package
-  const { data: pkg } = await supabase
-    .from("user_packages")
-    .select("id, hours_used")
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
-  if (pkg) {
-    await supabase
-      .from("user_packages")
-      .update({ hours_used: Math.max(0, Number(pkg.hours_used) - durationHours) })
-      .eq("id", pkg.id);
-  }
+export async function cancelSession(sessionId: number): Promise<void> {
+  // cancel_session re-checks the 48-hour lock server-side and restores
+  // hours in the same transaction as the status update.
+  const { error } = await supabase.rpc("cancel_session", { p_session_id: sessionId });
+  if (error) throw error;
 }
 
 export async function updateTutorLeadTime(tutorId: number, hours: number): Promise<void> {
@@ -757,42 +723,22 @@ export async function bulkInsertSessions(sessions: Array<{
   sessionDate: string; sessionTime: string; durationHours: number;
   sessionType: "online" | "in-person"; zoomLink?: string;
 }>): Promise<Session[]> {
-  const rows = sessions.map((s) => ({
-    student_id:     s.studentId,
-    tutor_id:       s.tutorId,
-    subject:        s.subject,
-    session_date:   s.sessionDate,
-    session_time:   s.sessionTime,
-    duration_hours: s.durationHours,
-    status:         "upcoming",
-    session_type:   s.sessionType,
-    zoom_link:      s.zoomLink ?? null,
+  // bulk_book_sessions inserts + deducts hours per session inside one
+  // transaction, silently skipping any slot that loses a double-booking
+  // race rather than aborting the whole batch.
+  const payload = sessions.map((s) => ({
+    studentId:     s.studentId,
+    tutorId:       s.tutorId,
+    subject:       s.subject,
+    sessionDate:   s.sessionDate,
+    sessionTime:   s.sessionTime,
+    durationHours: s.durationHours,
+    sessionType:   s.sessionType,
+    zoomLink:      s.zoomLink ?? null,
   }));
-  const { data, error } = await supabase.from("sessions").insert(rows).select();
+  const { data, error } = await supabase.rpc("bulk_book_sessions", { p_sessions: payload });
   if (error) throw error;
-
-  // Deduct hours per student (group totals, then one update each)
-  const totals = new Map<number, number>();
-  for (const s of sessions) {
-    totals.set(s.studentId, (totals.get(s.studentId) ?? 0) + s.durationHours);
-  }
-  for (const [studentId, totalHours] of totals) {
-    const { data: pkg } = await supabase
-      .from("user_packages")
-      .select("id, hours_used")
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
-    if (pkg) {
-      await supabase
-        .from("user_packages")
-        .update({ hours_used: Number(pkg.hours_used) + totalHours })
-        .eq("id", pkg.id);
-    }
-  }
-
-  return data.map(rowToSession);
+  return (data ?? []).map(rowToSession);
 }
 
 // ── BLOCKED SLOTS (per-slot, not full-day) ────────────────────────────────────

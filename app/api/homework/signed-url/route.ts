@@ -1,53 +1,11 @@
 import { NextResponse } from "next/server";
-import https from "node:https";
 import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
-
-// Fetch a private file from Supabase Storage using the service role key
-// and return it directly — avoids signed-URL API quirks entirely.
-function httpsGet(
-  url: string,
-  serviceKey: string,
-): Promise<{ ok: boolean; status: number; headers: Record<string, string>; body: Buffer }> {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(url);
-    const req = https.request(
-      {
-        hostname:           parsed.hostname,
-        path:               parsed.pathname + parsed.search,
-        method:             "GET",
-        rejectUnauthorized: false,
-        headers: {
-          authorization: `Bearer ${serviceKey}`,
-          apikey:        serviceKey,
-        },
-      },
-      (res) => {
-        const chunks: Buffer[] = [];
-        res.on("data", (chunk: Buffer) => chunks.push(chunk));
-        res.on("end", () => {
-          const status = res.statusCode ?? 0;
-          resolve({
-            ok:      status >= 200 && status < 300,
-            status,
-            headers: res.headers as Record<string, string>,
-            body:    Buffer.concat(chunks),
-          });
-        });
-      },
-    );
-    req.on("error", reject);
-    req.end();
-  });
-}
 
 export async function POST(request: Request) {
   const caller = await authenticate(request);
   if (isAuthError(caller)) return caller;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceKey) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
     return NextResponse.json({ error: "Missing Supabase env vars" }, { status: 500 });
   }
 
@@ -68,7 +26,9 @@ export async function POST(request: Request) {
   }
   const hwIdNum = Number.parseInt(hwIdMatch[1], 10);
 
-  const { data: hwRow, error: hwLookupError } = await adminClient()
+  const admin = adminClient();
+
+  const { data: hwRow, error: hwLookupError } = await admin
     .from("homework")
     .select("student_id, tutor_id")
     .eq("id", hwIdNum)
@@ -83,26 +43,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const fileUrl = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/homework-submissions/${storagePath}`;
-  console.log("[file-proxy] fetching:", fileUrl);
+  const { data: blob, error: downloadError } = await admin.storage
+    .from("homework-submissions")
+    .download(storagePath);
 
-  let result: { ok: boolean; status: number; headers: Record<string, string>; body: Buffer };
-  try {
-    result = await httpsGet(fileUrl, serviceKey);
-  } catch (e: unknown) {
-    return NextResponse.json({ error: `Network: ${e instanceof Error ? e.message : e}` }, { status: 500 });
-  }
-
-  if (!result.ok) {
+  if (downloadError || !blob) {
     return NextResponse.json(
-      { error: `Storage ${result.status}: ${result.body.toString()}` },
+      { error: `Storage: ${downloadError?.message ?? "file not found"}` },
       { status: 500 },
     );
   }
 
-  const contentType = result.headers["content-type"] || "application/octet-stream";
-  return new Response(result.body.buffer as ArrayBuffer, {
+  return new Response(await blob.arrayBuffer(), {
     status: 200,
-    headers: { "content-type": contentType },
+    headers: { "content-type": blob.type || "application/octet-stream" },
   });
 }
