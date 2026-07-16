@@ -48,11 +48,11 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
       <aside className="hidden md:flex flex-col w-64 bg-slate-900 text-white fixed inset-y-0 left-0 shadow-xl">
         {/* Logo + user */}
         <div className="p-5 border-b border-slate-700/60">
-          <div className="bg-white rounded-xl p-2.5 mb-4">
+          <div className="bg-white rounded-2xl overflow-hidden mb-4">
             <img
               src="/images/dashboard_Logo.png"
               alt="MetaMinds"
-              className="w-full h-auto"
+              className="w-full h-auto block"
             />
           </div>
           <div className="flex items-center gap-3">
@@ -110,8 +110,8 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
       <div className="md:ml-64 flex-1 flex flex-col">
         {/* Mobile top bar */}
         <div className="md:hidden bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
-          <div className="bg-white rounded-lg px-2 py-1 inline-flex">
-            <img src="/images/metaminds-logo2.png" alt="MetaMinds" className="h-7 w-auto" />
+          <div className="bg-white rounded-xl overflow-hidden inline-flex">
+            <img src="/images/dashboard_Logo.png" alt="MetaMinds" className="h-9 w-auto block" />
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none shrink-0">

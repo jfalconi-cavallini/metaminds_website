@@ -24,7 +24,9 @@ import {
   LayoutDashboard, Calendar, FileText, Bell, BookOpen,
   Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
   Video, RotateCcw, X, Timer, CheckCircle, AlertCircle,
-  Paperclip, Upload, Lightbulb,
+  Paperclip, Upload, Lightbulb, TrendingUp, Star, Zap, MapPin,
+  Search, ThumbsUp, ThumbsDown, ExternalLink, MessageCircle,
+  User, Settings as SettingsIcon, Camera, Download, Trash2,
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 
@@ -36,8 +38,11 @@ const navItems = [
   { id: "homework",  label: "Homework",      icon: BookOpen        },
   { id: "notes",     label: "Session Notes", icon: FileText        },
   { id: "updates",   label: "Updates",       icon: Bell            },
+  { id: "progress",  label: "Progress",      icon: TrendingUp      },
   { id: "hours",     label: "Hours",         icon: Clock           },
   { id: "lab",       label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon" },
+  { id: "profile",   label: "Profile",       icon: User            },
+  { id: "settings",  label: "Settings",      icon: SettingsIcon    },
 ];
 
 /** Returns hours from now until the session starts (negative if past) */
@@ -143,6 +148,23 @@ export default function StudentPortal() {
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
   const [hwFilter,        setHwFilter]        = useState<"todo" | "submitted" | "graded" | "all">("todo");
   const [hwExpandedIds,   setHwExpandedIds]   = useState<Set<number>>(new Set());
+  const [notesSearch,       setNotesSearch]       = useState("");
+  const [selectedNoteId,    setSelectedNoteId]    = useState<number | null>(null);
+  const [selectedUpdateId,  setSelectedUpdateId]  = useState<number | null>(null);
+
+  // Settings state
+  const [settingsSection,       setSettingsSection]       = useState<"profile" | "notifications" | "preferences" | "privacy" | "data">("profile");
+  const [settingsBio,           setSettingsBio]           = useState("");
+  const [settingsPhone,         setSettingsPhone]         = useState("");
+  const [settingsNotifSession,  setSettingsNotifSession]  = useState(true);
+  const [settingsNotifHomework, setSettingsNotifHomework] = useState(true);
+  const [settingsNotifUpdates,  setSettingsNotifUpdates]  = useState(true);
+  const [settingsNotifActivity, setSettingsNotifActivity] = useState(false);
+  const [settingsNotifMessages, setSettingsNotifMessages] = useState(true);
+  const [settingsNotifAchieve,  setSettingsNotifAchieve]  = useState(true);
+  const [settingsPrivProfile,   setSettingsPrivProfile]   = useState(true);
+  const [settingsPrivProgress,  setSettingsPrivProgress]  = useState(false);
+  const [settingsSaved,         setSettingsSaved]         = useState(false);
 
   const todayIso  = new Date().toISOString().slice(0, 10);
   const upcoming  = mySessions.filter((s) => s.status === "upcoming" && s.date >= todayIso).sort((a, b) => a.date.localeCompare(b.date));
@@ -801,75 +823,85 @@ export default function StudentPortal() {
                   <h2 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upcoming Sessions</h2>
                   <span className="text-xs text-gray-400 font-medium">{upcoming.length} booked</span>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                <div className="space-y-2">
                   {upcoming.map((s, i) => {
                     const isToday  = s.date === todayIso;
                     const hrs      = hoursUntilSession(s);
                     const locked   = hrs < CANCEL_LOCK_HOURS;
                     const inPerson = s.sessionType === "in-person";
+                    const sessionDate = new Date(s.date + "T12:00:00");
+                    const dayName = sessionDate.toLocaleDateString("en-US", { weekday: "short" });
+                    const monthName = sessionDate.toLocaleDateString("en-US", { month: "short" });
+                    const dayNum = sessionDate.getDate();
 
                     return (
                       <motion.div
                         key={s.id}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, x: -6 }}
+                        animate={{ opacity: 1, x: 0 }}
                         transition={{ duration: 0.2, delay: i * 0.05 }}
-                        className={`bg-white rounded-2xl border-2 overflow-hidden shadow-sm hover:shadow-md transition-shadow ${
-                          isToday ? "border-blue-300" : "border-gray-100"
+                        className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex items-center hover:shadow-md transition-shadow ${
+                          isToday ? "ring-1 ring-blue-200" : ""
                         }`}
                       >
-                        {/* Color strip */}
-                        <div className={`h-1.5 ${isToday ? "bg-blue-600" : inPerson ? "bg-violet-500" : "bg-slate-300"}`} />
-                        <div className="p-4">
-                          {/* Date/time */}
-                          <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${
-                            isToday ? "text-blue-600" : "text-gray-400"
-                          }`}>
-                            {isToday ? "Today" : formatDate(s.date)} · {s.time}
-                          </p>
-                          {/* Subject */}
-                          <p className="font-bold text-gray-900 text-base leading-snug truncate">{s.subject}</p>
-                          {/* Type + duration */}
-                          <div className="flex items-center gap-2 mt-1.5">
-                            <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                              inPerson
-                                ? "bg-violet-50 text-violet-600"
-                                : "bg-blue-50 text-blue-600"
-                            }`}>
-                              {inPerson ? <X className="w-2.5 h-2.5" /> : <Video className="w-2.5 h-2.5" />}
-                              {inPerson ? "In-Person" : "Online"}
-                            </span>
-                            <span className="text-[11px] text-gray-400">{s.durationHours} hr</span>
-                          </div>
+                        {/* Left accent bar */}
+                        <div className={`w-1 self-stretch shrink-0 ${isToday ? "bg-blue-500" : inPerson ? "bg-violet-500" : "bg-slate-200"}`} />
 
-                          {/* Actions */}
-                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
-                            {s.zoomLink ? (
-                              <button
-                                onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
-                                className="flex items-center gap-1.5 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                              >
-                                <Video className="w-3.5 h-3.5" />
-                                Join Zoom
-                              </button>
-                            ) : (
-                              <span />
-                            )}
-                            {locked ? (
-                              <span className="text-xs text-gray-300 italic">Locked</span>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <button onClick={() => handleReschedule(s)} disabled={cancellingId === s.id}
-                                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-blue-600 transition-colors disabled:opacity-40">
-                                  <RotateCcw className="w-3 h-3" /> Reschedule
-                                </button>
-                                <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id}
-                                  className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-40">
-                                  <X className="w-3 h-3" /> {cancellingId === s.id ? "…" : "Cancel"}
-                                </button>
-                              </div>
-                            )}
+                        {/* Date block */}
+                        <div className={`px-4 py-4 text-center shrink-0 w-[72px] border-r border-gray-100`}>
+                          <p className={`text-[10px] font-bold uppercase tracking-widest ${isToday ? "text-blue-500" : "text-gray-400"}`}>
+                            {isToday ? "Today" : dayName}
+                          </p>
+                          <p className={`text-2xl font-bold leading-none mt-0.5 ${isToday ? "text-blue-600" : "text-gray-800"}`}>{dayNum}</p>
+                          <p className="text-[10px] font-medium text-gray-400 mt-0.5">{monthName}</p>
+                        </div>
+
+                        {/* Main content */}
+                        <div className="flex-1 px-4 py-4 min-w-0">
+                          <p className="font-bold text-gray-900 text-sm truncate">{s.subject}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <Clock className="w-3 h-3 text-gray-400 shrink-0" />
+                            <p className="text-xs text-gray-500">{s.time} · {s.durationHours} hr</p>
                           </div>
+                        </div>
+
+                        {/* Session type badge */}
+                        <div className="px-3 shrink-0 hidden sm:block">
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded-full ${
+                            inPerson ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"
+                          }`}>
+                            {inPerson ? <MapPin className="w-2.5 h-2.5" /> : <Video className="w-2.5 h-2.5" />}
+                            {inPerson ? "In-Person" : "Online"}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="pr-4 pl-2 shrink-0 flex items-center gap-1.5">
+                          {s.zoomLink && (
+                            <button
+                              onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
+                              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+                            >
+                              <Video className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Join</span>
+                            </button>
+                          )}
+                          {locked ? (
+                            <span className="text-[11px] text-gray-300 italic px-2">Locked</span>
+                          ) : (
+                            <div className="flex items-center gap-0.5">
+                              <button onClick={() => handleReschedule(s)} disabled={cancellingId === s.id}
+                                title="Reschedule"
+                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-40">
+                                <RotateCcw className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id}
+                                title={cancellingId === s.id ? "Cancelling…" : "Cancel"}
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40">
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -972,41 +1004,580 @@ export default function StudentPortal() {
         );
       })()}
 
+      {/* ── PROGRESS ── */}
+      {tab === "progress" && (() => {
+        const completedHw   = homeworkList.filter((h) => h.status === "completed");
+        const submittedHw   = homeworkList.filter((h) => h.status === "submitted");
+        const totalHw       = homeworkList.length;
+        const doneHw        = completedHw.length + submittedHw.length;
+        const hwRate        = totalHw > 0 ? Math.round((doneHw / totalHw) * 100) : 0;
+        const cancelledCount = mySessions.filter((s) => s.status === "cancelled").length;
+        const nonCancelled  = mySessions.filter((s) => s.status !== "cancelled").length;
+        const attendanceRate = nonCancelled > 0
+          ? Math.round((completed.length / nonCancelled) * 100)
+          : 100;
+
+        // Monthly bar chart — last 6 months
+        const now = new Date();
+        const chartMonths: { key: string; count: number }[] = [];
+        for (let i = 5; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          chartMonths.push({
+            key: d.toLocaleDateString("en-US", { month: "short", year: "2-digit" }),
+            count: 0,
+          });
+        }
+        completed.forEach((s) => {
+          const d = new Date(s.date + "T12:00:00");
+          const k = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+          const entry = chartMonths.find((m) => m.key === k);
+          if (entry) entry.count++;
+        });
+        const maxBar = Math.max(...chartMonths.map((m) => m.count), 1);
+
+        // Subject mastery
+        const subjectMap: Record<string, number> = {};
+        student.subjects.forEach((sub) => { subjectMap[sub] = 0; });
+        completed.forEach((s) => {
+          if (s.subject in subjectMap) subjectMap[s.subject]++;
+        });
+        const maxSubCount = Math.max(...Object.values(subjectMap), 1);
+
+        // Achievements
+        const achievements: { icon: string; title: string; desc: string }[] = [];
+        if (completed.length >= 1)  achievements.push({ icon: "🌟", title: "First Session", desc: "Completed your first tutoring session" });
+        if (completed.length >= 5)  achievements.push({ icon: "🔥", title: "5 Sessions Strong", desc: "Completed 5 tutoring sessions" });
+        if (completed.length >= 10) achievements.push({ icon: "🏆", title: "10 Session Milestone", desc: "Reached 10 completed sessions" });
+        if (completedHw.length >= 1) achievements.push({ icon: "✅", title: "First Assignment Done", desc: "Completed and graded first assignment" });
+        if (hwRate >= 80) achievements.push({ icon: "🎯", title: "High Achiever", desc: "80%+ assignment completion rate" });
+
+        // Study tips (cycle by day of week)
+        const tips = [
+          "Review session notes within 24 hours to retain 80% more of what you learned.",
+          "Practice problems between sessions to solidify new concepts.",
+          "Ask your tutor for extra resources on topics you find challenging.",
+          "Set a consistent study schedule to build strong habits.",
+          "Break complex problems into smaller steps — your tutor can help with each one.",
+          "Teaching a concept back to yourself is one of the most effective ways to learn it.",
+          "Celebrate small wins — every completed session moves you forward.",
+        ];
+        const todayTip = tips[new Date().getDay() % tips.length];
+
+        // Circular SVG helper
+        const r = 26;
+        const circ = 2 * Math.PI * r;
+        const mkCircle = (pct: number, color: string, label: string, sub: string) => {
+          const dash = Math.min(pct, 100) / 100 * circ;
+          return (
+            <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm flex flex-col items-center text-center">
+              <div className="relative w-16 h-16 mb-3">
+                <svg width="64" height="64" viewBox="0 0 64 64" className="-rotate-90">
+                  <circle cx="32" cy="32" r={r} stroke="#f1f5f9" strokeWidth="6" fill="none" />
+                  <circle cx="32" cy="32" r={r} stroke={color} strokeWidth="6" fill="none"
+                    strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <p className="text-sm font-bold text-gray-900">{label}</p>
+                </div>
+              </div>
+              <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wide leading-tight">{sub}</p>
+            </div>
+          );
+        };
+
+        const subjectBarColors = [
+          "from-blue-500 to-blue-400",
+          "from-violet-500 to-violet-400",
+          "from-emerald-500 to-emerald-400",
+          "from-amber-500 to-amber-400",
+          "from-rose-500 to-rose-400",
+          "from-cyan-500 to-cyan-400",
+        ];
+
+        return (
+          <div className="space-y-6">
+            {/* Header */}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Progress</h1>
+              <p className="text-sm text-gray-400 mt-1">Track your academic journey and celebrate milestones.</p>
+            </div>
+
+            {/* 4 Stat circles */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {mkCircle(
+                hwRate,
+                hwRate >= 80 ? "#22c55e" : hwRate >= 50 ? "#3b82f6" : "#f59e0b",
+                `${hwRate}%`,
+                "Completion Rate",
+              )}
+              {mkCircle(
+                Math.min(completed.length * 10, 100),
+                "#6366f1",
+                String(completed.length),
+                "Sessions Done",
+              )}
+              {mkCircle(
+                attendanceRate,
+                "#0ea5e9",
+                `${attendanceRate}%`,
+                "Attendance Rate",
+              )}
+              {mkCircle(
+                balance ? Math.min((balance.totalUsed / Math.max(balance.totalPurchased, 1)) * 100, 100) : 0,
+                "#f43f5e",
+                `${balance?.totalUsed ?? 0}h`,
+                "Hours Invested",
+              )}
+            </div>
+
+            {/* Subject Mastery */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h2 className="text-sm font-bold text-gray-900 mb-5">Subject Mastery</h2>
+              {student.subjects.length === 0 ? (
+                <p className="text-sm text-gray-400">No subjects assigned yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {student.subjects.map((sub, i) => {
+                    const count  = subjectMap[sub] ?? 0;
+                    const pctBar = count > 0 ? Math.round((count / maxSubCount) * 100) : 0;
+                    return (
+                      <div key={sub}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-sm font-semibold text-gray-700">{sub}</p>
+                          <span className="text-xs font-semibold text-gray-400">{count} session{count !== 1 ? "s" : ""}</span>
+                        </div>
+                        <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.max(pctBar, count > 0 ? 4 : 0)}%` }}
+                            transition={{ duration: 0.6, delay: i * 0.1, ease: "easeOut" }}
+                            className={`h-full rounded-full bg-gradient-to-r ${subjectBarColors[i % subjectBarColors.length]}`}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Progress chart + Achievements */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+              {/* Bar chart */}
+              <div className="lg:col-span-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-5">
+                  <h2 className="text-sm font-bold text-gray-900">Progress Over Time</h2>
+                  <span className="text-xs text-gray-400">{completed.length} sessions total</span>
+                </div>
+                <div className="flex items-end gap-2" style={{ height: "96px" }}>
+                  {chartMonths.map(({ key, count }, i) => (
+                    <div key={key} className="flex-1 flex flex-col items-center gap-1">
+                      {count > 0 && <p className="text-[10px] font-bold text-gray-500">{count}</p>}
+                      <div className="w-full flex items-end" style={{ height: "64px" }}>
+                        <motion.div
+                          initial={{ height: 0 }}
+                          animate={{ height: count > 0 ? `${Math.max((count / maxBar) * 64, 8)}px` : "3px" }}
+                          transition={{ duration: 0.5, delay: i * 0.08, ease: "easeOut" }}
+                          className={`w-full rounded-t-lg ${count > 0 ? "bg-blue-500" : "bg-gray-100"}`}
+                        />
+                      </div>
+                      <p className="text-[9px] text-gray-400 text-center leading-tight whitespace-nowrap">{key}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Achievements */}
+              <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-gray-900 mb-5">Achievements</h2>
+                {achievements.length === 0 ? (
+                  <div className="text-center py-6">
+                    <p className="text-3xl mb-2">🌱</p>
+                    <p className="text-xs text-gray-400 leading-relaxed">Complete your first session to start earning achievements!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {achievements.slice(0, 4).map((a) => (
+                      <div key={a.title} className="flex items-center gap-3">
+                        <span className="text-xl shrink-0">{a.icon}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-gray-800">{a.title}</p>
+                          <p className="text-[11px] text-gray-400">{a.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Recent Session Impact + Study Tip */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Session Impact */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <h2 className="text-sm font-bold text-gray-900 mb-5">Recent Session Impact</h2>
+                {completed.length === 0 ? (
+                  <p className="text-sm text-gray-400">No completed sessions yet.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {[...completed].reverse().slice(0, 4).map((s) => {
+                      const note = sessionNotes.filter((n) => n.topic !== "_resource_").find((n) => n.sessionId === s.id);
+                      return (
+                        <div key={s.id} className="flex items-start gap-3 pb-4 border-b border-gray-50 last:border-0 last:pb-0">
+                          <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                            <Star className="w-3.5 h-3.5 text-blue-500" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-gray-800 truncate">{s.subject} · {formatDate(s.date)}</p>
+                            <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {note ? `${note.topic}${note.notes ? ` — ${note.notes.slice(0, 80)}${note.notes.length > 80 ? "…" : ""}` : ""}` : "Session completed"}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Study Tip */}
+              <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white shadow-sm flex flex-col">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center">
+                    <Zap className="w-3.5 h-3.5 text-white" />
+                  </div>
+                  <h2 className="text-sm font-bold text-white/90">Daily Study Tip</h2>
+                </div>
+                <p className="text-[15px] font-medium leading-relaxed text-white/95 flex-1">{todayTip}</p>
+                {sessionNotes.filter((n) => n.topic !== "_resource_").length > 0 && (
+                  <div className="mt-5 pt-4 border-t border-white/20">
+                    <p className="text-[11px] font-bold text-blue-200 mb-1">
+                      Latest from {tutor?.name ?? "your tutor"}
+                    </p>
+                    <p className="text-sm text-blue-100 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                      {sessionNotes.filter((n) => n.topic !== "_resource_")[0]?.notes ?? ""}
+                    </p>
+                  </div>
+                )}
+                <div className="mt-4 grid grid-cols-3 gap-3 pt-4 border-t border-white/20">
+                  <div className="text-center">
+                    <p className="text-lg font-bold">{completed.length}</p>
+                    <p className="text-[10px] text-blue-200">Sessions</p>
+                  </div>
+                  <div className="text-center border-x border-white/20">
+                    <p className="text-lg font-bold">{hwRate}%</p>
+                    <p className="text-[10px] text-blue-200">HW Rate</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-lg font-bold">{balance?.totalUsed ?? 0}h</p>
+                    <p className="text-[10px] text-blue-200">Hours</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── SESSION NOTES ── */}
       {tab === "notes" && (() => {
-        const regularNotes = sessionNotes.filter((n) => n.topic !== "_resource_");
+        const regularNotes  = sessionNotes.filter((n) => n.topic !== "_resource_");
         const resourceNotes = sessionNotes.filter((n) => n.topic === "_resource_");
+
+        const filteredNotes = regularNotes.filter(
+          (n) =>
+            !notesSearch ||
+            n.topic.toLowerCase().includes(notesSearch.toLowerCase()) ||
+            n.notes.toLowerCase().includes(notesSearch.toLowerCase()),
+        );
+
+        const selectedNote = selectedNoteId !== null
+          ? regularNotes.find((n) => n.id === selectedNoteId) ?? null
+          : null;
+
+        // Stats
+        const sessionIdsWithNotes = new Set(
+          regularNotes.map((n) => n.sessionId).filter((id): id is number => id !== null),
+        );
+        const coverageRate = completed.length > 0
+          ? Math.round((sessionIdsWithNotes.size / completed.length) * 100)
+          : 0;
+        const notedSubjects = new Set<string>();
+        regularNotes.forEach((n) => {
+          const sess = mySessions.find((s) => s.id === n.sessionId);
+          if (sess) notedSubjects.add(sess.subject);
+        });
+
+        // Selected note detail
+        const selectedResources = selectedNote?.sessionId != null
+          ? resourceNotes.filter((r) => r.sessionId === selectedNote.sessionId)
+          : [];
+        const selectedSession = selectedNote?.sessionId != null
+          ? mySessions.find((s) => s.id === selectedNote.sessionId) ?? null
+          : null;
+        const relatedHw = selectedSession
+          ? homeworkList.filter((h) => h.assignedDate === selectedSession.date)
+          : [];
+
         return (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Session Notes</h1>
-            <p className="text-sm text-gray-500 mb-5">Notes from your tutor about what was covered each session.</p>
-            {regularNotes.length === 0 && (
-              <p className="text-sm text-gray-400">No session notes yet. Your tutor will add notes after each session.</p>
-            )}
-            <div className="space-y-4">
-              {regularNotes.map((n) => {
-                const links = resourceNotes.filter((r) => r.sessionId === n.sessionId && n.sessionId !== null);
-                return (
-                  <div key={n.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="font-semibold text-gray-900 text-base">{n.topic}</p>
-                      <p className="text-xs text-gray-400 shrink-0 ml-4">{formatDate(n.createdAt.slice(0, 10))}</p>
-                    </div>
-                    <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{n.notes}</p>
-                    {links.length > 0 && (
-                      <div className="mt-3 pt-3 border-t border-gray-100 space-y-1">
-                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1.5">Resources</p>
-                        {links.map((r) => (
-                          <a key={r.id} href={r.notes} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-800 hover:underline">
-                            <span>📎</span><span className="truncate">{r.notes}</span>
-                          </a>
-                        ))}
-                      </div>
+          <div className="space-y-5">
+            {/* Header */}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Session Notes</h1>
+              <p className="text-sm text-gray-400 mt-1">
+                Review notes, key takeaways, and study materials from every session.
+              </p>
+            </div>
+
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                { label: "Total Notes",  value: regularNotes.length,  sub: "session summaries",   Icon: FileText,    iconBg: "bg-blue-50",    iconColor: "text-blue-600"    },
+                { label: "Coverage",     value: `${coverageRate}%`,   sub: "sessions documented", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
+                { label: "Resources",    value: resourceNotes.length, sub: "study links shared",  Icon: Paperclip,   iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
+                { label: "Subjects",     value: notedSubjects.size,   sub: "topics covered",      Icon: BookOpen,    iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
+              ] as const).map(({ label, value, sub, Icon, iconBg, iconColor }) => (
+                <div key={label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3">
+                  <div className={`w-9 h-9 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>
+                    <Icon className={`w-4 h-4 ${iconColor}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-lg font-bold text-gray-900 leading-none">{value}</p>
+                    <p className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-wide">{label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Two-column layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+
+              {/* ── Left: note list ── */}
+              <div className="lg:col-span-2 space-y-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search notes…"
+                    value={notesSearch}
+                    onChange={(e) => setNotesSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+                  />
+                </div>
+
+                {filteredNotes.length === 0 ? (
+                  <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <p className="text-3xl mb-2">📝</p>
+                    <p className="text-sm text-gray-500">
+                      {notesSearch ? "No notes match your search." : "No session notes yet."}
+                    </p>
+                    {!notesSearch && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Your tutor will add notes after each session.
+                      </p>
                     )}
                   </div>
-                );
-              })}
+                ) : (
+                  <div className="space-y-2">
+                    {filteredNotes.map((n, i) => {
+                      const isSelected = selectedNoteId === n.id;
+                      const sess    = mySessions.find((s) => s.id === n.sessionId);
+                      const resCount = resourceNotes.filter((r) => r.sessionId === n.sessionId).length;
+                      return (
+                        <motion.button
+                          key={n.id}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.18, delay: i * 0.04 }}
+                          onClick={() => setSelectedNoteId(isSelected ? null : n.id)}
+                          className={`w-full text-left bg-white rounded-2xl border shadow-sm transition-all overflow-hidden ${
+                            isSelected
+                              ? "border-blue-300 ring-1 ring-blue-200"
+                              : "border-gray-100 hover:border-gray-200 hover:shadow-md"
+                          }`}
+                        >
+                          <div className="flex overflow-hidden">
+                            {/* Accent bar */}
+                            <div className={`w-1 shrink-0 self-stretch ${isSelected ? "bg-blue-500" : "bg-gray-100"}`} />
+                            {/* Card body */}
+                            <div className="flex-1 p-4 min-w-0">
+                              {/* Row 1: number + topic + date */}
+                              <div className="flex items-start justify-between gap-2 mb-1.5">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className={`flex-shrink-0 w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                                    isSelected ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"
+                                  }`}>
+                                    {i + 1}
+                                  </span>
+                                  <p className="text-sm font-bold text-gray-900 leading-snug truncate">{n.topic}</p>
+                                </div>
+                                <p className="text-[10px] text-gray-400 shrink-0 mt-px whitespace-nowrap">
+                                  {formatDate(n.createdAt.slice(0, 10))}
+                                </p>
+                              </div>
+                              {/* Row 2: subject chip + notes preview */}
+                              <div className="pl-7">
+                                {sess && (
+                                  <span className="inline-block text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full mb-1.5">
+                                    {sess.subject}
+                                  </span>
+                                )}
+                                <p className="text-xs text-gray-500 leading-relaxed"
+                                  style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                  {n.notes}
+                                </p>
+                                {resCount > 0 && (
+                                  <div className="flex items-center gap-1 mt-2">
+                                    <Paperclip className="w-2.5 h-2.5 text-gray-400" />
+                                    <span className="text-[10px] text-gray-400">
+                                      {resCount} resource{resCount !== 1 ? "s" : ""}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Right: detail panel ── */}
+              <div className="lg:col-span-3">
+                {selectedNote ? (
+                  <motion.div
+                    key={selectedNote.id}
+                    initial={{ opacity: 0, x: 10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                  >
+                    {/* Panel header */}
+                    <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <h2 className="text-base font-bold text-gray-900 leading-snug">{selectedNote.topic}</h2>
+                        <button
+                          onClick={() => setSelectedNoteId(null)}
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">
+                          {formatDate(selectedNote.createdAt.slice(0, 10))}
+                        </span>
+                        {selectedSession && (
+                          <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-full">
+                            {selectedSession.subject}
+                          </span>
+                        )}
+                        {tutor && (
+                          <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 px-2.5 py-1 rounded-full">
+                            {tutor.name}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Key takeaways */}
+                    <div className="px-6 py-5">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Key Takeaways</p>
+                      {(() => {
+                        const lines = selectedNote.notes.split("\n").map((l) => l.trim()).filter(Boolean);
+                        return lines.length > 1 ? (
+                          <div className="space-y-3">
+                            {lines.map((line, idx) => (
+                              <div key={idx} className="flex items-start gap-3">
+                                <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                                  <CheckCircle className="w-3 h-3 text-blue-600" />
+                                </span>
+                                <p className="text-sm text-gray-700 leading-relaxed">{line}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNote.notes}</p>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Attached Resources */}
+                    {selectedResources.length > 0 && (
+                      <div className="px-6 py-4 border-t border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Attached Resources</p>
+                        <div className="space-y-2">
+                          {selectedResources.map((r) => (
+                            <a
+                              key={r.id}
+                              href={r.notes}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2.5 text-xs font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-100 px-4 py-2.5 rounded-xl transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">{r.notes}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Homework Assigned */}
+                    {relatedHw.length > 0 && (
+                      <div className="px-6 py-4 border-t border-gray-100">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Homework Assigned</p>
+                        <div className="space-y-2">
+                          {relatedHw.map((h) => (
+                            <div key={h.id} className="flex items-center gap-3 bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5">
+                              <BookOpen className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-semibold text-gray-800 truncate">{h.task}</p>
+                                {h.dueDate && (
+                                  <p className="text-[10px] text-amber-600 mt-0.5">Due {formatDate(h.dueDate)}</p>
+                                )}
+                              </div>
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                h.status === "completed" ? "bg-emerald-100 text-emerald-700"
+                                : h.status === "submitted" ? "bg-blue-100 text-blue-700"
+                                : "bg-amber-100 text-amber-700"
+                              }`}>
+                                {h.status === "completed" ? "Graded" : h.status === "submitted" ? "Submitted" : "Pending"}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Was this helpful? */}
+                    <div className="px-6 py-3.5 border-t border-gray-100 bg-gray-50/60 flex items-center gap-3">
+                      <p className="text-xs text-gray-400">Was this helpful?</p>
+                      <button className="p-1.5 rounded-lg text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                        <ThumbsUp className="w-3.5 h-3.5" />
+                      </button>
+                      <button className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                        <ThumbsDown className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center text-center p-12 min-h-[320px]">
+                    <div>
+                      <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                        <FileText className="w-6 h-6 text-gray-300" />
+                      </div>
+                      <p className="text-sm font-semibold text-gray-500">Select a note to view details</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Click any note on the left to read the full content.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -1014,24 +1585,335 @@ export default function StudentPortal() {
 
       {/* ── UPDATES ── */}
       {tab === "updates" && (() => {
+        // Sort newest first
+        const sortedUpdates = [...parentUpdates].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+        const selectedUpdate = selectedUpdateId !== null
+          ? sortedUpdates.find((u) => u.id === selectedUpdateId) ?? null
+          : null;
+
+        // Derive session data for the selected update
+        const selectedSessions = selectedUpdate
+          ? mySessions.filter((s) => selectedUpdate.sessionIds.includes(s.id))
+          : [];
+        const selectedSubjects = [...new Set(selectedSessions.map((s) => s.subject))];
+        const selDates = selectedSessions.map((s) => s.date).sort();
+        const selDateFrom = selDates[0];
+        const selDateTo   = selDates[selDates.length - 1];
+
+        // Stats
+        const totalSessionsReferenced = new Set(parentUpdates.flatMap((u) => u.sessionIds)).size;
+
+        // Message section parser — returns structured sections or raw text
+        type ParsedMsg =
+          | { type: "raw" }
+          | { type: "structured"; summary: string; wentWell: string[]; improve: string[]; nextSteps: string[] };
+
+        const parseMessage = (msg: string): ParsedMsg => {
+          const lower = msg.toLowerCase();
+          if (!lower.includes("went well") && !lower.includes("improve") && !lower.includes("next step")) {
+            return { type: "raw" };
+          }
+          let sect = "summary";
+          const summary: string[] = [];
+          const wentWell: string[] = [];
+          const improve: string[] = [];
+          const nextSteps: string[] = [];
+          for (const rawLine of msg.split("\n")) {
+            const line = rawLine.trim();
+            if (!line) continue;
+            if (/went well|positive|strengths?/i.test(line) && line.length < 70)  { sect = "well";    continue; }
+            if (/improve|challenge|growth/i.test(line) && line.length < 70)        { sect = "improve"; continue; }
+            if (/next step|action|moving forward|goal/i.test(line) && line.length < 70) { sect = "next"; continue; }
+            if (/summary|overall|progress update/i.test(line) && line.length < 70) { sect = "summary"; continue; }
+            const content = line.replace(/^[-•*\d.]\s*/, "").trim();
+            if (!content) continue;
+            if (sect === "well")    wentWell.push(content);
+            else if (sect === "improve")  improve.push(content);
+            else if (sect === "next")     nextSteps.push(content);
+            else                          summary.push(content);
+          }
+          if (!wentWell.length && !improve.length && !nextSteps.length) return { type: "raw" };
+          return { type: "structured", summary: summary.join(" "), wentWell, improve, nextSteps };
+        };
+
+        const parsed: ParsedMsg | null = selectedUpdate ? parseMessage(selectedUpdate.message) : null;
+
+        const subjectChipColors = [
+          "bg-blue-100 text-blue-800",
+          "bg-violet-100 text-violet-800",
+          "bg-emerald-100 text-emerald-800",
+          "bg-amber-100 text-amber-800",
+          "bg-rose-100 text-rose-800",
+        ];
+
         return (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Updates from Your Tutor</h1>
-            <p className="text-sm text-gray-500 mb-6">Your tutor sends a weekly update summarising progress and what was covered.</p>
+          <div className="space-y-5">
+            {/* Header */}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Updates</h1>
+              <p className="text-sm text-gray-400 mt-1">Progress and feedback from your tutor, delivered after each session block.</p>
+            </div>
+
+            {/* Stat cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                {
+                  label: "Updates",
+                  value: String(parentUpdates.length),
+                  sub: "received from tutor",
+                  Icon: Bell,
+                  iconBg: "bg-blue-50",
+                  iconColor: "text-blue-600",
+                },
+                {
+                  label: "Sessions Covered",
+                  value: String(totalSessionsReferenced),
+                  sub: "across all updates",
+                  Icon: CalendarDays,
+                  iconBg: "bg-violet-50",
+                  iconColor: "text-violet-600",
+                },
+                {
+                  label: "Latest Update",
+                  value: sortedUpdates[0] ? formatDate(sortedUpdates[0].createdAt.slice(0, 10)) : "—",
+                  sub: "most recent",
+                  Icon: Clock,
+                  iconBg: "bg-emerald-50",
+                  iconColor: "text-emerald-600",
+                },
+                {
+                  label: "Your Tutor",
+                  value: tutor?.name.split(" ")[0] ?? "—",
+                  sub: tutor?.name ?? "Assigned tutor",
+                  Icon: Star,
+                  iconBg: "bg-amber-50",
+                  iconColor: "text-amber-500",
+                },
+              ] as const).map(({ label, value, sub, Icon, iconBg, iconColor }) => (
+                <div key={label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3">
+                  <div className={`w-9 h-9 ${iconBg} rounded-xl flex items-center justify-center shrink-0`}>
+                    <Icon className={`w-4 h-4 ${iconColor}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-base font-bold text-gray-900 leading-none truncate">{value}</p>
+                    <p className="text-[10px] font-medium text-gray-400 mt-0.5 uppercase tracking-wide">{label}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Body */}
             {parentUpdates.length === 0 ? (
-              <div className="text-center py-16 text-gray-400">
-                <p className="text-4xl mb-3">📬</p>
-                <p className="text-sm font-medium">No updates yet.</p>
-                <p className="text-xs mt-1">Your tutor will send updates here after sessions.</p>
+              <div className="text-center py-20 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                  <Bell className="w-7 h-7 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500">No updates yet</p>
+                <p className="text-xs text-gray-400 mt-1">Your tutor will send updates here after sessions.</p>
               </div>
             ) : (
-              <div className="space-y-4">
-                {parentUpdates.map((u) => (
-                  <div key={u.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                    <p className="text-xs text-gray-400 mb-3">{formatDate(u.createdAt.slice(0, 10))}</p>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{u.message}</p>
-                  </div>
-                ))}
+              <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-start">
+
+                {/* ── Left: update list ── */}
+                <div className="lg:col-span-2 space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-1 mb-3">All Updates</p>
+                  {sortedUpdates.map((u, i) => {
+                    const isSelected   = selectedUpdateId === u.id;
+                    const uSessions    = mySessions.filter((s) => u.sessionIds.includes(s.id));
+                    const uDates       = uSessions.map((s) => s.date).sort();
+                    const fromDate     = uDates[0] ? formatDate(uDates[0]) : null;
+                    const toDate       = uDates[uDates.length - 1] ? formatDate(uDates[uDates.length - 1]) : null;
+                    const dateRange    = fromDate && toDate && fromDate !== toDate
+                      ? `${fromDate} – ${toDate}`
+                      : fromDate ?? formatDate(u.createdAt.slice(0, 10));
+
+                    return (
+                      <motion.button
+                        key={u.id}
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.18, delay: i * 0.04 }}
+                        onClick={() => setSelectedUpdateId(isSelected ? null : u.id)}
+                        className={`w-full text-left bg-white rounded-2xl border shadow-sm transition-all overflow-hidden ${
+                          isSelected
+                            ? "border-blue-300 ring-1 ring-blue-200"
+                            : "border-gray-100 hover:border-gray-200 hover:shadow-md"
+                        }`}
+                      >
+                        <div className="flex overflow-hidden">
+                          <div className={`w-1 shrink-0 self-stretch ${isSelected ? "bg-blue-500" : "bg-gray-100"}`} />
+                          <div className="flex-1 p-4 min-w-0">
+                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className={`flex-shrink-0 w-5 h-5 rounded-full text-[9px] font-bold flex items-center justify-center ${
+                                  isSelected ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-500"
+                                }`}>
+                                  {i + 1}
+                                </span>
+                                <p className="text-sm font-bold text-gray-900 truncate">Weekly Progress Update</p>
+                              </div>
+                              <p className="text-[10px] text-gray-400 shrink-0 mt-px whitespace-nowrap">
+                                {formatDate(u.createdAt.slice(0, 10))}
+                              </p>
+                            </div>
+                            <div className="pl-7">
+                              <p className="text-[10px] font-semibold text-blue-600 mb-1.5">By {tutor?.name ?? "your tutor"}</p>
+                              <p className="text-xs text-gray-500 leading-relaxed"
+                                style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                                {u.message.replace(/\n/g, " ")}
+                              </p>
+                              <div className="flex items-center gap-1 mt-2">
+                                <CalendarDays className="w-2.5 h-2.5 text-gray-400 shrink-0" />
+                                <span className="text-[10px] text-gray-400">{dateRange}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+
+                {/* ── Right: detail panel ── */}
+                <div className="lg:col-span-3">
+                  {selectedUpdate ? (
+                    <motion.div
+                      key={selectedUpdate.id}
+                      initial={{ opacity: 0, x: 10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.22 }}
+                      className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden"
+                    >
+                      {/* Panel header */}
+                      <div className="px-6 pt-6 pb-4 border-b border-gray-100">
+                        <div className="flex items-start justify-between gap-4 mb-3">
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold text-gray-400 mb-1">
+                              {selDateFrom && selDateTo && selDateFrom !== selDateTo
+                                ? `${formatDate(selDateFrom)} – ${formatDate(selDateTo)}`
+                                : selDateFrom
+                                  ? formatDate(selDateFrom)
+                                  : formatDate(selectedUpdate.createdAt.slice(0, 10))}
+                            </p>
+                            <h2 className="text-base font-bold text-gray-900">Weekly Progress Update</h2>
+                          </div>
+                          <button
+                            onClick={() => setSelectedUpdateId(null)}
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {tutor && (
+                            <span className="text-[11px] font-semibold text-gray-700 bg-gray-100 px-2.5 py-1 rounded-full">
+                              {tutor.name}
+                            </span>
+                          )}
+                          {selectedSubjects.map((sub, idx) => (
+                            <span key={sub} className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${subjectChipColors[idx % subjectChipColors.length]}`}>
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Message body */}
+                      {parsed?.type === "structured" ? (
+                        <div className="px-6 py-5 space-y-5">
+                          {/* Summary */}
+                          {parsed.summary && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">Overall Summary</p>
+                              <p className="text-sm text-gray-700 leading-relaxed">{parsed.summary}</p>
+                            </div>
+                          )}
+
+                          {/* What went well */}
+                          {parsed.wentWell.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">What Went Well</p>
+                              <div className="space-y-2">
+                                {parsed.wentWell.map((item, idx) => (
+                                  <div key={idx} className="flex items-start gap-2.5">
+                                    <span className="w-4 h-4 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                                      <CheckCircle className="w-2.5 h-2.5 text-emerald-600" />
+                                    </span>
+                                    <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Areas to improve */}
+                          {parsed.improve.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Areas to Improve</p>
+                              <div className="space-y-2">
+                                {parsed.improve.map((item, idx) => (
+                                  <div key={idx} className="flex items-start gap-2.5">
+                                    <span className="w-4 h-4 rounded-full bg-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+                                      <Lightbulb className="w-2.5 h-2.5 text-amber-600" />
+                                    </span>
+                                    <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Next steps */}
+                          {parsed.nextSteps.length > 0 && (
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Next Steps</p>
+                              <div className="space-y-2">
+                                {parsed.nextSteps.map((item, idx) => (
+                                  <div key={idx} className="flex items-start gap-2.5">
+                                    <span className="w-5 h-5 rounded-lg bg-blue-100 flex items-center justify-center shrink-0 mt-0.5 text-[9px] font-bold text-blue-700">
+                                      {idx + 1}
+                                    </span>
+                                    <p className="text-sm text-gray-700 leading-relaxed">{item}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="px-6 py-5">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Update</p>
+                          <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedUpdate.message}</p>
+                        </div>
+                      )}
+
+                      {/* Footer */}
+                      {tutor?.email && (
+                        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between gap-4">
+                          <p className="text-xs text-gray-400">Have a question about this update?</p>
+                          <a
+                            href={`mailto:${tutor.email}?subject=${encodeURIComponent(`Re: Weekly Progress Update – ${formatDate(selectedUpdate.createdAt.slice(0, 10))}`)}&body=${encodeURIComponent(`Hi ${tutor?.name ?? "there"},\n\n`)}`}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-2 rounded-xl transition-colors shrink-0"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Reply to Tutor
+                          </a>
+                        </div>
+                      )}
+                    </motion.div>
+                  ) : (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex items-center justify-center text-center p-12 min-h-[320px]">
+                      <div>
+                        <div className="w-14 h-14 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
+                          <Bell className="w-6 h-6 text-gray-300" />
+                        </div>
+                        <p className="text-sm font-semibold text-gray-500">Select an update to read it</p>
+                        <p className="text-xs text-gray-400 mt-1">Click any update on the left to view the full message.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1540,6 +2422,504 @@ export default function StudentPortal() {
         </Modal>
       );
     })()}
+
+      {/* ── PROFILE ── */}
+      {tab === "profile" && (() => {
+        const displayInitials = student.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+        const completedCount  = completed.length;
+        const hoursUsedAmt    = balance?.totalUsed ?? 0;
+        const gradedHwCount   = homeworkList.filter((h) => h.status === "completed").length;
+        const daysUntilNext   = nextSession
+          ? Math.max(0, Math.ceil((new Date(nextSession.date + "T12:00:00").getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+          : null;
+
+        const subjectCounts: Record<string, number> = {};
+        completed.forEach((s) => { subjectCounts[s.subject] = (subjectCounts[s.subject] ?? 0) + 1; });
+        const maxSubjCount = Math.max(...Object.values(subjectCounts), 1);
+        const recentActivity = [...completed].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 5);
+
+        return (
+          <div className="space-y-6">
+            {/* Profile Header */}
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="h-20 bg-gradient-to-r from-blue-600 to-violet-600" />
+              <div className="px-6 pb-6">
+                <div className="-mt-10 mb-4 flex items-end justify-between">
+                  <div className="w-20 h-20 rounded-2xl bg-blue-600 border-4 border-white flex items-center justify-center text-white text-2xl font-bold shadow-md select-none">
+                    {displayInitials}
+                  </div>
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-white shadow-sm">
+                    ⭐ Premium Student
+                  </span>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">{student.name}</h2>
+                    <p className="text-sm text-gray-500 mt-0.5">
+                      {student.grade ? `Grade ${student.grade}` : "Student"} · {student.email}
+                    </p>
+                    {tutor && (
+                      <div className="flex items-center gap-2 mt-2">
+                        <div className="w-6 h-6 rounded-lg bg-emerald-100 flex items-center justify-center">
+                          <User className="w-3.5 h-3.5 text-emerald-600" />
+                        </div>
+                        <p className="text-xs text-gray-500">Tutor: <span className="font-semibold text-gray-700">{tutor.name}</span></p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {student.subjects.slice(0, 3).map((subj) => (
+                      <span key={subj} className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                        {subj}
+                      </span>
+                    ))}
+                    {student.subjects.length > 3 && (
+                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-500">
+                        +{student.subjects.length - 3}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {([
+                { label: "Sessions", value: completedCount, sub: "completed", color: "text-blue-600" },
+                { label: "Hours Used", value: hoursUsedAmt, sub: `of ${balance?.totalPurchased ?? 0} purchased`, color: "text-violet-600" },
+                { label: "Homework", value: gradedHwCount, sub: "graded complete", color: "text-emerald-600" },
+                { label: "Subjects", value: student.subjects.length, sub: "currently studying", color: "text-amber-600" },
+              ] as const).map((stat) => (
+                <div key={stat.label} className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                  <p className={`text-2xl font-bold ${stat.color}`}>{stat.value}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{stat.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Two-column layout */}
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+              {/* Left: Progress + Upcoming */}
+              <div className="lg:col-span-3 space-y-6">
+                {/* Learning Progress */}
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Learning Progress</h3>
+                    <button onClick={() => setTab("progress")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                      Full Progress →
+                    </button>
+                  </div>
+                  {Object.keys(subjectCounts).length === 0 ? (
+                    <p className="text-sm text-gray-400">No sessions completed yet.</p>
+                  ) : (
+                    <div className="space-y-4">
+                      {Object.entries(subjectCounts).map(([subj, count]) => {
+                        const pctVal = Math.round((count / maxSubjCount) * 100);
+                        return (
+                          <div key={subj}>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <p className="text-sm font-medium text-gray-700">{subj}</p>
+                              <span className="text-sm font-bold text-gray-900">{pctVal}%</span>
+                            </div>
+                            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-blue-500 to-violet-500 transition-all duration-500"
+                                style={{ width: `${pctVal}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Upcoming Schedule */}
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Upcoming Schedule</h3>
+                    <button onClick={() => setTab("sessions")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                      View All →
+                    </button>
+                  </div>
+                  {upcoming.length === 0 ? (
+                    <p className="text-sm text-gray-400">No upcoming sessions scheduled.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {upcoming.slice(0, 3).map((s) => {
+                        const d = new Date(s.date + "T12:00:00");
+                        const isToday = s.date === todayIso;
+                        return (
+                          <div key={s.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                            <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0 ${isToday ? "bg-blue-600" : "bg-white border border-gray-200"}`}>
+                              <p className={`text-[10px] font-bold uppercase ${isToday ? "text-blue-200" : "text-gray-400"}`}>
+                                {d.toLocaleDateString("en-US", { weekday: "short" })}
+                              </p>
+                              <p className={`text-sm font-bold leading-none ${isToday ? "text-white" : "text-gray-800"}`}>
+                                {d.getDate()}
+                              </p>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
+                              <p className="text-xs text-gray-400">{s.time} · {s.durationHours}h</p>
+                            </div>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${s.sessionType === "in-person" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
+                              {s.sessionType === "in-person" ? "In-Person" : "Online"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: Countdown + Activity + Hours */}
+              <div className="lg:col-span-2 space-y-6">
+                {nextSession && daysUntilNext !== null && (
+                  <div className="bg-gradient-to-br from-blue-600 to-violet-600 rounded-2xl p-5 text-white">
+                    <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1">Next Session</p>
+                    <p className="text-3xl font-bold">
+                      {daysUntilNext === 0 ? "Today!" : daysUntilNext === 1 ? "Tomorrow" : `${daysUntilNext} days`}
+                    </p>
+                    <p className="text-sm text-blue-100 mt-1 font-medium">{nextSession.subject}</p>
+                    <p className="text-xs text-blue-200 mt-0.5">{formatDate(nextSession.date)} · {nextSession.time}</p>
+                  </div>
+                )}
+
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4">Recent Activity</h3>
+                  {recentActivity.length === 0 ? (
+                    <p className="text-sm text-gray-400">No sessions completed yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentActivity.map((s) => (
+                        <div key={s.id} className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
+                            <CheckCircle className="w-4 h-4 text-emerald-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">{s.subject} session</p>
+                            <p className="text-xs text-gray-400">{formatDate(s.date)} · {s.durationHours}h</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {balance && (
+                  <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hours Package</h3>
+                    <div className="flex items-end justify-between mb-2">
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900">{balance.remaining}</p>
+                        <p className="text-xs text-gray-400">hours remaining</p>
+                      </div>
+                      <button onClick={() => setTab("hours")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
+                        Manage →
+                      </button>
+                    </div>
+                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-600"
+                        style={{ width: `${Math.round((balance.remaining / balance.totalPurchased) * 100)}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1.5">{balance.totalUsed} of {balance.totalPurchased} hours used</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── SETTINGS ── */}
+      {tab === "settings" && (() => {
+        const displayInitials = student.name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+
+        const settingsSections = [
+          { id: "profile"       as const, label: "Profile"        },
+          { id: "notifications" as const, label: "Notifications"  },
+          { id: "preferences"   as const, label: "Preferences"    },
+          { id: "privacy"       as const, label: "Privacy"        },
+          { id: "data"          as const, label: "Data & Account" },
+        ];
+
+        const mkToggle = (on: boolean, onToggle: () => void) => (
+          <button
+            onClick={onToggle}
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${on ? "bg-blue-600" : "bg-gray-200"}`}
+          >
+            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${on ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        );
+
+        function handleSaveProfile() {
+          setSettingsSaved(true);
+          setTimeout(() => setSettingsSaved(false), 3000);
+        }
+
+        return (
+          <div className="space-y-6">
+            {/* Page header */}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+              <p className="text-sm text-gray-400 mt-1">Manage your profile, preferences, and notifications</p>
+            </div>
+
+            {/* Sub-nav */}
+            <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit overflow-x-auto">
+              {settingsSections.map((sec) => (
+                <button
+                  key={sec.id}
+                  onClick={() => setSettingsSection(sec.id)}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors whitespace-nowrap ${
+                    settingsSection === sec.id
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {sec.label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── Profile section ── */}
+            {settingsSection === "profile" && (
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Profile Photo</h3>
+                  <div className="flex items-center gap-5">
+                    <div className="w-20 h-20 rounded-2xl bg-blue-600 flex items-center justify-center text-white text-2xl font-bold shrink-0 select-none">
+                      {displayInitials}
+                    </div>
+                    <div>
+                      <button className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-xl transition-colors">
+                        <Camera className="w-4 h-4" />
+                        Upload New Photo
+                      </button>
+                      <p className="text-xs text-gray-400 mt-2">JPG, PNG · Max 2MB · Coming soon</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Profile Information</h3>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Full Name</label>
+                        <input
+                          type="text"
+                          value={student.name}
+                          disabled
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-400 bg-gray-50 cursor-not-allowed"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">Managed by admin</p>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-1.5">Grade</label>
+                        <input
+                          type="text"
+                          value={student.grade ? `Grade ${student.grade}` : "—"}
+                          disabled
+                          className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-400 bg-gray-50 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-1.5">Email Address</label>
+                      <input
+                        type="email"
+                        value={student.email}
+                        disabled
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-400 bg-gray-50 cursor-not-allowed"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">Contact your admin to change your email</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-1.5">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={settingsPhone}
+                        onChange={(e) => setSettingsPhone(e.target.value)}
+                        placeholder="+1 (555) 000-0000"
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-1.5">About / Bio</label>
+                      <textarea
+                        value={settingsBio}
+                        onChange={(e) => setSettingsBio(e.target.value)}
+                        placeholder="Interests, goals, favorite subjects..."
+                        rows={3}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                      {settingsSaved ? (
+                        <p className="text-sm text-emerald-600 font-medium flex items-center gap-1.5">
+                          <CheckCircle className="w-4 h-4" />
+                          Profile saved!
+                        </p>
+                      ) : <div />}
+                      <button
+                        onClick={handleSaveProfile}
+                        className="bg-blue-600 text-white text-sm font-semibold px-6 py-2.5 rounded-xl hover:bg-blue-700 transition-colors"
+                      >
+                        Save Profile
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Notifications section ── */}
+            {settingsSection === "notifications" && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm divide-y divide-gray-100">
+                <div className="p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Notification Preferences</h3>
+                  <p className="text-xs text-gray-400">Choose what you want to be notified about</p>
+                </div>
+                {([
+                  { label: "Session Reminders",       desc: "Get notified before each session starts",                on: settingsNotifSession,  toggle: () => setSettingsNotifSession((v)  => !v) },
+                  { label: "Homework Due Alerts",      desc: "Reminders when homework is due soon",                   on: settingsNotifHomework, toggle: () => setSettingsNotifHomework((v) => !v) },
+                  { label: "Session Updates",          desc: "When your tutor adds notes or reschedules",             on: settingsNotifUpdates,  toggle: () => setSettingsNotifUpdates((v)  => !v) },
+                  { label: "New Activity",             desc: "When tutor assigns new homework or resources",          on: settingsNotifActivity, toggle: () => setSettingsNotifActivity((v) => !v) },
+                  { label: "Messages",                 desc: "When you receive a message from your tutor",            on: settingsNotifMessages, toggle: () => setSettingsNotifMessages((v) => !v) },
+                  { label: "Achievements & Announcements", desc: "Platform updates and milestones",                   on: settingsNotifAchieve,  toggle: () => setSettingsNotifAchieve((v)  => !v) },
+                ]).map((item) => (
+                  <div key={item.label} className="px-6 py-4 flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{item.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                    </div>
+                    {mkToggle(item.on, item.toggle)}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Preferences section ── */}
+            {settingsSection === "preferences" && (
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Learning Preferences</h3>
+                  <div className="space-y-5">
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-2">Current Subjects</label>
+                      <div className="flex flex-wrap gap-2">
+                        {student.subjects.map((subj) => (
+                          <span key={subj} className="text-xs font-medium px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
+                            {subj}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">Contact admin to add or remove subjects</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-2">Preferred Session Format</label>
+                      <div className="flex gap-3">
+                        <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50">
+                          <Video className="w-3.5 h-3.5 text-blue-500" />
+                          <span className="text-sm text-gray-700">Online</span>
+                        </div>
+                        {student.allowInPerson && (
+                          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50">
+                            <MapPin className="w-3.5 h-3.5 text-violet-500" />
+                            <span className="text-sm text-gray-700">In-Person</span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-400 mt-2">Session type is set per booking in your Schedule</p>
+                    </div>
+                    {tutor && (
+                      <div>
+                        <label className="text-xs font-medium text-gray-500 block mb-2">Assigned Tutor</label>
+                        <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl w-fit">
+                          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none">
+                            {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{tutor.name}</p>
+                            <p className="text-xs text-gray-400">{tutor.email}</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Privacy section ── */}
+            {settingsSection === "privacy" && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm divide-y divide-gray-100">
+                <div className="p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Privacy Settings</h3>
+                  <p className="text-xs text-gray-400">Control what information is visible to others</p>
+                </div>
+                {([
+                  { label: "Show Profile to Tutors",   desc: "Allow your tutor to view your full profile and learning history", on: settingsPrivProfile,  toggle: () => setSettingsPrivProfile((v)  => !v) },
+                  { label: "Share Progress with Parents", desc: "Allow parents and guardians to view your progress reports",   on: settingsPrivProgress, toggle: () => setSettingsPrivProgress((v) => !v) },
+                ]).map((item) => (
+                  <div key={item.label} className="px-6 py-4 flex items-center justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-800">{item.label}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
+                    </div>
+                    {mkToggle(item.on, item.toggle)}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* ── Data & Account section ── */}
+            {settingsSection === "data" && (
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-1">Download Your Data</h3>
+                  <p className="text-xs text-gray-400 mb-4">Export your sessions, homework, and progress history</p>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <button className="flex items-center justify-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-4 py-2.5 rounded-xl transition-colors border border-blue-100">
+                      <Download className="w-4 h-4" />
+                      Download My Data
+                    </button>
+                    <button className="flex items-center justify-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 px-4 py-2.5 rounded-xl transition-colors border border-gray-200">
+                      <FileText className="w-4 h-4" />
+                      Export Progress Report
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-red-100 rounded-2xl shadow-sm p-6">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                      <Trash2 className="w-4 h-4 text-red-500" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900">Delete Account</h3>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Permanently delete your account and all associated data. This cannot be undone.
+                        Please contact your admin to request account deletion.
+                      </p>
+                    </div>
+                  </div>
+                  <button className="text-sm font-medium text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors border border-red-100">
+                    Request Account Deletion
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
     </DashboardShell>
   );
