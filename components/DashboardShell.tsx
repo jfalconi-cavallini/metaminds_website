@@ -50,7 +50,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         <div className="p-5 border-b border-slate-700/60">
           <div className="bg-white rounded-2xl overflow-hidden mb-4">
             <img
-              src="/images/dashboard_Logo.png"
+              src="/images/metaminds-logo2.png"
               alt="MetaMinds"
               className="w-full h-auto block"
             />
@@ -111,7 +111,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         {/* Mobile top bar */}
         <div className="md:hidden bg-slate-900 text-white px-4 py-3 flex items-center justify-between">
           <div className="bg-white rounded-xl overflow-hidden inline-flex">
-            <img src="/images/dashboard_Logo.png" alt="MetaMinds" className="h-9 w-auto block" />
+            <img src="/images/metaminds-logo2.png" alt="MetaMinds" className="h-9 w-auto block" />
           </div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold select-none shrink-0">

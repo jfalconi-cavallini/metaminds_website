@@ -2236,10 +2236,45 @@ export default function StudentPortal() {
       })()}
 
       {/* ── HOURS ── */}
-      {tab === "hours" && (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Hours & Package</h1>
+      {tab === "hours" && (() => {
+        const now = new Date();
+        const isThisMonth = (dateStr: string) => {
+          const d = new Date(dateStr + "T12:00:00");
+          return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+        };
+        const completedThisMonth = completed.filter((s) => isThisMonth(s.date));
+        const hoursUsedThisMonth = completedThisMonth.reduce((sum, s) => sum + s.durationHours, 0);
+        const sessionsThisMonth = completedThisMonth.length;
+
+        const subjectHours: Record<string, number> = {};
+        completed.forEach((s) => {
+          subjectHours[s.subject] = (subjectHours[s.subject] ?? 0) + s.durationHours;
+        });
+        const totalCompletedHours = Object.values(subjectHours).reduce((a, b) => a + b, 0);
+        const subjectColors = ["#3b82f6", "#8b5cf6", "#10b981", "#f59e0b", "#f43f5e", "#06b6d4"];
+        const subjectEntries = Object.entries(subjectHours).sort((a, b) => b[1] - a[1]);
+
+        const donutR = 54;
+        const donutCirc = 2 * Math.PI * donutR;
+        let donutOffset = 0;
+        const donutSegments = subjectEntries.map(([subject, hrs], i) => {
+          const fraction = totalCompletedHours > 0 ? hrs / totalCompletedHours : 0;
+          const seg = { subject, hrs, color: subjectColors[i % subjectColors.length], dash: fraction * donutCirc, offset: donutOffset };
+          donutOffset += fraction * donutCirc;
+          return seg;
+        });
+
+        const ringR = 46;
+        const ringCirc = 2 * Math.PI * ringR;
+        const ringPct = balance ? Math.min((balance.remaining / Math.max(balance.totalPurchased, 1)) * 100, 100) : 0;
+
+        return (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">My Hours & Packages</h1>
+              <p className="text-sm text-gray-400 mt-1">Track your tutoring hours, packages, and usage.</p>
+            </div>
             <button
               onClick={() => setShowBuyPanel((v) => !v)}
               className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
@@ -2249,17 +2284,17 @@ export default function StudentPortal() {
           </div>
 
           {purchaseSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm">
               {purchaseSuccess}
             </div>
           )}
 
           {showBuyPanel && (
-            <div className="mb-6">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <h3 className="font-semibold text-gray-900 mb-3">Choose a Package</h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
                 {purchaseOptions.map((opt) => (
-                  <div key={opt.id} className="bg-white border border-gray-200 rounded-xl p-5 flex flex-col">
+                  <div key={opt.id} className="bg-gray-50 border border-gray-200 rounded-xl p-5 flex flex-col">
                     <p className="font-bold text-gray-900 text-lg">{opt.label}</p>
                     <p className="text-2xl font-bold text-blue-600 mt-1">{opt.priceLabel}</p>
                     <p className="text-xs text-gray-500 mt-1 mb-4">
@@ -2281,53 +2316,177 @@ export default function StudentPortal() {
           )}
 
           {balance ? (
-            <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,1fr)] gap-4">
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 flex items-center gap-6">
+                <div className="relative w-28 h-28 shrink-0">
+                  <svg width="112" height="112" viewBox="0 0 112 112" className="-rotate-90">
+                    <circle cx="56" cy="56" r={ringR} stroke="#f1f5f9" strokeWidth="10" fill="none" />
+                    <circle cx="56" cy="56" r={ringR} stroke="#2563eb" strokeWidth="10" fill="none"
+                      strokeDasharray={`${(ringPct / 100) * ringCirc} ${ringCirc}`} strokeLinecap="round" />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-xl font-bold text-gray-900">{balance.remaining}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">hrs left</p>
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Package</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Expires {formatDate(balance.expiresAt)}</p>
+                  <button
+                    onClick={() => setTab("sessions")}
+                    className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
+                  >
+                    Book a Session
+                  </button>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-start">
+                <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center mb-3">
+                  <Clock className="w-4 h-4 text-blue-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{hoursUsedThisMonth}</p>
+                <p className="text-xs text-gray-400 mt-1">Hours used this month</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-start">
+                <div className="w-9 h-9 rounded-lg bg-emerald-50 flex items-center justify-center mb-3">
+                  <CalendarDays className="w-4 h-4 text-emerald-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{sessionsThisMonth}</p>
+                <p className="text-xs text-gray-400 mt-1">Sessions completed this month</p>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col items-start">
+                <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center mb-3">
+                  <Timer className="w-4 h-4 text-amber-600" />
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{balance.remaining}</p>
+                <p className="text-xs text-gray-400 mt-1">Hours remaining</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 text-center text-gray-500 text-sm">
+              No package yet. Contact MetaMinds to get started.
+            </div>
+          )}
+
+          {balance && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-3">
-                <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Pack</p>
-                <p className="text-sm text-gray-500">Expires {balance.expiresAt}</p>
+                <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Package</p>
+                <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Active</span>
               </div>
               <div className="flex items-center gap-4 mb-3">
-                <div className="flex-1 bg-gray-200 rounded-full h-3">
-                  <div className="bg-blue-600 h-3 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
+                <div className="flex-1 bg-gray-100 rounded-full h-2.5">
+                  <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
                 </div>
                 <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
                   {balance.totalUsed}/{balance.totalPurchased} hrs used
                 </span>
               </div>
-              <p className="text-3xl font-bold text-blue-600">
-                {balance.remaining}{" "}
-                <span className="text-base font-normal text-gray-500">hours remaining</span>
-              </p>
-            </div>
-          ) : (
-            <div className="bg-gray-50 border border-gray-200 rounded-xl p-6 mb-6 text-center text-gray-500 text-sm">
-              No package yet. Contact MetaMinds to get started.
+              <div className="flex items-center gap-6 text-sm text-gray-500">
+                <span><span className="font-semibold text-gray-900">{balance.remaining}</span> remaining</span>
+                <span><span className="font-semibold text-gray-900">{completed.length}</span> sessions</span>
+              </div>
             </div>
           )}
 
-          <h3 className="font-semibold text-gray-900 mb-3">Session History</h3>
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
-                <tr>
-                  <th className="px-4 py-3 text-left">Date</th>
-                  <th className="px-4 py-3 text-left">Subject</th>
-                  <th className="px-4 py-3 text-left">Duration</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {completed.map((s) => (
-                  <tr key={s.id}>
-                    <td className="px-4 py-3 text-gray-700">{formatDate(s.date)}</td>
-                    <td className="px-4 py-3 text-gray-700">{s.subject}</td>
-                    <td className="px-4 py-3 text-gray-700">{s.durationHours} hr</td>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-6 pt-5 pb-3">
+                <h3 className="font-semibold text-gray-900">Hours Usage History</h3>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="px-6 py-2 text-left">Date</th>
+                    <th className="px-6 py-2 text-left">Subject</th>
+                    <th className="px-6 py-2 text-left">Duration</th>
                   </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {completed.length === 0 && (
+                    <tr><td colSpan={3} className="px-6 py-6 text-center text-gray-400">No completed sessions yet.</td></tr>
+                  )}
+                  {[...completed].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-6 py-3 text-gray-700">{formatDate(s.date)}</td>
+                      <td className="px-6 py-3 text-gray-700">{s.subject}</td>
+                      <td className="px-6 py-3 text-gray-700">{s.durationHours} hr</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Upcoming Sessions</h3>
+                <button onClick={() => setTab("sessions")} className="text-xs text-blue-600 hover:text-blue-700 font-semibold">
+                  View Schedule
+                </button>
+              </div>
+              <div className="space-y-3">
+                {upcoming.length === 0 && (
+                  <p className="text-sm text-gray-400 text-center py-4">No upcoming sessions booked.</p>
+                )}
+                {upcoming.slice(0, 4).map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
+                      <p className="text-xs text-gray-400">{tutor?.name ?? "Your tutor"} · {formatDate(s.date)} · {s.time}</p>
+                    </div>
+                    <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{s.durationHours} hr</span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+              <button
+                onClick={() => setTab("sessions")}
+                className="mt-4 w-full py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 flex items-center justify-center gap-2"
+              >
+                <CalendarDays className="w-4 h-4" /> Book Another Session
+              </button>
+            </div>
           </div>
+
+          {completed.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+              <h3 className="font-semibold text-gray-900 mb-5">Hours Breakdown</h3>
+              <div className="flex flex-col sm:flex-row items-center gap-8">
+                <div className="relative w-40 h-40 shrink-0">
+                  <svg width="160" height="160" viewBox="0 0 160 160" className="-rotate-90">
+                    <circle cx="80" cy="80" r={donutR} stroke="#f1f5f9" strokeWidth="18" fill="none" />
+                    {donutSegments.map((seg) => (
+                      <circle key={seg.subject} cx="80" cy="80" r={donutR} stroke={seg.color} strokeWidth="18" fill="none"
+                        strokeDasharray={`${seg.dash} ${donutCirc - seg.dash}`}
+                        strokeDashoffset={-seg.offset} />
+                    ))}
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <p className="text-2xl font-bold text-gray-900">{totalCompletedHours}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide">hours used</p>
+                  </div>
+                </div>
+                <div className="flex-1 w-full space-y-2">
+                  {donutSegments.map((seg) => (
+                    <div key={seg.subject} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
+                        <span className="text-gray-700 truncate">{seg.subject}</span>
+                      </div>
+                      <span className="text-gray-500 whitespace-nowrap">
+                        {seg.hrs}h · {totalCompletedHours > 0 ? Math.round((seg.hrs / totalCompletedHours) * 100) : 0}%
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+        );
+      })()}
 
       {/* ── METAMINDS LAB ── */}
       {tab === "lab" && (
