@@ -14,10 +14,11 @@ import {
   insertSession, cancelSession,
   fetchSessionNotes, fetchHomework,
   fetchBlockedDates, fetchParentUpdatesByStudent,
+  insertPurchaseRequest,
   autoCompletePastSessions,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -137,6 +138,8 @@ export default function StudentPortal() {
   // Buy Hours
   const [showBuyPanel,    setShowBuyPanel]    = useState(false);
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
+  const [purchaseError,   setPurchaseError]   = useState("");
+  const [purchaseSaving,  setPurchaseSaving]  = useState(false);
 
   // Past session detail
   const [pastSessionDetail, setPastSessionDetail] = useState<Session | null>(null);
@@ -342,10 +345,25 @@ export default function StudentPortal() {
     }
   }
 
-  function requestPurchase(label: string) {
-    setPurchaseSuccess(`"${label}" request submitted. Admin will confirm and send an invoice.`);
-    setShowBuyPanel(false);
-    setTimeout(() => setPurchaseSuccess(null), 5000);
+  async function requestPurchase(opt: PurchaseOption) {
+    if (!student) return;
+    setPurchaseSaving(true);
+    setPurchaseError("");
+    try {
+      await insertPurchaseRequest({
+        studentId:    student.id,
+        packageLabel: opt.label,
+        hours:        opt.hours,
+        price:        opt.price,
+      });
+      setPurchaseSuccess(`"${opt.label}" request submitted. Admin will confirm and send an invoice.`);
+      setShowBuyPanel(false);
+      setTimeout(() => setPurchaseSuccess(null), 5000);
+    } catch {
+      setPurchaseError("Failed to submit request. Please try again.");
+    } finally {
+      setPurchaseSaving(false);
+    }
   }
 
   if (!authLoaded || loading) {
@@ -2305,14 +2323,16 @@ export default function StudentPortal() {
                       {opt.hours} session hour{opt.hours > 1 ? "s" : ""}
                     </p>
                     <button
-                      onClick={() => requestPurchase(opt.label)}
-                      className="mt-auto w-full py-2 rounded-lg border border-blue-600 text-blue-600 text-sm font-medium hover:bg-blue-50"
+                      onClick={() => requestPurchase(opt)}
+                      disabled={purchaseSaving}
+                      className="mt-auto w-full py-2 rounded-lg border border-blue-600 text-blue-600 text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
                     >
-                      Request Purchase
+                      {purchaseSaving ? "Submitting…" : "Request Purchase"}
                     </button>
                   </div>
                 ))}
               </div>
+              {purchaseError && <p className="text-xs text-red-500 mb-2">{purchaseError}</p>}
               <p className="text-xs text-gray-400">
                 No payment collected here. Admin will confirm and send an invoice.
               </p>

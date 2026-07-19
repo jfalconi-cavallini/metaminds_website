@@ -87,6 +87,16 @@ export interface PurchaseOption {
   priceLabel: string;     // "$260"
 }
 
+export interface PurchaseRequest {
+  id: number;
+  studentId: number;
+  packageLabel: string;   // "4 Hours"
+  hours: number;
+  price: number;          // dollars
+  status: "pending" | "fulfilled" | "dismissed";
+  createdAt: string;      // ISO timestamp
+}
+
 export interface TutorAvailability {
   id: number;
   tutorId: number;

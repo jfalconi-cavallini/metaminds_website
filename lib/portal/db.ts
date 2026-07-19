@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -262,6 +262,55 @@ export async function fetchAllPackages(): Promise<HoursBalance[]> {
   const { data, error } = await supabase.from("user_packages").select("*");
   if (error) throw error;
   return data.map(rowToBalance);
+}
+
+// ── PURCHASE REQUESTS ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPurchaseRequest(r: any): PurchaseRequest {
+  return {
+    id:           r.id,
+    studentId:    r.student_id,
+    packageLabel: r.package_label,
+    hours:        Number(r.hours),
+    price:        Number(r.price),
+    status:       r.status,
+    createdAt:    r.created_at,
+  };
+}
+
+export async function insertPurchaseRequest(payload: {
+  studentId: number; packageLabel: string; hours: number; price: number;
+}): Promise<PurchaseRequest> {
+  const { data, error } = await supabase.from("purchase_requests").insert({
+    student_id:    payload.studentId,
+    package_label: payload.packageLabel,
+    hours:         payload.hours,
+    price:         payload.price,
+  }).select().single();
+  if (error) throw error;
+  return rowToPurchaseRequest(data);
+}
+
+export async function fetchPendingPurchaseRequests(): Promise<PurchaseRequest[]> {
+  const { data, error } = await supabase
+    .from("purchase_requests")
+    .select("*")
+    .eq("status", "pending")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data.map(rowToPurchaseRequest);
+}
+
+export async function resolvePurchaseRequest(
+  id: number,
+  status: "fulfilled" | "dismissed",
+): Promise<void> {
+  const { error } = await supabase
+    .from("purchase_requests")
+    .update({ status, resolved_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 // ── TUTOR AVAILABILITY ────────────────────────────────────────────────────────

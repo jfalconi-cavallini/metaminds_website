@@ -345,11 +345,6 @@ export default function WeeklyCalendar({
                               <span className="text-[9px] font-semibold text-orange-300">🚫</span>
                             </span>
                           )}
-                          {isTooSoon && avail && (
-                            <span className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                              <span className="text-[9px] text-amber-400">🔒</span>
-                            </span>
-                          )}
                         </div>
                       );
                     })}

@@ -18,8 +18,9 @@ import {
   bulkInsertSessions, updateStudentProfile, updateTutorProfile,
   archiveStudent, restoreStudent, archiveTutor, restoreTutor,
   countHomeworkByStatus,
+  fetchPendingPurchaseRequests, resolvePurchaseRequest,
 } from "@/lib/portal/db";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest } from "@/lib/portal/types";
 
 const navItems = [
   { id: "overview",  label: "Overview"  },
@@ -44,6 +45,9 @@ export default function AdminPortal() {
   const [sessions,         setSessions]         = useState<Session[]>([]);
   const [packages,         setPackages]         = useState<HoursBalance[]>([]);
   const [submittedHwCount, setSubmittedHwCount] = useState(0);
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState<number | null>(null);
+  const [fulfillingRequestId, setFulfillingRequestId] = useState<number | null>(null);
   const [loading,          setLoading]          = useState(true);
 
   // ── PROFILE MODALS ─────────────────────────────────────────────
@@ -80,12 +84,13 @@ export default function AdminPortal() {
     }
     async function load() {
       try {
-        const [s, t, sess, pkgs, hwCount] = await Promise.all([
+        const [s, t, sess, pkgs, hwCount, purchReqs] = await Promise.all([
           fetchStudents({ all: true }), fetchTutors({ all: true }), fetchSessions(), fetchAllPackages(),
-          countHomeworkByStatus("submitted"),
+          countHomeworkByStatus("submitted"), fetchPendingPurchaseRequests(),
         ]);
         setStudents(s); setTutors(t); setSessions(sess); setPackages(pkgs);
         setSubmittedHwCount(hwCount);
+        setPurchaseRequests(purchReqs);
       } catch (err) { console.error("Admin load error:", err); }
       finally { setLoading(false); }
     }
@@ -453,9 +458,33 @@ export default function AdminPortal() {
         if (exists) return prev.map((b) => b.studentId === addHoursFor ? updated : b);
         return [...prev, updated];
       });
+      if (fulfillingRequestId) {
+        const requestId = fulfillingRequestId;
+        setFulfillingRequestId(null);
+        resolvePurchaseRequest(requestId, "fulfilled")
+          .then(() => setPurchaseRequests((prev) => prev.filter((r) => r.id !== requestId)))
+          .catch(console.error);
+      }
       setAddHoursFor(null);
     } catch { setAddHoursError("Failed to add hours."); }
     finally { setAddHoursLoading(false); }
+  }
+
+  function openFulfillRequest(req: PurchaseRequest) {
+    setFulfillingRequestId(req.id);
+    setAddHoursFor(req.studentId);
+    setAddHoursAmt(String(req.hours));
+    setAddHoursExpiry("");
+    setAddHoursError("");
+  }
+
+  async function dismissPurchaseRequest(id: number) {
+    setResolvingRequestId(id);
+    try {
+      await resolvePurchaseRequest(id, "dismissed");
+      setPurchaseRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch { /* leave it in the list so the admin can retry */ }
+    finally { setResolvingRequestId(null); }
   }
 
   // ── HELPERS ─────────────────────────────────────────────────────
@@ -601,7 +630,7 @@ export default function AdminPortal() {
             {/* Today's Tasks */}
             <div className="mb-8">
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Today&apos;s Tasks</h2>
-              {todaySess.length === 0 && tomorrowSess.length === 0 && submittedHwCount === 0 && lowHours.length === 0 ? (
+              {todaySess.length === 0 && tomorrowSess.length === 0 && submittedHwCount === 0 && lowHours.length === 0 && purchaseRequests.length === 0 ? (
                 <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-sm text-green-700 font-medium">
                   All clear — nothing needs your attention right now.
                 </div>
@@ -643,6 +672,20 @@ export default function AdminPortal() {
                         <p className="text-xs text-amber-600 mt-0.5">Tutors should grade these in their Homework tab</p>
                       </div>
                     </div>
+                  )}
+
+                  {purchaseRequests.length > 0 && (
+                    <button onClick={() => setTab("packages")}
+                      className="w-full flex items-start gap-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 text-left hover:bg-emerald-100 transition-colors">
+                      <span className="text-xl shrink-0">💳</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-emerald-800 text-sm">{purchaseRequests.length} hour purchase request{purchaseRequests.length > 1 ? "s" : ""} waiting</p>
+                        <p className="text-xs text-emerald-600 mt-0.5 truncate">
+                          {purchaseRequests.map((r) => `${getStudent(r.studentId)?.name ?? "?"} — ${r.packageLabel}`).join("  ·  ")}
+                        </p>
+                      </div>
+                      <span className="text-emerald-600 text-sm font-medium shrink-0">Review →</span>
+                    </button>
                   )}
 
                   {lowHours.length > 0 && (
@@ -1252,6 +1295,45 @@ export default function AdminPortal() {
             </button>
           </div>
 
+          {purchaseRequests.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 mb-6 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 bg-emerald-50">
+                <h2 className="text-sm font-semibold text-emerald-800">
+                  Pending Purchase Requests ({purchaseRequests.length})
+                </h2>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {purchaseRequests.map((req) => (
+                  <div key={req.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {getStudent(req.studentId)?.name ?? "Unknown student"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {req.packageLabel} · ${req.price} · requested {formatDate(req.createdAt.slice(0, 10))}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => dismissPurchaseRequest(req.id)}
+                        disabled={resolvingRequestId === req.id}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        onClick={() => openFulfillRequest(req)}
+                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                      >
+                        Fulfill
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -1311,7 +1393,7 @@ export default function AdminPortal() {
       {/* ── ADD HOURS MODAL ── */}
       {addHoursFor && (
         <Modal
-          onClose={() => setAddHoursFor(null)}
+          onClose={() => { setAddHoursFor(null); setFulfillingRequestId(null); }}
           title="Add Package Hours"
           subtitle={getStudent(addHoursFor)?.name}
         >
