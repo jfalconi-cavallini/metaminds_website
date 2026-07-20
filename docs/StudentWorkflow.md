@@ -161,10 +161,11 @@ Parents (and students) read updates in the **Updates tab**:
 ## Mobile Experience
 
 The portal is responsive. On mobile:
-- Sidebar collapses → horizontal scrollable tab bar at top
+- Sidebar collapses → hamburger menu in the top bar opens a dropdown listing every tab (no horizontal scrolling)
 - Cards stack vertically
 - Two-column layouts become single column (notes, updates)
-- WeeklyCalendar is touch-friendly
+- WeeklyCalendar scrolls horizontally within its own container (touch-friendly)
+- Modals cap at viewport height and scroll internally instead of clipping content
 
 Mobile is important: parents often check updates on their phones.
 
