@@ -2292,14 +2292,14 @@ export default function StudentPortal() {
 
         return (
         <div className="space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">My Hours & Packages</h1>
               <p className="text-sm text-gray-400 mt-1">Track your tutoring hours, packages, and usage.</p>
             </div>
             <button
               onClick={() => setShowBuyPanel((v) => !v)}
-              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+              className="shrink-0 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
             >
               + Buy More Hours
             </button>
