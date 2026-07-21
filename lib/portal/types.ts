@@ -7,6 +7,7 @@ export interface Student {
   email: string;
   grade: string;
   subjects: string[];
+  programs: string[];           // named programs: "SAT Prep", "AP Calculus AB", etc.
   assignedTutorId: number | null;
   archived: boolean;
   phone?: string;

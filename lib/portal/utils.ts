@@ -1,5 +1,54 @@
 import type { PurchaseOption } from "./types";
 
+export const PROGRAM_CATALOG: Record<string, string[]> = {
+  "Test Prep": [
+    "SAT Prep",
+    "ACT Prep",
+    "PSAT Prep",
+    "AP Exam Prep",
+  ],
+  "AP Courses": [
+    "AP Calculus AB",
+    "AP Calculus BC",
+    "AP Statistics",
+    "AP Computer Science A",
+    "AP Computer Science Principles",
+    "AP Physics 1",
+    "AP Physics 2",
+    "AP Physics C: Mechanics",
+    "AP Chemistry",
+    "AP Biology",
+    "AP Environmental Science",
+    "AP Psychology",
+    "AP English Language",
+    "AP English Literature",
+    "AP US History",
+    "AP World History",
+    "AP Macroeconomics",
+  ],
+  "Academics": [
+    "Algebra I",
+    "Algebra II",
+    "Geometry",
+    "Pre-Calculus",
+    "Calculus",
+    "Physics",
+    "Chemistry",
+    "Biology",
+    "English / Writing",
+    "Reading Comprehension",
+    "History / Social Studies",
+  ],
+  "Coding & Technology": [
+    "Python",
+    "Java",
+    "JavaScript",
+    "Scratch",
+    "Robotics",
+    "Data Science",
+  ],
+};
+
 export function formatDate(iso: string): string {
   const d = new Date(iso + "T00:00:00");
   return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });

@@ -6,7 +6,7 @@ import DashboardShell from "@/components/DashboardShell";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import Modal from "@/components/portal/Modal";
-import { formatDate, formatTime24to12 } from "@/lib/portal/utils";
+import { formatDate, formatTime24to12, PROGRAM_CATALOG } from "@/lib/portal/utils";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
@@ -65,6 +65,7 @@ export default function AdminPortal() {
   const [pfEmail,        setPfEmail]        = useState("");
   const [pfGrade,        setPfGrade]        = useState("");
   const [pfSubjects,     setPfSubjects]     = useState("");
+  const [pfPrograms,     setPfPrograms]     = useState<string[]>([]);
   const [pfPhone,        setPfPhone]        = useState("");
   const [pfParentName,   setPfParentName]   = useState("");
   const [pfParentEmail,  setPfParentEmail]  = useState("");
@@ -500,7 +501,8 @@ export default function AdminPortal() {
   function openStudentProfile(s: Student) {
     setProfileStudent(s); setEditingProfile(false);
     setPfName(s.name); setPfEmail(s.email); setPfGrade(s.grade);
-    setPfSubjects(s.subjects.join(", ")); setPfPhone(s.phone ?? "");
+    setPfSubjects(s.subjects.join(", ")); setPfPrograms(s.programs ?? []);
+    setPfPhone(s.phone ?? "");
     setPfParentName(s.parentName ?? ""); setPfParentEmail(s.parentEmail ?? "");
     setPfParentPhone(s.parentPhone ?? ""); setPfNotes(s.notes ?? "");
     setPfAllowInPerson(s.allowInPerson ?? false);
@@ -520,6 +522,7 @@ export default function AdminPortal() {
       const updated = await updateStudentProfile(profileStudent.id, {
         name: pfName, email: pfEmail, grade: pfGrade,
         subjects: pfSubjects.split(",").map((s) => s.trim()).filter(Boolean),
+        programs: pfPrograms,
         phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
         parentPhone: pfParentPhone, notes: pfNotes, allowInPerson: pfAllowInPerson,
       });
@@ -1564,6 +1567,31 @@ export default function AdminPortal() {
                 <input value={pfGrade} onChange={(e) => setPfGrade(e.target.value)} placeholder="Grade (e.g. 10th)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <input value={pfPhone} onChange={(e) => setPfPhone(e.target.value)} placeholder="Student phone"    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <input value={pfSubjects} onChange={(e) => setPfSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
+              </div>
+              {/* Programs */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">Programs <span className="font-normal text-gray-400">— select all that apply</span></p>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                  {Object.entries(PROGRAM_CATALOG).map(([cat, items]) => (
+                    <div key={cat}>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">{cat}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {items.map((p) => {
+                          const sel = pfPrograms.includes(p);
+                          return (
+                            <button key={p} type="button"
+                              onClick={() => setPfPrograms((prev) => sel ? prev.filter((x) => x !== p) : [...prev, p])}
+                              className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-all ${sel ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}
+                            >{p}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {pfPrograms.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">{pfPrograms.length} program{pfPrograms.length !== 1 ? "s" : ""} selected</p>
+                )}
               </div>
               <p className="text-xs font-semibold text-gray-500 mt-2">Parent / Guardian</p>
               <div className="grid grid-cols-2 gap-3">

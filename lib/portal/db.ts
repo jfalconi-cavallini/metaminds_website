@@ -11,6 +11,7 @@ function rowToStudent(r: any): Student {
     email: r.email,
     grade: r.grade,
     subjects: r.subjects ?? [],
+    programs: r.programs ?? [],
     assignedTutorId: r.assigned_tutor_id ?? null,
     archived: r.archived ?? false,
     phone:       r.phone ?? undefined,
@@ -674,7 +675,7 @@ export async function addPackageHours(
 // ── PROFILE UPDATES ───────────────────────────────────────────────────────────
 
 export async function updateStudentProfile(id: number, payload: Partial<{
-  name: string; email: string; grade: string; subjects: string[];
+  name: string; email: string; grade: string; subjects: string[]; programs: string[];
   phone: string; parentName: string; parentEmail: string; parentPhone: string; notes: string;
   allowInPerson: boolean; successPlan: string;
 }>): Promise<Student> {
@@ -683,6 +684,7 @@ export async function updateStudentProfile(id: number, payload: Partial<{
   if (payload.email         !== undefined) update.email          = payload.email;
   if (payload.grade         !== undefined) update.grade          = payload.grade;
   if (payload.subjects      !== undefined) update.subjects       = payload.subjects;
+  if (payload.programs      !== undefined) update.programs       = payload.programs;
   if (payload.phone         !== undefined) update.phone          = payload.phone;
   if (payload.parentName    !== undefined) update.parent_name    = payload.parentName;
   if (payload.parentEmail   !== undefined) update.parent_email   = payload.parentEmail;

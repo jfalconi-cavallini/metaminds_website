@@ -4,8 +4,7 @@ import React, { useState } from "react";
 import Modal from "./Modal";
 import { supabase } from "@/lib/supabase";
 import type { Tutor } from "@/lib/portal/types";
-
-const PROGRAMS = ["SAT Prep", "ACT Prep", "Python", "Scratch", "Java", "Geometry", "Robotics"];
+import { PROGRAM_CATALOG } from "@/lib/portal/utils";
 
 const GRADES = [
   "6th", "7th", "8th", "9th", "10th", "11th", "12th",
@@ -288,24 +287,34 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
           {/* Programs */}
           <div>
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Programs</p>
-            <p className="text-xs text-gray-400 mb-3">Select all that apply</p>
-            <div className="grid grid-cols-3 gap-2">
-              {PROGRAMS.map((p) => {
-                const selected = programs.includes(p);
-                return (
-                  <button key={p} type="button"
-                    onClick={() => setPrograms((prev) => selected ? prev.filter((x) => x !== p) : [...prev, p])}
-                    className={`px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                      selected
-                        ? "bg-blue-600 text-white border-blue-600 shadow-sm"
-                        : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
-                    }`}
-                  >
-                    {p}
-                  </button>
-                );
-              })}
+            <p className="text-xs text-gray-400 mb-3">Select all that apply — more can be added later</p>
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+              {Object.entries(PROGRAM_CATALOG).map(([category, items]) => (
+                <div key={category}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{category}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {items.map((p) => {
+                      const selected = programs.includes(p);
+                      return (
+                        <button key={p} type="button"
+                          onClick={() => setPrograms((prev) => selected ? prev.filter((x) => x !== p) : [...prev, p])}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                            selected
+                              ? "bg-blue-600 text-white border-blue-600 shadow-sm"
+                              : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
+            {programs.length > 0 && (
+              <p className="text-xs text-blue-600 mt-2 font-medium">{programs.length} program{programs.length !== 1 ? "s" : ""} selected</p>
+            )}
           </div>
 
           {/* Tutor */}

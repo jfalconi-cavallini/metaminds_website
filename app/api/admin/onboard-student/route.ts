@@ -223,7 +223,8 @@ export async function POST(request: Request) {
     name:             studentName,
     email:            email.trim(),
     grade:            grade.trim(),
-    subjects:         programs ?? [],
+    subjects:         programs ?? [],   // keep for backwards compat
+    programs:         programs ?? [],
     phone:            phone         || null,
     parent_name:      parentName    || null,
     parent_email:     parentEmail   || null,
