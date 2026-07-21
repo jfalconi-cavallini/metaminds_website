@@ -75,6 +75,7 @@ function slotOccupied(dateISO: string, slot: number, sessions: Session[]): boole
 interface Props {
   availability: TutorAvailability[];
   sessions: Session[];
+  visibleSessions?: Session[];   // sessions to render as blocks; falls back to sessions if omitted
   mode: "book" | "tutor" | "view";
   onSlotSelect?: (date: string, time: string) => void;
   selectedSlot?: { date: string; time: string } | null;
@@ -88,10 +89,11 @@ interface Props {
 }
 
 export default function WeeklyCalendar({
-  availability, sessions, mode, onSlotSelect, selectedSlot,
+  availability, sessions, visibleSessions, mode, onSlotSelect, selectedSlot,
   bookingLeadHours, onSessionClick, getSessionActions, blockedDates, blockedSlots,
   onSlotBlock, resolveStudentName,
 }: Props) {
+  const renderSessions = visibleSessions ?? sessions;
   const [weekOffset, setWeekOffset] = useState(0);
 
   const today = new Date();
@@ -232,7 +234,7 @@ export default function WeeklyCalendar({
                 const isToday      = dateISO === todayISO;
                 const isDayBlocked = blockedDates?.includes(dateISO) ?? false;
 
-                const daySessions = sessions.filter(
+                const daySessions = renderSessions.filter(
                   (s) => s.date === dateISO && s.status !== "cancelled",
                 );
 

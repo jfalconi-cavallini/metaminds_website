@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
+import CourseCatalog from "@/components/portal/CourseCatalog";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
   insertSession, logCompletedSession, cancelSession,
@@ -29,6 +30,7 @@ const navItems = [
   { id: "tutors",    label: "Tutors"    },
   { id: "sessions",  label: "Sessions"  },
   { id: "packages",  label: "Packages"  },
+  { id: "courses",   label: "Courses"   },
 ];
 
 
@@ -1486,6 +1488,9 @@ export default function AdminPortal() {
           </div>
         </Modal>
       )}
+
+      {/* ── COURSES (CMS) ── */}
+      {tab === "courses" && <CourseCatalog />}
 
     </DashboardShell>
 

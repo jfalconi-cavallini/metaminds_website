@@ -891,6 +891,7 @@ export default function StudentPortal() {
               <WeeklyCalendar
                 availability={availability}
                 sessions={tutorSessions}
+                visibleSessions={mySessions}
                 blockedDates={blockedDates.map((b) => b.blockedDate)}
                 mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
                 selectedSlot={selectedSlot}
