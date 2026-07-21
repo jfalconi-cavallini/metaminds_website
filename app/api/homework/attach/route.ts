@@ -36,7 +36,7 @@ export async function POST(request: Request) {
 
   const buffer  = Buffer.from(await file.arrayBuffer());
   const safeName = file.name.replace(/\s+/g, "_");
-  const path    = `tutor_attach/hw_${hwIdNum}/${Date.now()}_${safeName}`;
+  const path    = `hw_${hwIdNum}/tutor_${Date.now()}_${safeName}`;
 
   const { error: uploadError } = await admin.storage
     .from("homework-submissions")
