@@ -654,6 +654,15 @@ export default function TutorPortal() {
 
         return (
           <div>
+            {!tutor.zoomLink && (
+              <div className="flex items-start gap-3 mb-6 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
+                <span className="text-amber-500 text-lg leading-none mt-0.5">⚠</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-amber-800">Your Zoom link isn't set</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Students won't have a link to join your sessions. Ask your admin to add your personal Zoom room link to your tutor profile.</p>
+                </div>
+              </div>
+            )}
             <h1 className="text-2xl font-bold text-gray-900 mb-6">Welcome, {user?.fullName ?? tutor.name}</h1>
             <div className="grid grid-cols-3 gap-4 mb-8">
               <StatCard label="My Students"       value={myStudents.length} />
