@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -905,7 +905,9 @@ function rowToCourse(r: any): Course {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToModule(r: any): Module {
   return {
-    id: r.id, courseId: r.course_id, title: r.title,
+    id: r.id, courseId: r.course_id,
+    parentId: r.parent_id ?? undefined,
+    title: r.title,
     description: r.description ?? undefined,
     position: r.position, estimatedWeeks: r.estimated_weeks ?? undefined,
     createdAt: r.created_at,
@@ -1028,6 +1030,7 @@ export async function updateCourse(id: number, payload: Partial<{
 
 // ── CMS: MODULES ──────────────────────────────────────────────────────────────
 
+/** All modules for a course (flat, includes both sections and categories). */
 export async function fetchModules(courseId: number): Promise<Module[]> {
   const { data, error } = await supabase
     .from("modules").select("*").eq("course_id", courseId).order("position");
@@ -1035,12 +1038,34 @@ export async function fetchModules(courseId: number): Promise<Module[]> {
   return data.map(rowToModule);
 }
 
+/** Top-level sections for a course (parent_id IS NULL). */
+export async function fetchSections(courseId: number): Promise<Module[]> {
+  const { data, error } = await supabase
+    .from("modules").select("*")
+    .eq("course_id", courseId)
+    .is("parent_id", null)
+    .order("position");
+  if (error) throw error;
+  return data.map(rowToModule);
+}
+
+/** Categories that belong to a section (parent_id = sectionId). */
+export async function fetchCategories(sectionId: number): Promise<Module[]> {
+  const { data, error } = await supabase
+    .from("modules").select("*")
+    .eq("parent_id", sectionId)
+    .order("position");
+  if (error) throw error;
+  return data.map(rowToModule);
+}
+
 export async function insertModule(payload: {
   courseId: number; title: string; description?: string;
-  position?: number; estimatedWeeks?: number;
+  position?: number; estimatedWeeks?: number; parentId?: number;
 }): Promise<Module> {
   const { data, error } = await supabase.from("modules").insert({
     course_id:       payload.courseId,
+    parent_id:       payload.parentId       ?? null,
     title:           payload.title,
     description:     payload.description    ?? null,
     position:        payload.position       ?? 0,
@@ -1159,6 +1184,19 @@ export async function insertLessonResource(payload: {
 export async function deleteLessonResource(id: number): Promise<void> {
   const { error } = await supabase.from("lesson_resources").delete().eq("id", id);
   if (error) throw error;
+}
+
+export async function updateLessonResource(id: number, payload: Partial<{
+  label: string; url: string | null; storagePath: string | null;
+}>): Promise<LessonResource> {
+  const u: Record<string, unknown> = {};
+  if (payload.label       !== undefined) u.label        = payload.label;
+  if (payload.url         !== undefined) u.url          = payload.url;
+  if (payload.storagePath !== undefined) u.storage_path = payload.storagePath;
+  const { data, error } = await supabase
+    .from("lesson_resources").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToLessonResource(data);
 }
 
 // ── CMS: SKILLS ──────────────────────────────────────────────────────────────
@@ -1325,4 +1363,250 @@ export async function upsertSkillMastery(
     last_assessed: new Date().toISOString(),
   }, { onConflict: "student_id,skill_id" });
   if (error) throw error;
+}
+
+// ── CMS: COMPOSITE QUERIES ────────────────────────────────────────────────────
+
+/**
+ * Fetches a single lesson with all its resource slots and tagged skills.
+ * Used for lesson detail panels in admin Curriculum Builder and tutor Curriculum Library.
+ */
+export async function fetchLessonPackage(lessonId: number): Promise<LessonPackage> {
+  const [lessonRes, resourcesRes, skillsRes] = await Promise.all([
+    supabase.from("lessons").select("*").eq("id", lessonId).single(),
+    supabase.from("lesson_resources").select("*").eq("lesson_id", lessonId).order("position"),
+    supabase.from("lesson_skills").select("skills(*)").eq("lesson_id", lessonId),
+  ]);
+  if (lessonRes.error)    throw lessonRes.error;
+  if (resourcesRes.error) throw resourcesRes.error;
+  if (skillsRes.error)    throw skillsRes.error;
+  return {
+    ...rowToLesson(lessonRes.data),
+    resources: (resourcesRes.data ?? []).map(rowToLessonResource),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    skills: (skillsRes.data ?? []).map((r: any) => rowToSkill(r.skills)).filter(Boolean),
+  };
+}
+
+/**
+ * Fetches the full course catalog as a nested tree:
+ *   Course → Sections → Categories → Lessons (with resources)
+ * Used for sidebar navigation in admin Curriculum Builder and tutor Curriculum Library.
+ */
+export async function fetchFullCatalog(courseId: number): Promise<CourseCatalogFull> {
+  const [courseRes, modulesRes, lessonsRes, resourcesRes] = await Promise.all([
+    supabase.from("courses").select("*").eq("id", courseId).single(),
+    supabase.from("modules").select("*").eq("course_id", courseId).order("position"),
+    supabase.from("lessons")
+      .select("*, modules!inner(course_id)")
+      .eq("modules.course_id", courseId)
+      .order("position"),
+    supabase.from("lesson_resources")
+      .select("*, lessons!inner(module_id, modules!inner(course_id))")
+      .eq("lessons.modules.course_id", courseId)
+      .order("position"),
+  ]);
+  if (courseRes.error)    throw courseRes.error;
+  if (modulesRes.error)   throw modulesRes.error;
+  if (lessonsRes.error)   throw lessonsRes.error;
+  if (resourcesRes.error) throw resourcesRes.error;
+
+  const course  = rowToCourse(courseRes.data);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allMods = (modulesRes.data ?? []).map((r: any) => rowToModule(r));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allLessons = (lessonsRes.data ?? []).map((r: any) => rowToLesson(r));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const allResources = (resourcesRes.data ?? []).map((r: any) => rowToLessonResource(r));
+
+  const resourcesByLesson = new Map<number, LessonResource[]>();
+  for (const res of allResources) {
+    if (!resourcesByLesson.has(res.lessonId)) resourcesByLesson.set(res.lessonId, []);
+    resourcesByLesson.get(res.lessonId)!.push(res);
+  }
+
+  const lessonsByModule = new Map<number, CatalogLesson[]>();
+  for (const lesson of allLessons) {
+    if (!lessonsByModule.has(lesson.moduleId)) lessonsByModule.set(lesson.moduleId, []);
+    lessonsByModule.get(lesson.moduleId)!.push({
+      ...lesson,
+      resources: resourcesByLesson.get(lesson.id) ?? [],
+    });
+  }
+
+  const sections: CatalogSection[] = [];
+  const categoryMap = new Map<number, CatalogCategory[]>();
+
+  for (const mod of allMods) {
+    if (mod.parentId != null) {
+      if (!categoryMap.has(mod.parentId)) categoryMap.set(mod.parentId, []);
+      categoryMap.get(mod.parentId)!.push({
+        ...mod,
+        lessons: lessonsByModule.get(mod.id) ?? [],
+      });
+    }
+  }
+
+  for (const mod of allMods) {
+    if (mod.parentId == null) {
+      sections.push({
+        ...mod,
+        categories: categoryMap.get(mod.id) ?? [],
+      });
+    }
+  }
+
+  return { ...course, sections };
+}
+
+// ── CMS: TUTOR ASSIGNMENT FLOW ────────────────────────────────────────────────
+
+/**
+ * Finds an active student plan for a given student+course, or creates one.
+ * Tutors use this before adding lessons to a student's plan.
+ */
+export async function getOrCreateStudentPlan(params: {
+  studentId: number;
+  tutorId:   number;
+  courseId:  number;
+  title?:    string;
+}): Promise<StudentPlan> {
+  const { data: existing, error: fetchErr } = await supabase
+    .from("student_plans").select("*")
+    .eq("student_id", params.studentId)
+    .eq("course_id", params.courseId)
+    .in("status", ["draft", "active"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (fetchErr) throw fetchErr;
+  if (existing) return rowToStudentPlan(existing);
+
+  const { data: courseRow, error: courseErr } = await supabase
+    .from("courses").select("title").eq("id", params.courseId).single();
+  if (courseErr) throw courseErr;
+
+  const { data, error } = await supabase.from("student_plans").insert({
+    student_id: params.studentId,
+    tutor_id:   params.tutorId,
+    course_id:  params.courseId,
+    title:      params.title ?? `${courseRow.title} — Learning Plan`,
+    status:     "active",
+  }).select().single();
+  if (error) throw error;
+  return rowToStudentPlan(data);
+}
+
+/**
+ * Assigns a lesson to a student plan.
+ * Position defaults to appending after the last existing plan lesson.
+ */
+export async function assignLessonToStudent(params: {
+  planId:        number;
+  lessonId:      number;
+  position?:     number;
+  scheduledDate?: string;
+  tutorNotes?:   string;
+}): Promise<StudentPlanLesson> {
+  let position = params.position;
+  if (position == null) {
+    const { count } = await supabase
+      .from("student_plan_lessons")
+      .select("id", { count: "exact", head: true })
+      .eq("plan_id", params.planId);
+    position = count ?? 0;
+  }
+  const { data, error } = await supabase.from("student_plan_lessons").insert({
+    plan_id:        params.planId,
+    lesson_id:      params.lessonId,
+    position,
+    status:         "pending",
+    scheduled_date: params.scheduledDate ?? null,
+    tutor_notes:    params.tutorNotes    ?? null,
+  }).select().single();
+  if (error) throw error;
+  return rowToPlanLesson(data);
+}
+
+/**
+ * Returns the full learning plan for a student for a specific course,
+ * with each plan lesson enriched with its lesson data and resource slots.
+ * Returns null if no active plan exists.
+ */
+export async function fetchStudentPlanFull(
+  studentId: number,
+  courseId: number,
+): Promise<StudentPlanFull | null> {
+  const { data: planRow, error: planErr } = await supabase
+    .from("student_plans").select("*")
+    .eq("student_id", studentId)
+    .eq("course_id", courseId)
+    .in("status", ["draft", "active"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (planErr) throw planErr;
+  if (!planRow) return null;
+
+  const plan = rowToStudentPlan(planRow);
+
+  const { data: planLessonRows, error: plErr } = await supabase
+    .from("student_plan_lessons").select("*")
+    .eq("plan_id", plan.id)
+    .order("position");
+  if (plErr) throw plErr;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const planLessons: StudentPlanLesson[] = (planLessonRows ?? []).map((r: any) => rowToPlanLesson(r));
+  const lessonIds = planLessons.map((pl) => pl.lessonId);
+  if (lessonIds.length === 0) return { ...plan, lessons: [] };
+
+  const [lessonsRes, resourcesRes] = await Promise.all([
+    supabase.from("lessons").select("*").in("id", lessonIds),
+    supabase.from("lesson_resources").select("*").in("lesson_id", lessonIds).order("position"),
+  ]);
+  if (lessonsRes.error)   throw lessonsRes.error;
+  if (resourcesRes.error) throw resourcesRes.error;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const lessonMap   = new Map((lessonsRes.data ?? []).map((r: any) => [r.id, rowToLesson(r)]));
+  const resMap      = new Map<number, LessonResource[]>();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  for (const r of (resourcesRes.data ?? []).map((r: any) => rowToLessonResource(r))) {
+    if (!resMap.has(r.lessonId)) resMap.set(r.lessonId, []);
+    resMap.get(r.lessonId)!.push(r);
+  }
+
+  const fullLessons: StudentPlanLessonFull[] = planLessons.map((pl) => ({
+    ...pl,
+    lesson:    lessonMap.get(pl.lessonId)!,
+    resources: resMap.get(pl.lessonId) ?? [],
+  }));
+
+  return { ...plan, lessons: fullLessons };
+}
+
+/**
+ * Removes a lesson from a student plan and re-sequences positions.
+ */
+export async function removeLessonFromPlan(planLessonId: number): Promise<void> {
+  const { error } = await supabase
+    .from("student_plan_lessons").delete().eq("id", planLessonId);
+  if (error) throw error;
+}
+
+/**
+ * Updates the status of a student plan lesson (e.g., mark in_progress or completed).
+ */
+export async function updatePlanLessonStatus(
+  planLessonId: number,
+  status: "pending" | "in_progress" | "completed" | "skipped",
+  completedAt?: string,
+): Promise<StudentPlanLesson> {
+  const u: Record<string, unknown> = { status };
+  if (status === "completed") u.completed_at = completedAt ?? new Date().toISOString();
+  const { data, error } = await supabase
+    .from("student_plan_lessons").update(u).eq("id", planLessonId).select().single();
+  if (error) throw error;
+  return rowToPlanLesson(data);
 }

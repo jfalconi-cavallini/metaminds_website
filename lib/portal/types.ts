@@ -142,7 +142,11 @@ export type CourseStatus  = "draft" | "active" | "archived";
 export type LessonStatus  = "draft" | "active" | "archived";
 export type PlanStatus    = "draft" | "active" | "completed" | "archived";
 export type PlanLessonStatus = "pending" | "in_progress" | "completed" | "skipped";
-export type ResourceType  = "slides" | "worksheet" | "homework_pdf" | "answer_key" | "video" | "kami_link" | "external";
+export type ResourceType  =
+  | "lesson_deck" | "guided_practice" | "tutor_guide"
+  | "homework_l1" | "homework_l2" | "homework_l3"
+  | "answer_key"  | "mastery_check"
+  | "slides" | "worksheet" | "homework_pdf" | "video" | "kami_link" | "external";
 
 export interface Course {
   id: number;
@@ -159,6 +163,7 @@ export interface Course {
 export interface Module {
   id: number;
   courseId: number;
+  parentId?: number;        // null = top-level section; set = category under a section
   title: string;
   description?: string;
   position: number;
@@ -237,4 +242,43 @@ export interface SkillMastery {
   skillId: number;
   masteryPct: number;       // 0–100
   lastAssessed?: string;    // ISO timestamp
+}
+
+// ── CMS COMPOSITE TYPES ───────────────────────────────────────────────────────
+
+/** Lesson with all its resource slots and tagged skills — used for lesson detail panels. */
+export interface LessonPackage extends Lesson {
+  resources: LessonResource[];
+  skills: Skill[];
+}
+
+/** Lesson with resources — used inside catalog tree nodes. */
+export interface CatalogLesson extends Lesson {
+  resources: LessonResource[];
+}
+
+/** Category (sub-module) with its lessons. */
+export interface CatalogCategory extends Module {
+  lessons: CatalogLesson[];
+}
+
+/** Section (top-level module) with its categories. */
+export interface CatalogSection extends Module {
+  categories: CatalogCategory[];
+}
+
+/** Full course catalog tree — used for sidebar navigation and library browsing. */
+export interface CourseCatalogFull extends Course {
+  sections: CatalogSection[];
+}
+
+/** A student plan lesson enriched with lesson data + resources — used in the student learning plan view. */
+export interface StudentPlanLessonFull extends StudentPlanLesson {
+  lesson: Lesson;
+  resources: LessonResource[];
+}
+
+/** A student plan enriched with its lessons — used in the student portal learning plan view. */
+export interface StudentPlanFull extends StudentPlan {
+  lessons: StudentPlanLessonFull[];
 }
