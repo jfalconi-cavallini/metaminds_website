@@ -339,13 +339,14 @@ export default function AdminPortal() {
   const [assignLoading,  setAssignLoading]  = useState(false);
 
   // ── RESEND WELCOME EMAIL ─────────────────────────────────────────
-  const [resendFor,     setResendFor]     = useState<number | null>(null);
-  const [resendEmail,   setResendEmail]   = useState("");
-  const [resendLoading, setResendLoading] = useState(false);
-  const [resendMsg,     setResendMsg]     = useState<{ ok: boolean; text: string } | null>(null);
+  const [resendFor,          setResendFor]          = useState<number | null>(null);
+  const [resendStudentEmail, setResendStudentEmail] = useState("");
+  const [resendParentEmail,  setResendParentEmail]  = useState("");
+  const [resendLoading,      setResendLoading]      = useState<"student" | "parent" | "both" | null>(null);
+  const [resendMsg,          setResendMsg]          = useState<{ ok: boolean; text: string } | null>(null);
 
-  async function handleResendWelcome(studentId: number) {
-    setResendLoading(true); setResendMsg(null);
+  async function handleResendWelcome(studentId: number, which: "student" | "parent" | "both") {
+    setResendLoading(which); setResendMsg(null);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Session expired");
@@ -355,22 +356,29 @@ export default function AdminPortal() {
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
         body: JSON.stringify({
           studentId,
-          sendTo: resendEmail,
-          parentName: student?.parentName ?? "Parent",
-          studentName: student?.name ?? "",
+          which,
+          studentEmail: resendStudentEmail || undefined,
+          parentEmail:  resendParentEmail  || undefined,
+          studentName:  student?.name ?? "",
+          parentName:   student?.parentName ?? "Parent",
         }),
       });
-      const result = await res.json() as { success?: boolean; emailSent?: boolean; tempPassword?: string; note?: string; error?: string };
+      const result = await res.json() as { success?: boolean; results?: Record<string, unknown>; error?: string };
       if (!res.ok) throw new Error(result.error ?? "Failed");
-      if (result.emailSent) {
-        setResendMsg({ ok: true, text: `Welcome email sent to ${resendEmail}.` });
+      const r = result.results ?? {};
+      const sent: string[] = [];
+      if (r.studentEmailSent) sent.push(`student (${resendStudentEmail})`);
+      if (r.parentEmailSent)  sent.push(`parent (${resendParentEmail})`);
+      if (sent.length > 0) {
+        setResendMsg({ ok: true, text: `Email sent to: ${sent.join(" and ")}.` });
       } else {
-        setResendMsg({ ok: true, text: `Password reset. ${result.note ?? ""} Temp password: ${result.tempPassword}` });
+        const note = (r.studentNote ?? r.parentNote ?? r.studentError ?? r.parentError ?? "Check RESEND_API_KEY") as string;
+        setResendMsg({ ok: !!(r.studentTempPassword ?? r.parentTempPassword), text: note });
       }
-      setTimeout(() => { setResendFor(null); setResendMsg(null); }, 6000);
+      setTimeout(() => { setResendFor(null); setResendMsg(null); }, 7000);
     } catch (e: unknown) {
       setResendMsg({ ok: false, text: e instanceof Error ? e.message : "Error sending email" });
-    } finally { setResendLoading(false); }
+    } finally { setResendLoading(null); }
   }
 
   async function submitAssign(studentId: number) {
@@ -819,14 +827,12 @@ export default function AdminPortal() {
                                 >
                                   + Add Hours
                                 </button>
-                                {s.parentEmail && (
-                                  <button
-                                    onClick={() => { setResendFor(resendFor === s.id ? null : s.id); setResendEmail(s.parentEmail ?? ""); setResendMsg(null); }}
-                                    className="text-violet-600 text-xs font-medium hover:underline"
-                                  >
-                                    Resend Welcome
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => { setResendFor(resendFor === s.id ? null : s.id); setResendStudentEmail(s.email); setResendParentEmail(s.parentEmail ?? ""); setResendMsg(null); }}
+                                  className="text-violet-600 text-xs font-medium hover:underline"
+                                >
+                                  Resend Welcome
+                                </button>
                               </>
                             )}
                             {s.archived ? (
@@ -874,25 +880,57 @@ export default function AdminPortal() {
                       )}
                       {resendFor === s.id && (
                         <tr className="bg-violet-50">
-                          <td colSpan={6} className="px-4 py-3">
-                            <div className="flex flex-col gap-2">
-                              <p className="text-xs text-violet-700 font-medium">Send parent welcome email with new temporary password</p>
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="email"
-                                  value={resendEmail}
-                                  onChange={(e) => setResendEmail(e.target.value)}
-                                  placeholder="Parent email address"
-                                  className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-violet-400"
-                                />
-                                <button
-                                  onClick={() => handleResendWelcome(s.id)}
-                                  disabled={resendLoading || !resendEmail}
-                                  className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
-                                >
-                                  {resendLoading ? "Sending…" : "Send Email"}
-                                </button>
-                                <button onClick={() => { setResendFor(null); setResendMsg(null); }} className="text-sm text-gray-500">Cancel</button>
+                          <td colSpan={6} className="px-4 py-4">
+                            <div className="flex flex-col gap-3">
+                              <p className="text-xs text-violet-700 font-semibold uppercase tracking-wider">Resend Welcome Email — resets password &amp; sends login credentials</p>
+                              <div className="flex flex-wrap gap-4">
+                                {/* Student */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-14 shrink-0">Student</span>
+                                  <input
+                                    type="email"
+                                    value={resendStudentEmail}
+                                    onChange={(e) => setResendStudentEmail(e.target.value)}
+                                    placeholder="Student email"
+                                    className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                  />
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "student")}
+                                    disabled={!!resendLoading || !resendStudentEmail}
+                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "student" ? "Sending…" : "Send"}
+                                  </button>
+                                </div>
+                                {/* Parent */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-14 shrink-0">Parent</span>
+                                  <input
+                                    type="email"
+                                    value={resendParentEmail}
+                                    onChange={(e) => setResendParentEmail(e.target.value)}
+                                    placeholder="Parent email"
+                                    className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                  />
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "parent")}
+                                    disabled={!!resendLoading || !resendParentEmail}
+                                    className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "parent" ? "Sending…" : "Send"}
+                                  </button>
+                                </div>
+                                {/* Both */}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "both")}
+                                    disabled={!!resendLoading || (!resendStudentEmail && !resendParentEmail)}
+                                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "both" ? "Sending…" : "Send Both"}
+                                  </button>
+                                  <button onClick={() => { setResendFor(null); setResendMsg(null); }} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                                </div>
                               </div>
                               {resendMsg && (
                                 <p className={`text-xs font-medium ${resendMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{resendMsg.text}</p>
