@@ -64,7 +64,12 @@ function findBreadcrumb(catalog: CourseCatalogFull, lessonId: number) {
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
-export default function CourseCatalog() {
+interface Props {
+  mode?: "builder" | "library"; // builder = edit mode, library = read-only browse
+}
+
+export default function CourseCatalog({ mode = "builder" }: Props) {
+  const isBuilder = mode === "builder";
   // Catalog state
   const [courses,        setCourses]        = useState<Course[]>([]);
   const [activeCourseId, setActiveCourseId] = useState<number | null>(null);
@@ -275,6 +280,7 @@ export default function CourseCatalog() {
               expandedSections={expandedSections} expandedCategories={expandedCategories}
               activeLessonId={activeLessonId} addingToCategoryId={addingToCategoryId}
               newLessonTitle={newLessonTitle} addingLesson={addingLesson}
+              showAddLesson={isBuilder}
               onToggleSection={toggleSection} onToggleCategory={toggleCategory}
               onSelectLesson={(id) => { setActiveLessonId(id); setEditing(false); }}
               onStartAdd={(id) => { setAddingToCategoryId(id); setNewLessonTitle(""); }}
@@ -321,23 +327,25 @@ export default function CourseCatalog() {
                 }
                 <StatusBadge status={editing ? editStatus : lessonPkg.status} editing={editing} onChange={setEditStatus} />
               </div>
-              <div className="flex gap-2 shrink-0">
-                {editing ? (
-                  <>
-                    <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-                      <X className="w-3.5 h-3.5" /> Cancel
+              {isBuilder && (
+                <div className="flex gap-2 shrink-0">
+                  {editing ? (
+                    <>
+                      <button onClick={() => setEditing(false)} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                        <X className="w-3.5 h-3.5" /> Cancel
+                      </button>
+                      <button onClick={saveLesson} disabled={saving}
+                        className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                        {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Save
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={enterEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 bg-white rounded-lg text-sm text-gray-600 hover:bg-gray-50 shadow-sm">
+                      <Edit2 className="w-3.5 h-3.5" /> Edit
                     </button>
-                    <button onClick={saveLesson} disabled={saving}
-                      className="flex items-center gap-1.5 px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Save
-                    </button>
-                  </>
-                ) : (
-                  <button onClick={enterEdit} className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 bg-white rounded-lg text-sm text-gray-600 hover:bg-gray-50 shadow-sm">
-                    <Edit2 className="w-3.5 h-3.5" /> Edit
-                  </button>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Stats row */}
@@ -465,17 +473,19 @@ export default function CourseCatalog() {
                                 <ExternalLink className="w-3.5 h-3.5" />
                               </a>
                             )}
-                            <button onClick={() => triggerUpload(res.id)} disabled={isUp} title="Upload file"
-                              className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40">
-                              {isUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                            </button>
+                            {isBuilder && (
+                              <button onClick={() => triggerUpload(res.id)} disabled={isUp} title="Upload file"
+                                className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40">
+                                {isUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                  {/* URL paste */}
-                  {!pasteOpen ? (
+                  {/* URL paste — builder only */}
+                  {isBuilder && (!pasteOpen ? (
                     <div className="px-4 py-2 border-t border-gray-50">
                       <button onClick={() => setPasteOpen(true)} className="text-xs text-gray-400 hover:text-blue-600 font-medium">+ Paste a URL instead</button>
                     </div>
@@ -495,7 +505,7 @@ export default function CourseCatalog() {
                           className="px-2 py-1.5 border border-gray-200 rounded-lg text-xs text-gray-500 hover:bg-gray-50">✕</button>
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
 
                 {/* Lesson Stats */}
@@ -596,6 +606,7 @@ interface TreeProps {
   addingToCategoryId: number | null;
   newLessonTitle: string;
   addingLesson: boolean;
+  showAddLesson: boolean;
   onToggleSection: (id: number) => void;
   onToggleCategory: (id: number) => void;
   onSelectLesson: (id: number) => void;
@@ -618,7 +629,7 @@ function SectionNode(p: TreeProps) {
         <CategoryNode key={cat.id} category={cat}
           expandedCategories={p.expandedCategories} activeLessonId={p.activeLessonId}
           addingToCategoryId={p.addingToCategoryId} newLessonTitle={p.newLessonTitle}
-          addingLesson={p.addingLesson}
+          addingLesson={p.addingLesson} showAddLesson={p.showAddLesson}
           onToggle={p.onToggleCategory} onSelectLesson={p.onSelectLesson}
           onStartAdd={p.onStartAdd} onTitleChange={p.onTitleChange}
           onConfirm={p.onConfirm} onCancelAdd={p.onCancelAdd}
@@ -635,6 +646,7 @@ interface CatProps {
   addingToCategoryId: number | null;
   newLessonTitle: string;
   addingLesson: boolean;
+  showAddLesson: boolean;
   onToggle: (id: number) => void;
   onSelectLesson: (id: number) => void;
   onStartAdd: (id: number) => void;
@@ -669,7 +681,7 @@ function CategoryNode(p: CatProps) {
               )}
             </button>
           ))}
-          {addingHere ? (
+          {p.showAddLesson && addingHere ? (
             <div className="pl-10 pr-3 py-1.5 flex gap-1">
               <input autoFocus value={p.newLessonTitle} onChange={(e) => p.onTitleChange(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") p.onConfirm(p.category.id); if (e.key === "Escape") p.onCancelAdd(); }}
@@ -681,12 +693,12 @@ function CategoryNode(p: CatProps) {
               </button>
               <button onClick={p.onCancelAdd} className="text-gray-400 hover:text-gray-600 text-xs px-1">✕</button>
             </div>
-          ) : (
+          ) : p.showAddLesson ? (
             <button onClick={() => p.onStartAdd(p.category.id)}
               className="w-full flex items-center gap-1 pl-10 pr-3 py-1 text-[10px] text-gray-300 hover:text-blue-500 text-left">
               <Plus className="w-3 h-3" /> Add lesson
             </button>
-          )}
+          ) : null}
         </div>
       )}
     </div>

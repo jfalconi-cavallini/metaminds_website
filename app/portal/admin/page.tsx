@@ -25,12 +25,13 @@ import {
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest } from "@/lib/portal/types";
 
 const navItems = [
-  { id: "overview",  label: "Overview"  },
-  { id: "students",  label: "Students"  },
-  { id: "tutors",    label: "Tutors"    },
-  { id: "sessions",  label: "Sessions"  },
-  { id: "packages",  label: "Packages"  },
-  { id: "courses",   label: "Courses"   },
+  { id: "overview",             label: "Overview"             },
+  { id: "students",             label: "Students"             },
+  { id: "tutors",               label: "Tutors"               },
+  { id: "sessions",             label: "Sessions"             },
+  { id: "packages",             label: "Packages"             },
+  { id: "curriculum-builder",   label: "Curriculum Builder"   },
+  { id: "course-library",       label: "Course Library"       },
 ];
 
 
@@ -612,7 +613,8 @@ export default function AdminPortal() {
 
   return (
     <>
-    <DashboardShell role="admin" userName={adminName} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+    <DashboardShell role="admin" userName={adminName} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
+      fullBleed={tab === "curriculum-builder" || tab === "course-library"}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -1492,8 +1494,11 @@ export default function AdminPortal() {
         </Modal>
       )}
 
-      {/* ── COURSES (CMS) ── */}
-      {tab === "courses" && <CourseCatalog />}
+      {/* ── CURRICULUM BUILDER ── */}
+      {tab === "curriculum-builder" && <CourseCatalog mode="builder" />}
+
+      {/* ── COURSE LIBRARY ── */}
+      {tab === "course-library" && <CourseCatalog mode="library" />}
 
     </DashboardShell>
 

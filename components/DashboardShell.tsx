@@ -19,6 +19,7 @@ interface Props {
   activeTab: string;
   onTabChange: (id: string) => void;
   children: React.ReactNode;
+  fullBleed?: boolean; // removes max-width + padding so content fills the shell
 }
 
 const roleMeta = {
@@ -27,7 +28,7 @@ const roleMeta = {
   student: { label: "Student / Parent", badge: "bg-blue-100 text-blue-700"     },
 };
 
-export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children }: Props) {
+export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children, fullBleed }: Props) {
   const meta   = roleMeta[role];
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -190,8 +191,11 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
           />
         )}
 
-        <main className="flex-1 p-4 md:p-6 min-w-0">
-          <div className="max-w-5xl mx-auto">{children}</div>
+        <main className={`flex-1 min-w-0 overflow-hidden flex flex-col ${fullBleed ? "" : "p-4 md:p-6 overflow-auto"}`}>
+          {fullBleed
+            ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+            : <div className="max-w-5xl mx-auto">{children}</div>
+          }
         </main>
       </div>
     </div>
