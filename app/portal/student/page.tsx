@@ -2047,8 +2047,13 @@ export default function StudentPortal() {
         const overdue       = pending.filter((h) => !!h.dueDate && h.dueDate < today);
         const futurePending = pending.filter((h) => !!h.dueDate && h.dueDate > today);
 
-        // Table: urgent pending (overdue + no-date + due-today) for "To Do"; full list otherwise
-        const urgentPending = pending.filter((h) => !h.dueDate || h.dueDate <= today);
+        // To Do = all pending, sorted overdue first then by due date
+        const urgentPending = pending.sort((a, b) => {
+          if (!a.dueDate && !b.dueDate) return 0;
+          if (!a.dueDate) return 1;
+          if (!b.dueDate) return -1;
+          return a.dueDate.localeCompare(b.dueDate);
+        });
         const tableItems =
           hwFilter === "todo"        ? urgentPending
           : hwFilter === "submitted" ? submitted
@@ -2306,52 +2311,6 @@ export default function StudentPortal() {
               </div>
             )}
 
-            {/* Upcoming Assignments — future-due pending, only on To Do tab */}
-            {hwFilter === "todo" && futurePending.length > 0 && (
-              <div>
-                <h2 className="text-base font-bold text-gray-900 mb-3">Upcoming Assignments</h2>
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
-                  {futurePending.map((h, i) => {
-                    const isExpanded = hwExpandedIds.has(h.id);
-                    return (
-                      <div key={h.id}>
-                        <div className="flex items-center gap-4 p-4">
-                          <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-indigo-600">{i + 1}</span>
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-gray-900 text-sm truncate">{h.task}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{tutor?.name ?? ""}</p>
-                          </div>
-                          {h.dueDate && (
-                            <div className="text-right shrink-0 hidden sm:block">
-                              <p className="text-[11px] text-gray-400 font-medium">Due</p>
-                              <p className="text-xs font-semibold mt-0.5 text-gray-600">{formatDate(h.dueDate)}</p>
-                            </div>
-                          )}
-                          <div className="hidden md:block shrink-0">{mkStatusBadge(h)}</div>
-                          <button onClick={() => toggleExpand(h.id)}
-                            className={`text-xs font-semibold px-3 py-1.5 rounded-xl border shrink-0 transition-colors ${
-                              isExpanded
-                                ? "bg-gray-100 text-gray-600 border-gray-200"
-                                : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                            }`}>
-                            {isExpanded ? "Close" : "Start Assignment"}
-                          </button>
-                        </div>
-                        {isExpanded && mkExpandPanel(h)}
-                      </div>
-                    );
-                  })}
-                </div>
-                {futurePending.length > 5 && (
-                  <button onClick={() => setHwFilter("all")}
-                    className="mt-3 w-full text-sm text-blue-600 font-semibold py-2 text-center hover:text-blue-700 transition-colors">
-                    View All Assignments →
-                  </button>
-                )}
-              </div>
-            )}
 
             {/* Study Tip */}
             {homeworkList.length > 0 && (
