@@ -261,39 +261,58 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
 
   // ── Render ─────────────────────────────────────────────────────────
   return (
-    <div className="flex h-full min-h-0">
+    <div className="flex flex-col h-full min-h-0">
       <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.ppt,.pptx,.xlsx,.png,.jpg" className="hidden" onChange={handleFileSelected} />
 
-      {/* ── LEFT: Course Library ── */}
-      <div className="w-64 shrink-0 flex flex-col border-r border-gray-200 bg-white">
-        <div className="px-4 pt-4 pb-3 border-b border-gray-100">
-          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Course Library</p>
-          <select value={activeCourseId ?? ""} onChange={(e) => setActiveCourseId(Number(e.target.value))}
-            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            {courses.map((c) => <option key={c.id} value={c.id}>{c.subject} — {c.title}</option>)}
-          </select>
+      {/* ── TOP HEADER BAR ── */}
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
+        <div className="flex items-center gap-2">
+          <h1 className="text-base font-bold text-gray-900">
+            {isBuilder ? "Curriculum Builder" : "Course Library"}
+          </h1>
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            | {isBuilder ? "ADMIN" : "BROWSE"}
+          </span>
         </div>
-        <div className="flex-1 overflow-y-auto py-2">
-          {loadingCatalog && <div className="flex justify-center py-10"><Loader2 className="w-4 h-4 animate-spin text-gray-300" /></div>}
-          {catalog && catalog.sections.map((section) => (
-            <SectionNode key={section.id} section={section}
-              expandedSections={expandedSections} expandedCategories={expandedCategories}
-              activeLessonId={activeLessonId} addingToCategoryId={addingToCategoryId}
-              newLessonTitle={newLessonTitle} addingLesson={addingLesson}
-              showAddLesson={isBuilder}
-              onToggleSection={toggleSection} onToggleCategory={toggleCategory}
-              onSelectLesson={(id) => { setActiveLessonId(id); setEditing(false); }}
-              onStartAdd={(id) => { setAddingToCategoryId(id); setNewLessonTitle(""); }}
-              onTitleChange={setNewLessonTitle}
-              onConfirm={confirmAddLesson}
-              onCancelAdd={() => setAddingToCategoryId(null)}
-            />
-          ))}
-        </div>
+        {isBuilder && (
+          <button className="px-4 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+            + Create New
+          </button>
+        )}
       </div>
 
-      {/* ── RIGHT: Main Content ── */}
-      <div className="flex-1 overflow-y-auto bg-gray-50">
+      {/* ── TWO PANELS ── */}
+      <div className="flex flex-1 min-h-0">
+        {/* ── LEFT: Course Library ── */}
+        <div className="w-64 shrink-0 flex flex-col border-r border-gray-200 bg-white">
+          <div className="px-4 pt-3 pb-3 border-b border-gray-100">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Course Library</p>
+            <select value={activeCourseId ?? ""} onChange={(e) => setActiveCourseId(Number(e.target.value))}
+              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+              {courses.map((c) => <option key={c.id} value={c.id}>{c.subject} — {c.title}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 overflow-y-auto py-2">
+            {loadingCatalog && <div className="flex justify-center py-10"><Loader2 className="w-4 h-4 animate-spin text-gray-300" /></div>}
+            {catalog && catalog.sections.map((section) => (
+              <SectionNode key={section.id} section={section}
+                expandedSections={expandedSections} expandedCategories={expandedCategories}
+                activeLessonId={activeLessonId} addingToCategoryId={addingToCategoryId}
+                newLessonTitle={newLessonTitle} addingLesson={addingLesson}
+                showAddLesson={isBuilder}
+                onToggleSection={toggleSection} onToggleCategory={toggleCategory}
+                onSelectLesson={(id) => { setActiveLessonId(id); setEditing(false); }}
+                onStartAdd={(id) => { setAddingToCategoryId(id); setNewLessonTitle(""); }}
+                onTitleChange={setNewLessonTitle}
+                onConfirm={confirmAddLesson}
+                onCancelAdd={() => setAddingToCategoryId(null)}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* ── RIGHT: Main Content ── */}
+        <div className="flex-1 overflow-y-auto bg-gray-50">
         {!activeLessonId && !loadingLesson && (
           <div className="flex flex-col items-center justify-center h-full py-24 text-center">
             <BookOpen className="w-10 h-10 text-gray-200 mb-3" />
@@ -536,8 +555,29 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                 </div>
               </div>
             </div>
+
+            {/* Skills Alignment */}
+            {lessonPkg.skills.length > 0 && (
+              <div className="mt-5 bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Skills Alignment</p>
+                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
+                  {lessonPkg.skills.map((sk) => (
+                    <div key={sk.id}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-xs font-medium text-gray-700">{sk.name}</span>
+                        <span className="text-[10px] text-gray-400">{sk.difficulty * 20}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${sk.difficulty * 20}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
