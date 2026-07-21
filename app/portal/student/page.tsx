@@ -184,9 +184,13 @@ export default function StudentPortal() {
     try {
       const { error } = await supabase.auth.updateUser({ password: resetNewPw });
       if (error) throw error;
-      // Clear flag in profiles table (source of truth for mustResetPassword)
-      if (user?.id) {
-        await supabase.from("profiles").update({ force_password_reset: false }).eq("id", user.id);
+      // Clear flag via server route — bypasses RLS on profiles table
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (activeSession) {
+        await fetch("/api/student/complete-reset", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${activeSession.access_token}` },
+        });
       }
       setForceResetDone(true);
       setResetNewPw(""); setResetConfirmPw("");
