@@ -511,9 +511,9 @@ export default function StudentPortal() {
                   <p className="text-blue-100 text-sm mt-0.5">{nextSession.time} · {nextSession.subject}</p>
                   <p className="text-blue-200 text-xs mt-0.5">{nextSession.durationHours} hr · {nextSession.sessionType}</p>
                   <div className="mt-3">
-                    {nextSession.zoomLink ? (
+                    {(nextSession.zoomLink ?? tutor?.zoomLink) ? (
                       <button
-                        onClick={() => window.open(resolveZoomUrl(nextSession.zoomLink!), "_blank", "noopener,noreferrer")}
+                        onClick={() => window.open(resolveZoomUrl((nextSession.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
                         className="bg-white text-blue-600 text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
                       >
                         Join Zoom →
@@ -575,9 +575,9 @@ export default function StudentPortal() {
                         <p className="text-sm font-semibold text-gray-900 truncate">{sessionToday.subject} Session</p>
                         <p className="text-xs text-gray-400">{sessionToday.time} · {sessionToday.durationHours} hr</p>
                       </div>
-                      {sessionToday.zoomLink && (
+                      {(sessionToday.zoomLink ?? tutor?.zoomLink) && (
                         <button
-                          onClick={() => window.open(resolveZoomUrl(sessionToday.zoomLink!), "_blank", "noopener,noreferrer")}
+                          onClick={() => window.open(resolveZoomUrl((sessionToday.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
                           className="text-xs text-blue-600 font-semibold hover:underline shrink-0"
                         >
                           Join →
@@ -758,11 +758,12 @@ export default function StudentPortal() {
           if (session.studentId !== student.id) return [];
           if (session.status === "cancelled" || session.date < todayIso) return [];
           const acts: CalendarSessionAction[] = [];
-          if (session.zoomLink) {
+          const effectiveZoom = session.zoomLink ?? tutor?.zoomLink;
+          if (effectiveZoom) {
             acts.push({
               label: "Join Zoom",
               variant: "primary",
-              onClick: (e) => { e.stopPropagation(); window.open(resolveZoomUrl(session.zoomLink!), "_blank", "noopener,noreferrer"); },
+              onClick: (e) => { e.stopPropagation(); window.open(resolveZoomUrl(effectiveZoom), "_blank", "noopener,noreferrer"); },
             });
           }
           if (hoursUntilSession(session) >= CANCEL_LOCK_HOURS) {
@@ -991,9 +992,9 @@ export default function StudentPortal() {
 
                         {/* Actions */}
                         <div className="pr-4 pl-2 shrink-0 flex items-center gap-1.5">
-                          {s.zoomLink && (
+                          {(s.zoomLink ?? tutor?.zoomLink) && (
                             <button
-                              onClick={() => window.open(resolveZoomUrl(s.zoomLink!), "_blank", "noopener,noreferrer")}
+                              onClick={() => window.open(resolveZoomUrl((s.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
                               className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
                             >
                               <Video className="w-3.5 h-3.5" />

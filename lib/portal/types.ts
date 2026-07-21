@@ -32,6 +32,7 @@ export interface Tutor {
   phone?: string;
   bio?: string;
   photoUrl?: string;
+  zoomLink?: string;
 }
 
 export interface Session {

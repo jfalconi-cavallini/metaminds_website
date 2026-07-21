@@ -24,7 +24,7 @@ import {
   autoCompletePastSessions,
   fetchBlockedSlots, toggleBlockedSlot,
   updateSessionNote, deleteSessionNote,
-  updateStudentProfile,
+  updateStudentProfile, updateTutorProfile,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
@@ -153,6 +153,11 @@ export default function TutorPortal() {
   const [schedSuccess,     setSchedSuccess]     = useState(false);
   const [schedError,       setSchedError]       = useState("");
 
+  // ── PERSONAL ZOOM LINK ──────────────────────────────────────────
+  const [zoomLinkVal,     setZoomLinkVal]     = useState("");
+  const [zoomLinkSaving,  setZoomLinkSaving]  = useState(false);
+  const [zoomLinkSaved,   setZoomLinkSaved]   = useState(false);
+
   // ── BOOKING LEAD TIME ───────────────────────────────────────────
   const [leadHours,  setLeadHours]  = useState<24 | 48>(24);
   const [leadSaved,  setLeadSaved]  = useState(false);
@@ -268,7 +273,10 @@ export default function TutorPortal() {
   }, [availability]);
 
   useEffect(() => {
-    if (tutor) setLeadHours(tutor.bookingLeadHours === 48 ? 48 : 24);
+    if (tutor) {
+      setLeadHours(tutor.bookingLeadHours === 48 ? 48 : 24);
+      setZoomLinkVal(tutor.zoomLink ?? "");
+    }
   }, [tutor]);
 
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -305,6 +313,14 @@ export default function TutorPortal() {
       setSelectedSlot(null); setSchedSubject(""); setSchedDuration("1"); setSchedSessionType("online"); setSchedZoom("");
       setTimeout(() => setSchedSuccess(false), 4000);
     } catch { setSchedError("Failed to schedule session."); }
+  }
+
+  async function savePersonalZoomLink() {
+    setZoomLinkSaving(true); setZoomLinkSaved(false);
+    try {
+      await updateTutorProfile(tutorId, { zoomLink: zoomLinkVal.trim() });
+      setZoomLinkSaved(true); setTimeout(() => setZoomLinkSaved(false), 3000);
+    } catch { /* silent */ } finally { setZoomLinkSaving(false); }
   }
 
   async function saveLeadTime() {
@@ -1204,6 +1220,27 @@ export default function TutorPortal() {
               </div>
             </Modal>
           )}
+
+          {/* Personal Zoom Link */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-gray-900">Personal Zoom Link</h3>
+              {zoomLinkSaved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Set your personal meeting link once — all your sessions will use it automatically.
+            </p>
+            <input
+              value={zoomLinkVal}
+              onChange={(e) => setZoomLinkVal(e.target.value)}
+              placeholder="https://zoom.us/j/your-meeting-id"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button onClick={savePersonalZoomLink} disabled={zoomLinkSaving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              {zoomLinkSaving ? "Saving…" : "Save"}
+            </button>
+          </div>
 
           {/* Booking lead time */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
