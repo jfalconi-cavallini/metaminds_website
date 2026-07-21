@@ -57,16 +57,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Incorrect password." }, { status: 403 });
   }
 
-  // Find and delete the Supabase auth user linked to this DB record
-  const { data: targetProfile } = await admin
+  // Delete ALL auth accounts linked to this DB record (student + parent both share linked_id)
+  const { data: linkedProfiles } = await admin
     .from("profiles")
     .select("id")
     .eq("linked_id", linkedId)
-    .eq("role", role)
-    .maybeSingle();
+    .eq("role", role);
 
-  if (targetProfile) {
-    await admin.auth.admin.deleteUser(targetProfile.id);
+  if (linkedProfiles) {
+    await Promise.all(linkedProfiles.map((p: { id: string }) => admin.auth.admin.deleteUser(p.id)));
   }
 
   // Delete all related records first (FK constraints), then the main row
@@ -75,6 +74,7 @@ export async function POST(request: Request) {
     await admin.from("homework").delete().eq("student_id", linkedId);
     await admin.from("session_notes").delete().eq("student_id", linkedId);
     await admin.from("session_requests").delete().eq("student_id", linkedId);
+    await admin.from("purchase_requests").delete().eq("student_id", linkedId);
     await admin.from("sessions").delete().eq("student_id", linkedId);
     await admin.from("user_packages").delete().eq("student_id", linkedId);
     const { error } = await admin.from("students").delete().eq("id", linkedId);

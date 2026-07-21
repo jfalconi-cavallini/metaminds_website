@@ -24,6 +24,7 @@ import {
   autoCompletePastSessions,
   fetchBlockedSlots, toggleBlockedSlot,
   updateSessionNote, deleteSessionNote,
+  updateStudentProfile,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
@@ -195,6 +196,9 @@ export default function TutorPortal() {
 
   // ── STUDENT PROFILE MODAL ───────────────────────────────────────
   const [profileStudent, setProfileStudent] = useState<Student | null>(null);
+  const [planText,       setPlanText]       = useState("");
+  const [planSaving,     setPlanSaving]     = useState(false);
+  const [planSaved,      setPlanSaved]      = useState(false);
 
   // ── BLOCKED DATES ───────────────────────────────────────────────
   const [blockDateInput, setBlockDateInput] = useState("");
@@ -552,6 +556,18 @@ export default function TutorPortal() {
     } catch { /* silent */ } finally { setAvailSaving(false); }
   }
 
+  async function savePlan() {
+    if (!profileStudent) return;
+    setPlanSaving(true); setPlanSaved(false);
+    try {
+      const updated = await updateStudentProfile(profileStudent.id, { successPlan: planText });
+      setMyStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+      setProfileStudent(updated);
+      setPlanSaved(true);
+      setTimeout(() => setPlanSaved(false), 3000);
+    } catch { /* silent */ } finally { setPlanSaving(false); }
+  }
+
   if (!authLoaded || loading) {
     return (
       <DashboardShell role="tutor" userName="Loading…" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
@@ -830,7 +846,7 @@ export default function TutorPortal() {
                         {bal?.remaining ?? 0} hrs
                       </span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setProfileStudent(s); }}
+                        onClick={(e) => { e.stopPropagation(); setProfileStudent(s); setPlanText(s.successPlan ?? ""); }}
                         className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-2.5 py-1.5"
                       >
                         Profile
@@ -1870,6 +1886,23 @@ export default function TutorPortal() {
                 <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{ps.notes}</p>
               </div>
             )}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Success Plan</p>
+              <textarea
+                value={planText}
+                onChange={(e) => setPlanText(e.target.value)}
+                placeholder="Write the student's personalized success plan — goals, current level, areas to improve, milestones…"
+                rows={5}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex items-center gap-3 mt-2">
+                <button onClick={savePlan} disabled={planSaving}
+                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {planSaving ? "Saving…" : "Save Plan"}
+                </button>
+                {planSaved && <p className="text-xs text-emerald-600 font-medium">✓ Saved</p>}
+              </div>
+            </div>
           </div>
         </Modal>
       );

@@ -21,7 +21,7 @@ export default function Modal({ onClose, title, subtitle, children, size = "md" 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className={`relative bg-white rounded-2xl shadow-2xl w-full z-10 max-h-[calc(100vh-2rem)] flex flex-col ${size === "xl" ? "max-w-2xl" : "max-w-md"}`}>
+      <div className={`relative bg-white rounded-2xl shadow-2xl w-full z-10 flex flex-col max-h-[calc(100vh-2rem)] ${size === "xl" ? "max-w-2xl" : "max-w-md"}`}>
         {/* Header */}
         <div className="flex items-start justify-between p-6 pb-4 border-b border-gray-100 shrink-0">
           <div className="min-w-0">

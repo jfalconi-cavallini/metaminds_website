@@ -9,6 +9,7 @@ export interface AuthUser {
   role: "admin" | "tutor" | "student";
   linkedId: number | null;   // tutor_id or student_id; null for admin
   fullName: string | null;
+  mustResetPassword: boolean;
 }
 
 /**
@@ -27,17 +28,18 @@ export function useAuth() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role, linked_id, full_name")
+        .select("role, linked_id, full_name, force_password_reset")
         .eq("id", session.user.id)
         .single();
 
       if (profile) {
         setUser({
-          id:       session.user.id,
-          email:    session.user.email ?? "",
-          role:     profile.role as AuthUser["role"],
-          linkedId: profile.linked_id ?? null,
-          fullName: profile.full_name ?? null,
+          id:                session.user.id,
+          email:             session.user.email ?? "",
+          role:              profile.role as AuthUser["role"],
+          linkedId:          profile.linked_id ?? null,
+          fullName:          profile.full_name ?? null,
+          mustResetPassword: profile.force_password_reset === true,
         });
       }
       setLoaded(true);

@@ -15,6 +15,10 @@ export interface Student {
   parentPhone?: string;
   notes?: string;
   allowInPerson?: boolean;
+  school?: string;
+  graduationYear?: string;
+  status?: "active" | "inactive" | "paused";
+  successPlan?: string;
 }
 
 export interface Tutor {

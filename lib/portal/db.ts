@@ -19,6 +19,10 @@ function rowToStudent(r: any): Student {
     parentPhone:    r.parent_phone    ?? undefined,
     notes:          r.notes           ?? undefined,
     allowInPerson:  r.allow_in_person ?? false,
+    school:         r.school          ?? undefined,
+    graduationYear: r.graduation_year ?? undefined,
+    status:         r.status          ?? "active",
+    successPlan:    r.success_plan    ?? undefined,
   };
 }
 
@@ -540,12 +544,22 @@ export async function restoreTutor(id: number): Promise<void> {
 
 export async function createStudent(payload: {
   name: string; email: string; grade: string; subjects: string[];
+  phone?: string; parentName?: string; parentEmail?: string; parentPhone?: string;
+  school?: string; graduationYear?: string; status?: string; assignedTutorId?: number;
 }): Promise<Student> {
   const { data, error } = await supabase.from("students").insert({
-    name:     payload.name,
-    email:    payload.email,
-    grade:    payload.grade,
-    subjects: payload.subjects,
+    name:               payload.name,
+    email:              payload.email,
+    grade:              payload.grade,
+    subjects:           payload.subjects,
+    phone:              payload.phone              ?? null,
+    parent_name:        payload.parentName         ?? null,
+    parent_email:       payload.parentEmail        ?? null,
+    parent_phone:       payload.parentPhone        ?? null,
+    school:             payload.school             ?? null,
+    graduation_year:    payload.graduationYear     ?? null,
+    status:             payload.status             ?? "active",
+    assigned_tutor_id:  payload.assignedTutorId    ?? null,
   }).select().single();
   if (error) throw error;
   return rowToStudent(data);
@@ -616,7 +630,7 @@ export async function addPackageHours(
 export async function updateStudentProfile(id: number, payload: Partial<{
   name: string; email: string; grade: string; subjects: string[];
   phone: string; parentName: string; parentEmail: string; parentPhone: string; notes: string;
-  allowInPerson: boolean;
+  allowInPerson: boolean; successPlan: string;
 }>): Promise<Student> {
   const update: Record<string, unknown> = {};
   if (payload.name          !== undefined) update.name           = payload.name;
@@ -629,6 +643,7 @@ export async function updateStudentProfile(id: number, payload: Partial<{
   if (payload.parentPhone   !== undefined) update.parent_phone   = payload.parentPhone;
   if (payload.notes         !== undefined) update.notes          = payload.notes;
   if (payload.allowInPerson !== undefined) update.allow_in_person = payload.allowInPerson;
+  if (payload.successPlan   !== undefined) update.success_plan   = payload.successPlan || null;
   const { data, error } = await supabase.from("students").update(update).eq("id", id).select().single();
   if (error) throw error;
   return rowToStudent(data);

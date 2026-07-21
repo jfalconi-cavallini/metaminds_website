@@ -10,10 +10,11 @@ import { formatDate, formatTime24to12 } from "@/lib/portal/utils";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
+import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
   insertSession, cancelSession,
-  createStudent, createTutor, assignStudentToTutor, addPackageHours,
+  createTutor, assignStudentToTutor, addPackageHours,
   updateSessionZoomLink, fetchTutorAvailability, fetchSessionsByTutor,
   bulkInsertSessions, updateStudentProfile, updateTutorProfile,
   archiveStudent, restoreStudent, archiveTutor, restoreTutor,
@@ -263,59 +264,16 @@ export default function AdminPortal() {
     finally { setBulkSaving(false); }
   }
 
-  // ── STUDENT FORM ────────────────────────────────────────────────
-  const [showStudentForm,  setShowStudentForm]  = useState(false);
-  const [newStudName,      setNewStudName]      = useState("");
-  const [newStudEmail,     setNewStudEmail]     = useState("");
-  const [newStudPassword,  setNewStudPassword]  = useState("");
-  const [newStudGrade,     setNewStudGrade]     = useState("");
-  const [newStudSubjects,  setNewStudSubjects]  = useState("");
-  const [studFormError,    setStudFormError]    = useState("");
-  const [studFormSuccess,  setStudFormSuccess]  = useState("")
-  const [studFormLoading,  setStudFormLoading]  = useState(false);
+  // ── STUDENT ONBOARDING WIZARD ────────────────────────────────────
+  const [showStudentWizard, setShowStudentWizard] = useState(false);
 
-  async function submitNewStudent() {
-    if (!newStudName || !newStudEmail || !newStudPassword) {
-      setStudFormError("Name, email, and password are required."); return;
-    }
-    setStudFormLoading(true); setStudFormError(""); setStudFormSuccess("");
-    let createdStudentId: number | null = null;
+  async function handleWizardSuccess() {
+    // Refresh both students and packages after successful onboarding
     try {
-      // 1. Create DB record
-      const s = await createStudent({
-        name: newStudName, email: newStudEmail, grade: newStudGrade,
-        subjects: newStudSubjects.split(",").map((x) => x.trim()).filter(Boolean),
-      });
-      createdStudentId = s.id;
-      setStudents((prev) => [...prev, s]);
-
-      // 2. Create Supabase Auth account + link to DB record
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Your session has expired — please refresh and sign in again.");
-      const res = await fetch("/api/admin/create-user", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({
-          email: newStudEmail,
-          password: newStudPassword,
-          fullName: newStudName,
-          role: "student",
-          linkedId: s.id,
-        }),
-      });
-      const result = await res.json() as { error?: string };
-      if (!res.ok) throw new Error(result.error ?? `Server error ${res.status}`);
-
-      setStudFormSuccess(`Account created! ${newStudName} can now log in with ${newStudEmail}.`);
-      setNewStudName(""); setNewStudEmail(""); setNewStudPassword(""); setNewStudGrade(""); setNewStudSubjects("");
-      setTimeout(() => { setShowStudentForm(false); setStudFormSuccess(""); }, 4000);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setStudFormError(`${msg}${createdStudentId ? ` (Student DB record #${createdStudentId} was created — re-submit or delete it manually in Supabase)` : ""}`);
-    } finally { setStudFormLoading(false); }
+      const [s, pkgs] = await Promise.all([fetchStudents({ all: true }), fetchAllPackages()]);
+      setStudents(s);
+      setPackages(pkgs);
+    } catch { /* silent — lists refresh on next tab visit */ }
   }
 
   // ── TUTOR FORM ──────────────────────────────────────────────────
@@ -765,36 +723,14 @@ export default function AdminPortal() {
                 </button>
               )}
               <button
-                onClick={() => { setShowStudentForm(true); setStudFormError(""); }}
+                onClick={() => setShowStudentWizard(true)}
                 className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
               >
-                + Create Account
+                + Create Student
               </button>
             </div>
           </div>
 
-          {showStudentForm && (
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-1">New Student Account</h3>
-              <p className="text-xs text-gray-500 mb-4">Creates the portal profile and a login account in one step.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                <input value={newStudName}     onChange={(e) => setNewStudName(e.target.value)}     placeholder="Full Name *"               className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newStudEmail}    onChange={(e) => setNewStudEmail(e.target.value)}    placeholder="Email Address *" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newStudPassword} onChange={(e) => setNewStudPassword(e.target.value)} placeholder="Temporary Password *" type="password" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newStudGrade}    onChange={(e) => setNewStudGrade(e.target.value)}    placeholder="Grade Level (e.g. 7th)"    className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newStudSubjects} onChange={(e) => setNewStudSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white sm:col-span-2" />
-              </div>
-              <p className="text-xs text-gray-400 mb-3">Share the email + temporary password with the student so they can log in.</p>
-              {studFormSuccess && <p className="text-xs text-green-600 font-medium mb-2">✓ {studFormSuccess}</p>}
-              {studFormError   && <p className="text-xs text-red-500 mb-2">{studFormError}</p>}
-              <div className="flex gap-3">
-                <button onClick={submitNewStudent} disabled={studFormLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                  {studFormLoading ? "Creating…" : "Create Account"}
-                </button>
-                <button onClick={() => { setShowStudentForm(false); setStudFormError(""); setStudFormSuccess(""); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
-              </div>
-            </div>
-          )}
 
           <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
             <table className="w-full text-sm">
@@ -832,12 +768,20 @@ export default function AdminPortal() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             {!s.archived && (
-                              <button
-                                onClick={() => { setAssignFor(assignFor === s.id ? null : s.id); setAssignTutorId(String(s.assignedTutorId ?? tutors[0]?.id ?? "")); }}
-                                className="text-blue-600 text-xs font-medium hover:underline"
-                              >
-                                {s.assignedTutorId ? "Change Tutor" : "Assign Tutor"}
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => { setAssignFor(assignFor === s.id ? null : s.id); setAssignTutorId(String(s.assignedTutorId ?? tutors[0]?.id ?? "")); }}
+                                  className="text-blue-600 text-xs font-medium hover:underline"
+                                >
+                                  {s.assignedTutorId ? "Change Tutor" : "Assign Tutor"}
+                                </button>
+                                <button
+                                  onClick={() => { setAddHoursFor(s.id); setAddHoursAmt("4"); setAddHoursExpiry(packages.find((b) => b.studentId === s.id)?.expiresAt ?? ""); setAddHoursError(""); }}
+                                  className="text-emerald-600 text-xs font-medium hover:underline"
+                                >
+                                  + Add Hours
+                                </button>
+                              </>
                             )}
                             {s.archived ? (
                               <>
@@ -1571,6 +1515,15 @@ export default function AdminPortal() {
           </div>
         </div>
       </Modal>
+    )}
+
+    {/* ── STUDENT ONBOARDING WIZARD ── */}
+    {showStudentWizard && (
+      <OnboardStudentWizard
+        tutors={tutors}
+        onSuccess={handleWizardSuccess}
+        onClose={() => setShowStudentWizard(false)}
+      />
     )}
 
     {/* ── TUTOR PROFILE MODAL ── */}
