@@ -28,10 +28,9 @@ const navItems = [
   { id: "overview",             label: "Overview"             },
   { id: "students",             label: "Students"             },
   { id: "tutors",               label: "Tutors"               },
-  { id: "sessions",             label: "Sessions"             },
-  { id: "packages",             label: "Packages"             },
-  { id: "curriculum-builder",   label: "Curriculum Builder"   },
-  { id: "course-library",       label: "Course Library"       },
+  { id: "sessions",    label: "Sessions"    },
+  { id: "packages",    label: "Packages"    },
+  { id: "curriculum",  label: "Curriculum"  },
 ];
 
 
@@ -614,7 +613,7 @@ export default function AdminPortal() {
   return (
     <>
     <DashboardShell role="admin" userName={adminName} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
-      fullBleed={tab === "curriculum-builder" || tab === "course-library"}>
+      fullBleed={tab === "curriculum"}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -1494,11 +1493,8 @@ export default function AdminPortal() {
         </Modal>
       )}
 
-      {/* ── CURRICULUM BUILDER ── */}
-      {tab === "curriculum-builder" && <CurriculumBuilder />}
-
-      {/* ── COURSE LIBRARY ── */}
-      {tab === "course-library" && <CurriculumBuilder />}
+      {/* ── CURRICULUM ── */}
+      {tab === "curriculum" && <CurriculumBuilder />}
 
     </DashboardShell>
 
