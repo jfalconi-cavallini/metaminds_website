@@ -215,6 +215,47 @@ export async function insertSession(payload: {
   return rowToSession(data);
 }
 
+// Direct insert for past/completed sessions — bypasses book_session lead-time checks.
+// Deducts hours from user_packages inline.
+export async function logCompletedSession(payload: {
+  studentId: number; tutorId: number; subject: string;
+  sessionDate: string; sessionTime: string; durationHours: number;
+  sessionType: "online" | "in-person";
+}): Promise<Session> {
+  const { data, error } = await supabase
+    .from("sessions")
+    .insert({
+      student_id:    payload.studentId,
+      tutor_id:      payload.tutorId,
+      subject:       payload.subject,
+      session_date:  payload.sessionDate,
+      session_time:  payload.sessionTime,
+      duration_hours: payload.durationHours,
+      session_type:  payload.sessionType,
+      status:        "completed",
+    })
+    .select()
+    .single();
+  if (error) throw error;
+
+  // Deduct hours from the student's active package
+  const { data: pkg } = await supabase
+    .from("user_packages")
+    .select("id, hours_used")
+    .eq("student_id", payload.studentId)
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (pkg) {
+    await supabase
+      .from("user_packages")
+      .update({ hours_used: Number(pkg.hours_used) + payload.durationHours })
+      .eq("id", pkg.id);
+  }
+
+  return rowToSession(data);
+}
+
 export async function cancelSession(sessionId: number): Promise<void> {
   // cancel_session re-checks the 48-hour lock server-side and restores
   // hours in the same transaction as the status update.

@@ -13,7 +13,7 @@ import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
-  insertSession, cancelSession,
+  insertSession, logCompletedSession, cancelSession,
   createTutor, assignStudentToTutor, addPackageHours,
   updateSessionZoomLink, fetchTutorAvailability, fetchSessionsByTutor,
   bulkInsertSessions, updateStudentProfile, updateTutorProfile,
@@ -182,6 +182,7 @@ export default function AdminPortal() {
   const [sessTime,        setSessTime]        = useState("");
   const [sessDuration,    setSessDuration]    = useState("1");
   const [sessType,        setSessType]        = useState<"online" | "in-person">("online");
+  const [sessStatus,      setSessStatus]      = useState<"upcoming" | "completed">("upcoming");
   const [sessZoom,        setSessZoom]        = useState("");
   const [sessSuccess,     setSessSuccess]     = useState(false);
   const [sessError,       setSessError]       = useState("");
@@ -210,7 +211,7 @@ export default function AdminPortal() {
     if (!sessDate || !sessTime || !sessSubject) return;
     setSessError("");
     try {
-      const newSession = await insertSession({
+      const payload = {
         studentId:     Number(sessStudentId),
         tutorId:       Number(sessTutorId),
         subject:       sessSubject,
@@ -218,12 +219,14 @@ export default function AdminPortal() {
         sessionTime:   formatTime24to12(sessTime),
         durationHours: Number(sessDuration),
         sessionType:   sessType,
-        notes:         sessZoom ? undefined : undefined,
-      });
+      };
+      const newSession = sessStatus === "completed"
+        ? await logCompletedSession(payload)
+        : await insertSession({ ...payload });
       if (sessZoom) await updateSessionZoomLink(newSession.id, sessZoom);
       setSessions((prev) => [{ ...newSession, zoomLink: sessZoom || undefined }, ...prev]);
       setSessSuccess(true); setShowSessionForm(false);
-      setSessSubject(""); setSessDate(""); setSessTime(""); setSessZoom("");
+      setSessSubject(""); setSessDate(""); setSessTime(""); setSessZoom(""); setSessStatus("upcoming");
       setTimeout(() => setSessSuccess(false), 4000);
     } catch { setSessError("Failed to create session."); }
   }
@@ -1156,6 +1159,17 @@ export default function AdminPortal() {
                   </div>
                 </div>
                 <input value={sessZoom} onChange={(e) => setSessZoom(e.target.value)} placeholder="Zoom link (optional)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                  {(["upcoming", "completed"] as const).map((s, i) => (
+                    <button key={s} type="button" onClick={() => setSessStatus(s)}
+                      className={`flex-1 px-3 py-2 font-medium capitalize transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${
+                        sessStatus === s
+                          ? s === "completed" ? "bg-emerald-600 text-white" : "bg-blue-600 text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >{s === "completed" ? "Log as Completed" : "Schedule (Upcoming)"}</button>
+                  ))}
+                </div>
                 {sessError && <p className="text-xs text-red-500">{sessError}</p>}
                 <div className="flex gap-3">
                   <button onClick={submitSession} disabled={!sessDate || !sessTime || !sessSubject} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
