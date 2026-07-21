@@ -338,6 +338,41 @@ export default function AdminPortal() {
   const [assignTutorId,  setAssignTutorId]  = useState("");
   const [assignLoading,  setAssignLoading]  = useState(false);
 
+  // ── RESEND WELCOME EMAIL ─────────────────────────────────────────
+  const [resendFor,     setResendFor]     = useState<number | null>(null);
+  const [resendEmail,   setResendEmail]   = useState("");
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendMsg,     setResendMsg]     = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleResendWelcome(studentId: number) {
+    setResendLoading(true); setResendMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired");
+      const student = students.find((s) => s.id === studentId);
+      const res = await fetch("/api/admin/resend-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          studentId,
+          sendTo: resendEmail,
+          parentName: student?.parentName ?? "Parent",
+          studentName: student?.name ?? "",
+        }),
+      });
+      const result = await res.json() as { success?: boolean; emailSent?: boolean; tempPassword?: string; note?: string; error?: string };
+      if (!res.ok) throw new Error(result.error ?? "Failed");
+      if (result.emailSent) {
+        setResendMsg({ ok: true, text: `Welcome email sent to ${resendEmail}.` });
+      } else {
+        setResendMsg({ ok: true, text: `Password reset. ${result.note ?? ""} Temp password: ${result.tempPassword}` });
+      }
+      setTimeout(() => { setResendFor(null); setResendMsg(null); }, 6000);
+    } catch (e: unknown) {
+      setResendMsg({ ok: false, text: e instanceof Error ? e.message : "Error sending email" });
+    } finally { setResendLoading(false); }
+  }
+
   async function submitAssign(studentId: number) {
     setAssignLoading(true);
     try {
@@ -784,6 +819,14 @@ export default function AdminPortal() {
                                 >
                                   + Add Hours
                                 </button>
+                                {s.parentEmail && (
+                                  <button
+                                    onClick={() => { setResendFor(resendFor === s.id ? null : s.id); setResendEmail(s.parentEmail ?? ""); setResendMsg(null); }}
+                                    className="text-violet-600 text-xs font-medium hover:underline"
+                                  >
+                                    Resend Welcome
+                                  </button>
+                                )}
                               </>
                             )}
                             {s.archived ? (
@@ -825,6 +868,35 @@ export default function AdminPortal() {
                                 {assignLoading ? "Saving…" : "Confirm"}
                               </button>
                               <button onClick={() => setAssignFor(null)} className="text-sm text-gray-500">Cancel</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {resendFor === s.id && (
+                        <tr className="bg-violet-50">
+                          <td colSpan={6} className="px-4 py-3">
+                            <div className="flex flex-col gap-2">
+                              <p className="text-xs text-violet-700 font-medium">Send parent welcome email with new temporary password</p>
+                              <div className="flex items-center gap-3">
+                                <input
+                                  type="email"
+                                  value={resendEmail}
+                                  onChange={(e) => setResendEmail(e.target.value)}
+                                  placeholder="Parent email address"
+                                  className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                />
+                                <button
+                                  onClick={() => handleResendWelcome(s.id)}
+                                  disabled={resendLoading || !resendEmail}
+                                  className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50"
+                                >
+                                  {resendLoading ? "Sending…" : "Send Email"}
+                                </button>
+                                <button onClick={() => { setResendFor(null); setResendMsg(null); }} className="text-sm text-gray-500">Cancel</button>
+                              </div>
+                              {resendMsg && (
+                                <p className={`text-xs font-medium ${resendMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{resendMsg.text}</p>
+                              )}
                             </div>
                           </td>
                         </tr>
