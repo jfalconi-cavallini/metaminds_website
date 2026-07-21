@@ -919,15 +919,25 @@ function rowToModule(r: any): Module {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToLesson(r: any): Lesson {
   return {
-    id: r.id, moduleId: r.module_id, title: r.title,
-    description: r.description ?? undefined,
-    difficulty: r.difficulty, estimatedMinutes: r.estimated_minutes,
+    id:                r.id,
+    moduleId:          r.module_id,
+    title:             r.title,
+    description:       r.description    ?? undefined,
+    difficulty:        r.difficulty,
+    estimatedMinutes:  r.estimated_minutes,
+    hwMinutes:         r.hw_minutes     ?? undefined,
+    tags:              r.tags           ?? [],
     learningObjectives: r.learning_objectives ?? [],
-    commonMistakes: r.common_mistakes ?? undefined,
-    tutorNotes: r.tutor_notes ?? undefined,
-    aiNotes: r.ai_notes ?? undefined,
-    status: r.status, position: r.position,
-    createdAt: r.created_at, updatedAt: r.updated_at,
+    commonMistakes:    r.common_mistakes ?? undefined,
+    tutorNotes:        r.tutor_notes    ?? undefined,
+    desmosUsage:       r.desmos_usage   ?? undefined,
+    prerequisites:     r.prerequisites  ?? undefined,
+    followUp:          r.follow_up      ?? undefined,
+    aiNotes:           r.ai_notes       ?? undefined,
+    status:            r.status,
+    position:          r.position,
+    createdAt:         r.created_at,
+    updatedAt:         r.updated_at,
   };
 }
 
@@ -1112,9 +1122,10 @@ export async function fetchLesson(id: number): Promise<Lesson> {
 
 export async function insertLesson(payload: {
   moduleId: number; title: string; description?: string;
-  difficulty?: number; estimatedMinutes?: number;
-  learningObjectives?: string[]; commonMistakes?: string;
-  tutorNotes?: string; aiNotes?: string; position?: number;
+  difficulty?: number; estimatedMinutes?: number; hwMinutes?: number;
+  tags?: string[]; learningObjectives?: string[]; commonMistakes?: string;
+  tutorNotes?: string; desmosUsage?: string; prerequisites?: string;
+  followUp?: string; aiNotes?: string; status?: string; position?: number;
 }): Promise<Lesson> {
   const { data, error } = await supabase.from("lessons").insert({
     module_id:            payload.moduleId,
@@ -1122,11 +1133,16 @@ export async function insertLesson(payload: {
     description:          payload.description        ?? null,
     difficulty:           payload.difficulty         ?? 2,
     estimated_minutes:    payload.estimatedMinutes   ?? 60,
+    hw_minutes:           payload.hwMinutes          ?? null,
+    tags:                 payload.tags               ?? [],
     learning_objectives:  payload.learningObjectives ?? [],
     common_mistakes:      payload.commonMistakes     ?? null,
     tutor_notes:          payload.tutorNotes         ?? null,
+    desmos_usage:         payload.desmosUsage        ?? null,
+    prerequisites:        payload.prerequisites      ?? null,
+    follow_up:            payload.followUp           ?? null,
     ai_notes:             payload.aiNotes            ?? null,
-    status:               "draft",
+    status:               payload.status             ?? "draft",
     position:             payload.position           ?? 0,
   }).select().single();
   if (error) throw error;
@@ -1135,17 +1151,24 @@ export async function insertLesson(payload: {
 
 export async function updateLesson(id: number, payload: Partial<{
   title: string; description: string; difficulty: number; estimatedMinutes: number;
-  learningObjectives: string[]; commonMistakes: string; tutorNotes: string;
-  aiNotes: string; status: string; position: number;
+  hwMinutes: number; tags: string[]; learningObjectives: string[];
+  commonMistakes: string; tutorNotes: string; desmosUsage: string;
+  prerequisites: string; followUp: string; aiNotes: string;
+  status: string; position: number;
 }>): Promise<Lesson> {
   const u: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (payload.title               !== undefined) u.title               = payload.title;
   if (payload.description         !== undefined) u.description         = payload.description || null;
   if (payload.difficulty          !== undefined) u.difficulty          = payload.difficulty;
   if (payload.estimatedMinutes    !== undefined) u.estimated_minutes   = payload.estimatedMinutes;
+  if (payload.hwMinutes           !== undefined) u.hw_minutes          = payload.hwMinutes || null;
+  if (payload.tags                !== undefined) u.tags                = payload.tags;
   if (payload.learningObjectives  !== undefined) u.learning_objectives = payload.learningObjectives;
   if (payload.commonMistakes      !== undefined) u.common_mistakes     = payload.commonMistakes || null;
   if (payload.tutorNotes          !== undefined) u.tutor_notes         = payload.tutorNotes || null;
+  if (payload.desmosUsage         !== undefined) u.desmos_usage        = payload.desmosUsage || null;
+  if (payload.prerequisites       !== undefined) u.prerequisites       = payload.prerequisites || null;
+  if (payload.followUp            !== undefined) u.follow_up           = payload.followUp || null;
   if (payload.aiNotes             !== undefined) u.ai_notes            = payload.aiNotes || null;
   if (payload.status              !== undefined) u.status              = payload.status;
   if (payload.position            !== undefined) u.position            = payload.position;

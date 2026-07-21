@@ -12,7 +12,7 @@ import type {
 } from "@/lib/portal/types";
 import {
   ChevronRight, ChevronDown, Upload, ExternalLink, Plus,
-  Edit2, Check, X, Loader2, BookOpen, Clock, Star, FileText,
+  Edit2, Check, X, Loader2, BookOpen, FileText,
 } from "lucide-react";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -92,7 +92,7 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
   const [editObjectives, setEditObjectives] = useState<string[]>([""]);
   const [editMistakes,   setEditMistakes]   = useState("");
   const [editTutorNotes, setEditTutorNotes] = useState("");
-  const [editStatus,     setEditStatus]     = useState<"draft" | "active" | "archived">("draft");
+  const [editStatus,     setEditStatus]     = useState<"draft" | "in_review" | "active" | "archived">("draft");
   const [saving,         setSaving]         = useState(false);
 
   // Upload
@@ -369,35 +369,17 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
 
             {/* Stats row */}
             <div className="bg-white border border-gray-100 rounded-xl shadow-sm px-5 py-3 flex flex-wrap gap-6 mb-5 items-center">
-              {editing ? (
-                <>
-                  <div>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Difficulty</p>
-                    <select value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}
-                      className="rounded border border-gray-200 px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                      {[1,2,3,4,5].map((n) => <option key={n} value={n}>{DIFFICULTY_LABELS[n]}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Est. Time (min)</p>
-                    <input type="number" value={editMinutes} onChange={(e) => setEditMinutes(Number(e.target.value))}
-                      className="w-16 rounded border border-gray-200 px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <StatPill label="Difficulty"  value={DIFFICULTY_LABELS[lessonPkg.difficulty] ?? String(lessonPkg.difficulty)} />
-                  <StatPill label="Est. Time"   value={`${lessonPkg.estimatedMinutes} min`} />
-                  <StatPill label="Skills"      value={String(lessonPkg.skills.length)} />
-                  <StatPill label="Resources"   value={`${lessonPkg.resources.filter((r) => r.url).length} / ${lessonPkg.resources.length} ready`} />
-                </>
-              )}
+              <StatPill label="Difficulty"  value={DIFFICULTY_LABELS[lessonPkg.difficulty] ?? String(lessonPkg.difficulty)} />
+              <StatPill label="Est. Time"   value={`${lessonPkg.estimatedMinutes} min`} />
+              <StatPill label="Skills"      value={String(lessonPkg.skills.length)} />
+              <StatPill label="Resources"   value={`${lessonPkg.resources.filter((r) => r.url).length} / ${lessonPkg.resources.length} ready`} />
             </div>
 
-            {/* Body: 3-5 left + 2-5 right */}
-            <div className="grid grid-cols-5 gap-5">
-              {/* Left column */}
-              <div className="col-span-3 space-y-4">
+            {/* Body: 3-col layout */}
+            <div className="grid grid-cols-12 gap-5">
+
+              {/* ── Left col (5/12): content ── */}
+              <div className="col-span-5 space-y-4">
                 <InfoSection title="About This Lesson">
                   {editing
                     ? <textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={4} placeholder="Describe what this lesson covers…"
@@ -452,22 +434,32 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                 </InfoSection>
 
                 {lessonPkg.skills.length > 0 && (
-                  <InfoSection title="Skills Covered">
-                    <div className="flex flex-wrap gap-2">
+                  <InfoSection title="Aligned Skills">
+                    <div className="space-y-3">
                       {lessonPkg.skills.map((sk) => (
-                        <span key={sk.id} className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-100 rounded-full text-xs font-medium">{sk.name}</span>
+                        <div key={sk.id}>
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-medium text-gray-700">{sk.name}</span>
+                            <span className="text-[10px] font-bold text-gray-400">{["", "Beginner", "Intermediate", "Standard", "Advanced", "Expert"][sk.difficulty] ?? "—"}</span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-500 rounded-full transition-all" style={{ width: `${sk.difficulty * 20}%` }} />
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </InfoSection>
                 )}
               </div>
 
-              {/* Right column */}
-              <div className="col-span-2 space-y-4">
-                {/* Package Contents */}
+              {/* ── Middle col (4/12): package contents ── */}
+              <div className="col-span-4 space-y-4">
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-50">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Lesson Package Contents</p>
+                    <span className="text-[10px] font-bold text-gray-400">
+                      {lessonPkg.resources.filter((r) => r.url).length}/{lessonPkg.resources.length} Ready
+                    </span>
                   </div>
                   <div className="divide-y divide-gray-50">
                     {RESOURCE_ORDER.map((type) => {
@@ -475,29 +467,44 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                       if (!res) return null;
                       const isUp = uploadingId === res.id;
                       const msg  = uploadMsg?.id === res.id ? uploadMsg : null;
+                      const hasFile = !!res.url;
                       return (
-                        <div key={type} className="px-4 py-2.5 flex items-center gap-3">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-medium text-gray-800 truncate">{RESOURCE_LABELS[type]}</p>
-                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wide">{RESOURCE_TAGS[type]}</span>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            {res.url
-                              ? <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">Ready</span>
-                              : <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-400">Missing</span>
-                            }
-                            {msg && <span className={`text-[10px] font-medium ${msg.ok ? "text-emerald-600" : "text-red-500"}`}>{msg.text}</span>}
-                            {res.url && (
-                              <a href={res.url} target="_blank" rel="noopener noreferrer" className="text-gray-300 hover:text-blue-500 transition-colors">
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                            )}
-                            {isBuilder && (
-                              <button onClick={() => triggerUpload(res.id)} disabled={isUp} title="Upload file"
-                                className="text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40">
-                                {isUp ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
-                              </button>
-                            )}
+                        <div key={type} className="px-4 py-3">
+                          <div className="flex items-start gap-3">
+                            {/* File icon */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${hasFile ? "bg-blue-50" : "bg-gray-50"}`}>
+                              <FileText className={`w-4 h-4 ${hasFile ? "text-blue-500" : "text-gray-300"}`} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-xs font-semibold text-gray-800">{RESOURCE_LABELS[type]}</p>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase tracking-wide ${
+                                  RESOURCE_TAGS[type] === "In-Class"   ? "bg-violet-50 text-violet-500" :
+                                  RESOURCE_TAGS[type] === "Homework"   ? "bg-blue-50 text-blue-500" :
+                                  RESOURCE_TAGS[type] === "Reference"  ? "bg-amber-50 text-amber-600" :
+                                  "bg-emerald-50 text-emerald-600"
+                                }`}>{RESOURCE_TAGS[type]}</span>
+                              </div>
+                              {hasFile
+                                ? <p className="text-[10px] text-emerald-600 font-medium mt-0.5 truncate">Uploaded</p>
+                                : <p className="text-[10px] text-gray-300 mt-0.5">Not uploaded</p>
+                              }
+                              {msg && <p className={`text-[10px] font-medium mt-0.5 ${msg.ok ? "text-emerald-600" : "text-red-500"}`}>{msg.text}</p>}
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {hasFile && (
+                                <a href={res.url!} target="_blank" rel="noopener noreferrer"
+                                  className="w-6 h-6 rounded-md bg-gray-50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors">
+                                  <ExternalLink className="w-3 h-3" />
+                                </a>
+                              )}
+                              {isBuilder && (
+                                <button onClick={() => triggerUpload(res.id)} disabled={isUp} title="Upload file"
+                                  className="w-6 h-6 rounded-md bg-gray-50 hover:bg-blue-50 flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors disabled:opacity-40">
+                                  {isUp ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -505,7 +512,7 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                   </div>
                   {/* URL paste — builder only */}
                   {isBuilder && (!pasteOpen ? (
-                    <div className="px-4 py-2 border-t border-gray-50">
+                    <div className="px-4 py-2.5 border-t border-gray-50">
                       <button onClick={() => setPasteOpen(true)} className="text-xs text-gray-400 hover:text-blue-600 font-medium">+ Paste a URL instead</button>
                     </div>
                   ) : (
@@ -526,14 +533,76 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                     </div>
                   ))}
                 </div>
+              </div>
 
+              {/* ── Right col (3/12): stats + workflow + actions ── */}
+              <div className="col-span-3 space-y-4">
                 {/* Lesson Stats */}
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Lesson Stats</p>
-                  <div className="grid grid-cols-3 gap-3">
-                    <MiniStat icon={<Clock className="w-3.5 h-3.5" />} label="Minutes" value={String(lessonPkg.estimatedMinutes)} />
-                    <MiniStat icon={<Star className="w-3.5 h-3.5" />}  label="Difficulty" value={String(lessonPkg.difficulty)} />
-                    <MiniStat icon={<FileText className="w-3.5 h-3.5" />} label="Skills" value={String(lessonPkg.skills.length)} />
+                  {editing ? (
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Difficulty</p>
+                        <select value={editDifficulty} onChange={(e) => setEditDifficulty(Number(e.target.value))}
+                          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                          {[1,2,3,4,5].map((n) => <option key={n} value={n}>{DIFFICULTY_LABELS[n]}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">Est. Time (min)</p>
+                        <input type="number" value={editMinutes} onChange={(e) => setEditMinutes(Number(e.target.value))}
+                          className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Est. Time</span>
+                        <span className="text-xs font-bold text-gray-800">{lessonPkg.estimatedMinutes} min</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Difficulty</span>
+                        <span className="text-xs font-bold text-gray-800">{DIFFICULTY_LABELS[lessonPkg.difficulty] ?? lessonPkg.difficulty}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Skills</span>
+                        <span className="text-xs font-bold text-gray-800">{lessonPkg.skills.length}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-gray-500">Resources</span>
+                        <span className="text-xs font-bold text-gray-800">
+                          {lessonPkg.resources.filter((r) => r.url).length}/{lessonPkg.resources.length}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Approval Workflow */}
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Approval Workflow</p>
+                  <div className="space-y-3">
+                    {(["draft", "active", "archived"] as const).map((stage, i) => {
+                      const labels  = ["In Review", "Approved for Tutors", "Published"];
+                      const reached = ["draft", "active", "archived"].indexOf(lessonPkg.status) >= i;
+                      const current = lessonPkg.status === stage;
+                      return (
+                        <div key={stage} className="flex items-start gap-2.5">
+                          <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 border-2 transition-all ${
+                            reached
+                              ? "bg-blue-600 border-blue-600"
+                              : "bg-white border-gray-200"
+                          }`}>
+                            {reached && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className={`text-xs font-semibold ${current ? "text-blue-600" : reached ? "text-gray-700" : "text-gray-300"}`}>{labels[i]}</p>
+                            {current && <p className="text-[10px] text-gray-400 mt-0.5">Current stage</p>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -541,40 +610,49 @@ export default function CourseCatalog({ mode = "builder" }: Props) {
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Quick Actions</p>
                   <div className="space-y-2">
-                    <button className="w-full px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 text-left">
+                    <button className="w-full px-3 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700 text-left">
                       Assign to Student
                     </button>
                     {lessonPkg.resources.find((r) => r.type === "lesson_deck" && r.url) && (
                       <a href={lessonPkg.resources.find((r) => r.type === "lesson_deck")!.url!}
                         target="_blank" rel="noopener noreferrer"
-                        className="block w-full px-4 py-2 border border-gray-200 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-50 text-left">
+                        className="block w-full px-3 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 text-left">
                         Preview Lesson Deck ↗
                       </a>
+                    )}
+                    {isBuilder && !editing && (
+                      <button onClick={enterEdit}
+                        className="w-full px-3 py-2 border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 text-left">
+                        Edit Lesson
+                      </button>
                     )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Skills Alignment */}
-            {lessonPkg.skills.length > 0 && (
-              <div className="mt-5 bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
-                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Skills Alignment</p>
-                <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-                  {lessonPkg.skills.map((sk) => (
-                    <div key={sk.id}>
-                      <div className="flex justify-between items-center mb-1">
-                        <span className="text-xs font-medium text-gray-700">{sk.name}</span>
-                        <span className="text-[10px] text-gray-400">{sk.difficulty * 20}%</span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${sk.difficulty * 20}%` }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+            {/* ── Recent Activity (bottom) ── */}
+            <div className="mt-5 bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Recent Activity</p>
               </div>
-            )}
+              <div className="divide-y divide-gray-50">
+                {[
+                  { label: "Lesson created",         date: "—",    note: "Added to curriculum library" },
+                  { label: "Resources pending",       date: "—",    note: `${lessonPkg.resources.filter((r) => !r.url).length} of ${lessonPkg.resources.length} slots still need files` },
+                  { label: "Skills mapped",           date: "—",    note: lessonPkg.skills.length > 0 ? `${lessonPkg.skills.length} skill${lessonPkg.skills.length !== 1 ? "s" : ""} aligned` : "No skills aligned yet" },
+                ].map((row) => (
+                  <div key={row.label} className="px-5 py-3 flex items-center gap-4">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-200 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-700">{row.label}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{row.note}</p>
+                    </div>
+                    <span className="text-[10px] text-gray-300 shrink-0">{row.date}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         </div>
@@ -603,20 +681,11 @@ function StatPill({ label, value }: { label: string; value: string }) {
   );
 }
 
-function MiniStat({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="bg-gray-50 rounded-xl p-2.5 text-center">
-      <div className="flex justify-center text-gray-400 mb-1">{icon}</div>
-      <p className="text-base font-bold text-gray-800">{value}</p>
-      <p className="text-[10px] text-gray-400">{label}</p>
-    </div>
-  );
-}
 
 function StatusBadge({ status, editing, onChange }: {
   status: string;
   editing: boolean;
-  onChange: (v: "draft" | "active" | "archived") => void;
+  onChange: (v: "draft" | "in_review" | "active" | "archived") => void;
 }) {
   const colors: Record<string, string> = {
     draft:    "bg-amber-100 text-amber-700",
@@ -627,9 +696,10 @@ function StatusBadge({ status, editing, onChange }: {
     return <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${colors[status] ?? "bg-gray-100 text-gray-500"}`}>{status.toUpperCase()}</span>;
   }
   return (
-    <select value={status} onChange={(e) => onChange(e.target.value as "draft" | "active" | "archived")}
+    <select value={status} onChange={(e) => onChange(e.target.value as "draft" | "in_review" | "active" | "archived")}
       className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-blue-500">
       <option value="draft">DRAFT</option>
+      <option value="in_review">IN REVIEW</option>
       <option value="active">ACTIVE</option>
       <option value="archived">ARCHIVED</option>
     </select>

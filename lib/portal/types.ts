@@ -140,7 +140,7 @@ export interface BlockedSlot {
 // ── CMS ───────────────────────────────────────────────────────────
 
 export type CourseStatus  = "draft" | "active" | "archived";
-export type LessonStatus  = "draft" | "active" | "archived";
+export type LessonStatus  = "draft" | "in_review" | "active" | "archived";
 export type PlanStatus    = "draft" | "active" | "completed" | "archived";
 export type PlanLessonStatus = "pending" | "in_progress" | "completed" | "skipped";
 export type ResourceType  =
@@ -177,11 +177,16 @@ export interface Lesson {
   moduleId: number;
   title: string;
   description?: string;
-  difficulty: number;       // 1–5
+  difficulty: number;           // 1–5
   estimatedMinutes: number;
+  hwMinutes?: number;           // estimated homework time (separate from class time)
+  tags: string[];               // searchable topic tags
   learningObjectives: string[];
   commonMistakes?: string;
   tutorNotes?: string;
+  desmosUsage?: string;         // recommended Desmos tools / activity links
+  prerequisites?: string;       // prerequisite knowledge (free text)
+  followUp?: string;            // recommended follow-up lessons (free text)
   aiNotes?: string;
   status: LessonStatus;
   position: number;

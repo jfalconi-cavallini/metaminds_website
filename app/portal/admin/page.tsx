@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
-import CourseCatalog from "@/components/portal/CourseCatalog";
+import CurriculumBuilder from "@/components/curriculum/CurriculumBuilder";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
   insertSession, logCompletedSession, cancelSession,
@@ -1495,10 +1495,10 @@ export default function AdminPortal() {
       )}
 
       {/* ── CURRICULUM BUILDER ── */}
-      {tab === "curriculum-builder" && <CourseCatalog mode="builder" />}
+      {tab === "curriculum-builder" && <CurriculumBuilder />}
 
       {/* ── COURSE LIBRARY ── */}
-      {tab === "course-library" && <CourseCatalog mode="library" />}
+      {tab === "course-library" && <CurriculumBuilder />}
 
     </DashboardShell>
 
