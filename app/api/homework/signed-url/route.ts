@@ -18,9 +18,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing storage path" }, { status: 400 });
   }
 
-  // Storage paths look like "hw_<homeworkId>/<timestamp>_<filename>" —
-  // recover the homework id so we can check the caller actually owns it.
-  const hwIdMatch = storagePath.match(/^hw_(\d+)\//);
+  // Storage paths: "hw_<id>/..." (student submission) or "tutor_attach/hw_<id>/..." (tutor attachment)
+  const hwIdMatch = storagePath.match(/(?:^|\/)hw_(\d+)\//);
   if (!hwIdMatch) {
     return NextResponse.json({ error: "Invalid storage path" }, { status: 400 });
   }
