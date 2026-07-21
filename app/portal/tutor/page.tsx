@@ -187,6 +187,9 @@ export default function TutorPortal() {
   const [hwStudentId, setHwStudentId] = useState("");
   const [hwTask,      setHwTask]      = useState("");
   const [hwDue,       setHwDue]       = useState("");
+  const [hwKamiLink,  setHwKamiLink]  = useState("");
+  const [hwFile,      setHwFile]      = useState<File | null>(null);
+  const [hwUploading, setHwUploading] = useState(false);
   const [hwSaving,    setHwSaving]    = useState(false);
   const [hwSuccess,   setHwSuccess]   = useState(false);
   const [hwError,     setHwError]     = useState("");
@@ -442,14 +445,37 @@ export default function TutorPortal() {
 
   async function submitHomework() {
     if (!hwTask || !hwStudentId) { setHwError("Fill in student and task."); return; }
-    setHwSaving(true); setHwError("");
+    setHwSaving(true); setHwUploading(false); setHwError("");
     try {
-      const hw = await insertHomework({ tutorId, studentId: Number(hwStudentId), task: hwTask, dueDate: hwDue || undefined });
+      let hw = await insertHomework({
+        tutorId, studentId: Number(hwStudentId), task: hwTask,
+        dueDate: hwDue || undefined, kamiLink: hwKamiLink.trim() || undefined,
+      });
+
+      // Upload PDF attachment if provided
+      if (hwFile) {
+        setHwUploading(true);
+        const { data: { session } } = await supabase.auth.getSession();
+        const fd = new FormData();
+        fd.append("file", hwFile);
+        fd.append("hwId", String(hw.id));
+        const res = await fetch("/api/homework/attach", {
+          method: "POST",
+          headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
+          body: fd,
+        });
+        if (res.ok) {
+          const json = await res.json() as { homework: Record<string, unknown> };
+          hw = { ...hw, attachmentUrl: json.homework.attachment_url as string, attachmentFilename: json.homework.attachment_filename as string };
+        }
+        setHwUploading(false);
+      }
+
       setHomework((prev) => [hw, ...prev]);
-      setHwTask(""); setHwDue("");
+      setHwTask(""); setHwDue(""); setHwKamiLink(""); setHwFile(null);
       setHwSuccess(true); setTimeout(() => setHwSuccess(false), 4000);
     } catch { setHwError("Failed to assign homework."); }
-    finally { setHwSaving(false); }
+    finally { setHwSaving(false); setHwUploading(false); }
   }
 
   async function openSubmission(hw: { id: number; submissionUrl?: string; submissionFilename?: string }) {
@@ -1639,11 +1665,24 @@ export default function TutorPortal() {
                     <input type="date" value={hwDue} onChange={(e) => setHwDue(e.target.value)}
                       className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">PDF Attachment (optional)</label>
+                    <input type="file" accept=".pdf,application/pdf"
+                      onChange={(e) => setHwFile(e.target.files?.[0] ?? null)}
+                      className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                    {hwFile && <p className="text-xs text-gray-400 mt-1">{hwFile.name}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Kami Link (optional)</label>
+                    <input value={hwKamiLink} onChange={(e) => setHwKamiLink(e.target.value)}
+                      placeholder="https://app.kami.com/..."
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
                   {hwSuccess && <p className="text-xs text-green-600 font-medium">✓ Assignment assigned!</p>}
                   {hwError && <p className="text-xs text-red-500">{hwError}</p>}
-                  <button onClick={submitHomework} disabled={hwSaving}
+                  <button onClick={submitHomework} disabled={hwSaving || hwUploading}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                    {hwSaving ? "Saving…" : "Assign"}
+                    {hwUploading ? "Uploading PDF…" : hwSaving ? "Saving…" : "Assign"}
                   </button>
                 </div>
               </div>

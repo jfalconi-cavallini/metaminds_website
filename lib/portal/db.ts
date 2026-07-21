@@ -89,6 +89,9 @@ function rowToHomework(r: any): Homework {
     grade:              r.grade               ?? undefined,
     feedback:           r.feedback            ?? undefined,
     feedbackAt:         r.feedback_at         ?? undefined,
+    attachmentUrl:      r.attachment_url      ?? undefined,
+    attachmentFilename: r.attachment_filename ?? undefined,
+    kamiLink:           r.kami_link           ?? undefined,
   };
 }
 
@@ -519,7 +522,7 @@ export async function markHomeworkComplete(id: number): Promise<Homework> {
 }
 
 export async function insertHomework(payload: {
-  studentId: number; tutorId: number; task: string; dueDate?: string;
+  studentId: number; tutorId: number; task: string; dueDate?: string; kamiLink?: string;
 }): Promise<Homework> {
   const { data, error } = await supabase.from("homework").insert({
     student_id:    payload.studentId,
@@ -527,6 +530,7 @@ export async function insertHomework(payload: {
     task:          payload.task,
     assigned_date: new Date().toISOString().slice(0, 10),
     due_date:      payload.dueDate ?? null,
+    kami_link:     payload.kamiLink ?? null,
   }).select().single();
   if (error) throw error;
   return rowToHomework(data);

@@ -74,6 +74,9 @@ export interface Homework {
   grade?: string;
   feedback?: string;
   feedbackAt?: string;
+  attachmentUrl?: string;
+  attachmentFilename?: string;
+  kamiLink?: string;
 }
 
 export interface HoursBalance {

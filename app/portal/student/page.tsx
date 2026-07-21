@@ -336,6 +336,9 @@ export default function StudentPortal() {
         submittedAt:        r.submitted_at        ?? undefined,
         feedback:           r.feedback            ?? undefined,
         feedbackAt:         r.feedback_at         ?? undefined,
+        attachmentUrl:      r.attachment_url      ?? undefined,
+        attachmentFilename: r.attachment_filename ?? undefined,
+        kamiLink:           r.kami_link           ?? undefined,
       };
       setHomeworkList((prev) => prev.map((h) => h.id === hw.id ? updated : h));
       setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[hw.id]; return n; });
@@ -2079,6 +2082,28 @@ export default function StudentPortal() {
           const uploadError = hwUploadErrors[h.id];
           return (
             <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-3">
+              {/* Tutor-provided resources */}
+              {(h.attachmentUrl || h.kamiLink) && (
+                <div className="flex flex-wrap gap-2">
+                  {h.attachmentUrl && (
+                    <button
+                      onClick={() => openSubmission({ ...h, submissionUrl: h.attachmentUrl!, submissionFilename: h.attachmentFilename })}
+                      disabled={hwOpeningId === h.id}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      {h.attachmentFilename ?? "Download PDF"}
+                    </button>
+                  )}
+                  {h.kamiLink && (
+                    <a href={h.kamiLink} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-100"
+                    >
+                      ✏️ Open in Kami
+                    </a>
+                  )}
+                </div>
+              )}
               {h.submissionUrl && h.submissionFilename && (
                 <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
                   <FileText className="w-4 h-4 text-gray-400 shrink-0" />
