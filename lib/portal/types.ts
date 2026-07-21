@@ -135,3 +135,106 @@ export interface BlockedSlot {
   slotDate: string;   // ISO date "2026-07-04"
   slotTime: string;   // "4:00 PM"
 }
+
+// ── CMS ───────────────────────────────────────────────────────────
+
+export type CourseStatus  = "draft" | "active" | "archived";
+export type LessonStatus  = "draft" | "active" | "archived";
+export type PlanStatus    = "draft" | "active" | "completed" | "archived";
+export type PlanLessonStatus = "pending" | "in_progress" | "completed" | "skipped";
+export type ResourceType  = "slides" | "worksheet" | "homework_pdf" | "answer_key" | "video" | "kami_link" | "external";
+
+export interface Course {
+  id: number;
+  subject: string;
+  title: string;
+  description?: string;
+  gradeLevels: string[];
+  estimatedHours?: number;
+  status: CourseStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Module {
+  id: number;
+  courseId: number;
+  title: string;
+  description?: string;
+  position: number;
+  estimatedWeeks?: number;
+  createdAt: string;
+}
+
+export interface Lesson {
+  id: number;
+  moduleId: number;
+  title: string;
+  description?: string;
+  difficulty: number;       // 1–5
+  estimatedMinutes: number;
+  learningObjectives: string[];
+  commonMistakes?: string;
+  tutorNotes?: string;
+  aiNotes?: string;
+  status: LessonStatus;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LessonResource {
+  id: number;
+  lessonId: number;
+  type: ResourceType;
+  label: string;
+  url?: string;
+  storagePath?: string;
+  position: number;
+  createdAt: string;
+}
+
+export interface Skill {
+  id: number;
+  slug: string;
+  name: string;
+  subject: string;
+  moduleId?: number;
+  difficulty: number;
+  prerequisites: string[];
+  createdAt: string;
+}
+
+export interface StudentPlan {
+  id: number;
+  studentId: number;
+  tutorId: number;
+  courseId: number;
+  title: string;
+  currentScore?: number;
+  targetScore?: number;
+  targetDate?: string;      // ISO date
+  status: PlanStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentPlanLesson {
+  id: number;
+  planId: number;
+  lessonId: number;
+  position: number;
+  status: PlanLessonStatus;
+  scheduledDate?: string;   // ISO date
+  completedAt?: string;     // ISO timestamp
+  tutorNotes?: string;
+  createdAt: string;
+}
+
+export interface SkillMastery {
+  studentId: number;
+  skillId: number;
+  masteryPct: number;       // 0–100
+  lastAssessed?: string;    // ISO timestamp
+}

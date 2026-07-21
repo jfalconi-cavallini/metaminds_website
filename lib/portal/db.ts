@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -887,4 +887,442 @@ export async function toggleBlockedSlot(
     await supabase.from("blocked_slots").insert({ tutor_id: tutorId, slot_date: date, slot_time: time });
     return true;
   }
+}
+
+// ── CMS: ROW MAPPERS ─────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToCourse(r: any): Course {
+  return {
+    id: r.id, subject: r.subject, title: r.title,
+    description: r.description ?? undefined,
+    gradeLevels: r.grade_levels ?? [],
+    estimatedHours: r.estimated_hours ?? undefined,
+    status: r.status, createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToModule(r: any): Module {
+  return {
+    id: r.id, courseId: r.course_id, title: r.title,
+    description: r.description ?? undefined,
+    position: r.position, estimatedWeeks: r.estimated_weeks ?? undefined,
+    createdAt: r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLesson(r: any): Lesson {
+  return {
+    id: r.id, moduleId: r.module_id, title: r.title,
+    description: r.description ?? undefined,
+    difficulty: r.difficulty, estimatedMinutes: r.estimated_minutes,
+    learningObjectives: r.learning_objectives ?? [],
+    commonMistakes: r.common_mistakes ?? undefined,
+    tutorNotes: r.tutor_notes ?? undefined,
+    aiNotes: r.ai_notes ?? undefined,
+    status: r.status, position: r.position,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLessonResource(r: any): LessonResource {
+  return {
+    id: r.id, lessonId: r.lesson_id, type: r.type, label: r.label,
+    url: r.url ?? undefined, storagePath: r.storage_path ?? undefined,
+    position: r.position, createdAt: r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToSkill(r: any): Skill {
+  return {
+    id: r.id, slug: r.slug, name: r.name, subject: r.subject,
+    moduleId: r.module_id ?? undefined,
+    difficulty: r.difficulty, prerequisites: r.prerequisites ?? [],
+    createdAt: r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToStudentPlan(r: any): StudentPlan {
+  return {
+    id: r.id, studentId: r.student_id, tutorId: r.tutor_id, courseId: r.course_id,
+    title: r.title, currentScore: r.current_score ?? undefined,
+    targetScore: r.target_score ?? undefined, targetDate: r.target_date ?? undefined,
+    status: r.status, notes: r.notes ?? undefined,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPlanLesson(r: any): StudentPlanLesson {
+  return {
+    id: r.id, planId: r.plan_id, lessonId: r.lesson_id,
+    position: r.position, status: r.status,
+    scheduledDate: r.scheduled_date ?? undefined,
+    completedAt: r.completed_at ?? undefined,
+    tutorNotes: r.tutor_notes ?? undefined,
+    createdAt: r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToSkillMastery(r: any): SkillMastery {
+  return {
+    studentId: r.student_id, skillId: r.skill_id,
+    masteryPct: r.mastery_pct,
+    lastAssessed: r.last_assessed ?? undefined,
+  };
+}
+
+// ── CMS: COURSES ──────────────────────────────────────────────────────────────
+
+export async function fetchCourses(opts: { all?: boolean } = {}): Promise<Course[]> {
+  let q = supabase.from("courses").select("*").order("subject").order("title");
+  if (!opts.all) q = q.eq("status", "active");
+  const { data, error } = await q;
+  if (error) throw error;
+  return data.map(rowToCourse);
+}
+
+export async function fetchCourse(id: number): Promise<Course> {
+  const { data, error } = await supabase.from("courses").select("*").eq("id", id).single();
+  if (error) throw error;
+  return rowToCourse(data);
+}
+
+export async function insertCourse(payload: {
+  subject: string; title: string; description?: string;
+  gradeLevels?: string[]; estimatedHours?: number;
+}): Promise<Course> {
+  const { data, error } = await supabase.from("courses").insert({
+    subject:         payload.subject,
+    title:           payload.title,
+    description:     payload.description     ?? null,
+    grade_levels:    payload.gradeLevels     ?? [],
+    estimated_hours: payload.estimatedHours  ?? null,
+    status:          "draft",
+  }).select().single();
+  if (error) throw error;
+  return rowToCourse(data);
+}
+
+export async function updateCourse(id: number, payload: Partial<{
+  subject: string; title: string; description: string;
+  gradeLevels: string[]; estimatedHours: number; status: string;
+}>): Promise<Course> {
+  const u: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (payload.subject        !== undefined) u.subject         = payload.subject;
+  if (payload.title          !== undefined) u.title           = payload.title;
+  if (payload.description    !== undefined) u.description     = payload.description || null;
+  if (payload.gradeLevels    !== undefined) u.grade_levels    = payload.gradeLevels;
+  if (payload.estimatedHours !== undefined) u.estimated_hours = payload.estimatedHours || null;
+  if (payload.status         !== undefined) u.status          = payload.status;
+  const { data, error } = await supabase.from("courses").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToCourse(data);
+}
+
+// ── CMS: MODULES ──────────────────────────────────────────────────────────────
+
+export async function fetchModules(courseId: number): Promise<Module[]> {
+  const { data, error } = await supabase
+    .from("modules").select("*").eq("course_id", courseId).order("position");
+  if (error) throw error;
+  return data.map(rowToModule);
+}
+
+export async function insertModule(payload: {
+  courseId: number; title: string; description?: string;
+  position?: number; estimatedWeeks?: number;
+}): Promise<Module> {
+  const { data, error } = await supabase.from("modules").insert({
+    course_id:       payload.courseId,
+    title:           payload.title,
+    description:     payload.description    ?? null,
+    position:        payload.position       ?? 0,
+    estimated_weeks: payload.estimatedWeeks ?? null,
+  }).select().single();
+  if (error) throw error;
+  return rowToModule(data);
+}
+
+export async function updateModule(id: number, payload: Partial<{
+  title: string; description: string; position: number; estimatedWeeks: number;
+}>): Promise<Module> {
+  const u: Record<string, unknown> = {};
+  if (payload.title          !== undefined) u.title           = payload.title;
+  if (payload.description    !== undefined) u.description     = payload.description || null;
+  if (payload.position       !== undefined) u.position        = payload.position;
+  if (payload.estimatedWeeks !== undefined) u.estimated_weeks = payload.estimatedWeeks || null;
+  const { data, error } = await supabase.from("modules").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToModule(data);
+}
+
+export async function deleteModule(id: number): Promise<void> {
+  const { error } = await supabase.from("modules").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── CMS: LESSONS ──────────────────────────────────────────────────────────────
+
+export async function fetchLessons(moduleId: number): Promise<Lesson[]> {
+  const { data, error } = await supabase
+    .from("lessons").select("*").eq("module_id", moduleId).order("position");
+  if (error) throw error;
+  return data.map(rowToLesson);
+}
+
+export async function fetchLesson(id: number): Promise<Lesson> {
+  const { data, error } = await supabase.from("lessons").select("*").eq("id", id).single();
+  if (error) throw error;
+  return rowToLesson(data);
+}
+
+export async function insertLesson(payload: {
+  moduleId: number; title: string; description?: string;
+  difficulty?: number; estimatedMinutes?: number;
+  learningObjectives?: string[]; commonMistakes?: string;
+  tutorNotes?: string; aiNotes?: string; position?: number;
+}): Promise<Lesson> {
+  const { data, error } = await supabase.from("lessons").insert({
+    module_id:            payload.moduleId,
+    title:                payload.title,
+    description:          payload.description        ?? null,
+    difficulty:           payload.difficulty         ?? 2,
+    estimated_minutes:    payload.estimatedMinutes   ?? 60,
+    learning_objectives:  payload.learningObjectives ?? [],
+    common_mistakes:      payload.commonMistakes     ?? null,
+    tutor_notes:          payload.tutorNotes         ?? null,
+    ai_notes:             payload.aiNotes            ?? null,
+    status:               "draft",
+    position:             payload.position           ?? 0,
+  }).select().single();
+  if (error) throw error;
+  return rowToLesson(data);
+}
+
+export async function updateLesson(id: number, payload: Partial<{
+  title: string; description: string; difficulty: number; estimatedMinutes: number;
+  learningObjectives: string[]; commonMistakes: string; tutorNotes: string;
+  aiNotes: string; status: string; position: number;
+}>): Promise<Lesson> {
+  const u: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (payload.title               !== undefined) u.title               = payload.title;
+  if (payload.description         !== undefined) u.description         = payload.description || null;
+  if (payload.difficulty          !== undefined) u.difficulty          = payload.difficulty;
+  if (payload.estimatedMinutes    !== undefined) u.estimated_minutes   = payload.estimatedMinutes;
+  if (payload.learningObjectives  !== undefined) u.learning_objectives = payload.learningObjectives;
+  if (payload.commonMistakes      !== undefined) u.common_mistakes     = payload.commonMistakes || null;
+  if (payload.tutorNotes          !== undefined) u.tutor_notes         = payload.tutorNotes || null;
+  if (payload.aiNotes             !== undefined) u.ai_notes            = payload.aiNotes || null;
+  if (payload.status              !== undefined) u.status              = payload.status;
+  if (payload.position            !== undefined) u.position            = payload.position;
+  const { data, error } = await supabase.from("lessons").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToLesson(data);
+}
+
+export async function deleteLesson(id: number): Promise<void> {
+  const { error } = await supabase.from("lessons").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── CMS: LESSON RESOURCES ────────────────────────────────────────────────────
+
+export async function fetchLessonResources(lessonId: number): Promise<LessonResource[]> {
+  const { data, error } = await supabase
+    .from("lesson_resources").select("*").eq("lesson_id", lessonId).order("position");
+  if (error) throw error;
+  return data.map(rowToLessonResource);
+}
+
+export async function insertLessonResource(payload: {
+  lessonId: number; type: string; label: string; url?: string; storagePath?: string; position?: number;
+}): Promise<LessonResource> {
+  const { data, error } = await supabase.from("lesson_resources").insert({
+    lesson_id:    payload.lessonId,
+    type:         payload.type,
+    label:        payload.label,
+    url:          payload.url          ?? null,
+    storage_path: payload.storagePath  ?? null,
+    position:     payload.position     ?? 0,
+  }).select().single();
+  if (error) throw error;
+  return rowToLessonResource(data);
+}
+
+export async function deleteLessonResource(id: number): Promise<void> {
+  const { error } = await supabase.from("lesson_resources").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── CMS: SKILLS ──────────────────────────────────────────────────────────────
+
+export async function fetchSkills(opts: { subject?: string } = {}): Promise<Skill[]> {
+  let q = supabase.from("skills").select("*").order("subject").order("difficulty").order("name");
+  if (opts.subject) q = q.eq("subject", opts.subject);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data.map(rowToSkill);
+}
+
+export async function fetchLessonSkills(lessonId: number): Promise<Skill[]> {
+  const { data, error } = await supabase
+    .from("lesson_skills")
+    .select("skills(*)")
+    .eq("lesson_id", lessonId);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => rowToSkill(r.skills));
+}
+
+export async function insertSkill(payload: {
+  slug: string; name: string; subject: string;
+  moduleId?: number; difficulty?: number; prerequisites?: string[];
+}): Promise<Skill> {
+  const { data, error } = await supabase.from("skills").insert({
+    slug:          payload.slug,
+    name:          payload.name,
+    subject:       payload.subject,
+    module_id:     payload.moduleId     ?? null,
+    difficulty:    payload.difficulty   ?? 2,
+    prerequisites: payload.prerequisites ?? [],
+  }).select().single();
+  if (error) throw error;
+  return rowToSkill(data);
+}
+
+export async function setLessonSkills(lessonId: number, skillIds: number[]): Promise<void> {
+  await supabase.from("lesson_skills").delete().eq("lesson_id", lessonId);
+  if (skillIds.length === 0) return;
+  const { error } = await supabase.from("lesson_skills").insert(
+    skillIds.map((skillId) => ({ lesson_id: lessonId, skill_id: skillId }))
+  );
+  if (error) throw error;
+}
+
+// ── CMS: STUDENT PLANS ───────────────────────────────────────────────────────
+
+export async function fetchStudentPlans(studentId: number): Promise<StudentPlan[]> {
+  const { data, error } = await supabase
+    .from("student_plans").select("*").eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data.map(rowToStudentPlan);
+}
+
+export async function fetchPlansByTutor(tutorId: number): Promise<StudentPlan[]> {
+  const { data, error } = await supabase
+    .from("student_plans").select("*").eq("tutor_id", tutorId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data.map(rowToStudentPlan);
+}
+
+export async function insertStudentPlan(payload: {
+  studentId: number; tutorId: number; courseId: number; title: string;
+  currentScore?: number; targetScore?: number; targetDate?: string; notes?: string;
+}): Promise<StudentPlan> {
+  const { data, error } = await supabase.from("student_plans").insert({
+    student_id:    payload.studentId,
+    tutor_id:      payload.tutorId,
+    course_id:     payload.courseId,
+    title:         payload.title,
+    current_score: payload.currentScore ?? null,
+    target_score:  payload.targetScore  ?? null,
+    target_date:   payload.targetDate   ?? null,
+    notes:         payload.notes        ?? null,
+    status:        "active",
+  }).select().single();
+  if (error) throw error;
+  return rowToStudentPlan(data);
+}
+
+export async function updateStudentPlan(id: number, payload: Partial<{
+  title: string; currentScore: number; targetScore: number;
+  targetDate: string; status: string; notes: string;
+}>): Promise<StudentPlan> {
+  const u: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (payload.title        !== undefined) u.title         = payload.title;
+  if (payload.currentScore !== undefined) u.current_score = payload.currentScore || null;
+  if (payload.targetScore  !== undefined) u.target_score  = payload.targetScore  || null;
+  if (payload.targetDate   !== undefined) u.target_date   = payload.targetDate   || null;
+  if (payload.status       !== undefined) u.status        = payload.status;
+  if (payload.notes        !== undefined) u.notes         = payload.notes        || null;
+  const { data, error } = await supabase.from("student_plans").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToStudentPlan(data);
+}
+
+// ── CMS: STUDENT PLAN LESSONS ─────────────────────────────────────────────────
+
+export async function fetchPlanLessons(planId: number): Promise<StudentPlanLesson[]> {
+  const { data, error } = await supabase
+    .from("student_plan_lessons").select("*").eq("plan_id", planId).order("position");
+  if (error) throw error;
+  return data.map(rowToPlanLesson);
+}
+
+export async function insertPlanLessons(
+  planId: number,
+  lessons: Array<{ lessonId: number; position: number; scheduledDate?: string; tutorNotes?: string }>,
+): Promise<StudentPlanLesson[]> {
+  const { data, error } = await supabase.from("student_plan_lessons").insert(
+    lessons.map((l) => ({
+      plan_id:        planId,
+      lesson_id:      l.lessonId,
+      position:       l.position,
+      scheduled_date: l.scheduledDate ?? null,
+      tutor_notes:    l.tutorNotes    ?? null,
+      status:         "pending",
+    }))
+  ).select();
+  if (error) throw error;
+  return data.map(rowToPlanLesson);
+}
+
+export async function updatePlanLesson(id: number, payload: Partial<{
+  position: number; status: string; scheduledDate: string;
+  completedAt: string; tutorNotes: string;
+}>): Promise<StudentPlanLesson> {
+  const u: Record<string, unknown> = {};
+  if (payload.position      !== undefined) u.position       = payload.position;
+  if (payload.status        !== undefined) u.status         = payload.status;
+  if (payload.scheduledDate !== undefined) u.scheduled_date = payload.scheduledDate || null;
+  if (payload.completedAt   !== undefined) u.completed_at   = payload.completedAt  || null;
+  if (payload.tutorNotes    !== undefined) u.tutor_notes    = payload.tutorNotes   || null;
+  const { data, error } = await supabase.from("student_plan_lessons").update(u).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToPlanLesson(data);
+}
+
+export async function deletePlanLesson(id: number): Promise<void> {
+  const { error } = await supabase.from("student_plan_lessons").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── CMS: SKILL MASTERY ────────────────────────────────────────────────────────
+
+export async function fetchSkillMastery(studentId: number): Promise<SkillMastery[]> {
+  const { data, error } = await supabase
+    .from("skill_mastery").select("*").eq("student_id", studentId);
+  if (error) throw error;
+  return data.map(rowToSkillMastery);
+}
+
+export async function upsertSkillMastery(
+  studentId: number, skillId: number, masteryPct: number,
+): Promise<void> {
+  const { error } = await supabase.from("skill_mastery").upsert({
+    student_id:    studentId,
+    skill_id:      skillId,
+    mastery_pct:   masteryPct,
+    last_assessed: new Date().toISOString(),
+  }, { onConflict: "student_id,skill_id" });
+  if (error) throw error;
 }
