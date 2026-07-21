@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
+import CourseLibrary from "@/components/curriculum/CourseLibrary";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl } from "@/lib/portal/utils";
@@ -56,11 +57,12 @@ const TIME_OPTIONS = (() => {
 })();
 
 const navItems = [
-  { id: "overview",  label: "Overview"      },
-  { id: "students",  label: "My Students"   },
-  { id: "schedule",  label: "Schedule"      },
-  { id: "notes",     label: "Session Notes" },
-  { id: "homework",  label: "Homework"      },
+  { id: "overview",  label: "Overview"       },
+  { id: "students",  label: "My Students"    },
+  { id: "schedule",  label: "Schedule"       },
+  { id: "notes",     label: "Session Notes"  },
+  { id: "homework",  label: "Homework"       },
+  { id: "library",   label: "Course Library" },
 ];
 
 
@@ -628,7 +630,8 @@ export default function TutorPortal() {
 
   return (
     <>
-    <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+    <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
+      fullBleed={tab === "library"}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -1737,6 +1740,9 @@ export default function TutorPortal() {
           </div>
         );
       })()}
+
+      {/* ── COURSE LIBRARY ── */}
+      {tab === "library" && <CourseLibrary />}
 
     </DashboardShell>
 

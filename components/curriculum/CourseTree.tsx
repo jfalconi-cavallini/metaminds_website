@@ -33,9 +33,10 @@ export default function CourseTree(p: CourseTreeProps) {
   const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting,      setDeleting]      = useState(false);
+  const [deleteError,   setDeleteError]   = useState<string | null>(null);
 
   // Reset confirm state when course changes
-  React.useEffect(() => { setConfirmDelete(false); }, [p.activeCourseId]);
+  React.useEffect(() => { setConfirmDelete(false); setDeleteError(null); }, [p.activeCourseId]);
 
   // Auto-expand first section+category when catalog loads
   React.useEffect(() => {
@@ -89,8 +90,15 @@ export default function CourseTree(p: CourseTreeProps) {
               <button
                 onClick={async () => {
                   setDeleting(true);
-                  try { await p.onDeleteCourse!(p.activeCourseId!); }
-                  finally { setDeleting(false); setConfirmDelete(false); }
+                  setDeleteError(null);
+                  try {
+                    await p.onDeleteCourse!(p.activeCourseId!);
+                    setConfirmDelete(false);
+                  } catch (err) {
+                    setDeleteError(err instanceof Error ? err.message : "Delete failed");
+                  } finally {
+                    setDeleting(false);
+                  }
                 }}
                 disabled={deleting}
                 className="flex-1 py-1 bg-red-500 text-white rounded-md text-[10px] font-bold hover:bg-red-600 disabled:opacity-50"
@@ -98,12 +106,15 @@ export default function CourseTree(p: CourseTreeProps) {
                 {deleting ? "Deleting…" : "Delete"}
               </button>
               <button
-                onClick={() => setConfirmDelete(false)}
+                onClick={() => { setConfirmDelete(false); setDeleteError(null); }}
                 className="flex-1 py-1 border border-gray-200 text-gray-500 rounded-md text-[10px] font-bold hover:bg-gray-50"
               >
                 Cancel
               </button>
             </div>
+            {deleteError && (
+              <p className="text-[10px] text-red-600 mt-2">{deleteError}</p>
+            )}
           </div>
         )}
       </div>
