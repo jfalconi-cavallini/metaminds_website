@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { ChevronRight, ChevronDown, Plus, Loader2 } from "lucide-react";
+import React, { useState } from "react";
+import { ChevronRight, ChevronDown, Plus, Loader2, Trash2 } from "lucide-react";
 import type { Course, CourseCatalogFull, CatalogSection, CatalogCategory } from "@/lib/portal/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -23,13 +23,19 @@ interface CourseTreeProps {
   onTitleChange: (v: string) => void;
   onConfirmAdd: (categoryId: number) => void;
   onCancelAdd: () => void;
+  onDeleteCourse?: (id: number) => Promise<void>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CourseTree(p: CourseTreeProps) {
-  const [expandedSections,   setExpandedSections]   = React.useState<Set<number>>(new Set());
-  const [expandedCategories, setExpandedCategories] = React.useState<Set<number>>(new Set());
+  const [expandedSections,   setExpandedSections]   = useState<Set<number>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Set<number>>(new Set());
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting,      setDeleting]      = useState(false);
+
+  // Reset confirm state when course changes
+  React.useEffect(() => { setConfirmDelete(false); }, [p.activeCourseId]);
 
   // Auto-expand first section+category when catalog loads
   React.useEffect(() => {
@@ -52,16 +58,54 @@ export default function CourseTree(p: CourseTreeProps) {
     <div className="w-64 shrink-0 flex flex-col border-r border-gray-200 bg-white">
       {/* Course selector */}
       <div className="px-4 pt-3 pb-3 border-b border-gray-100">
-        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Course</p>
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Course</p>
+          {p.onDeleteCourse && p.activeCourseId && !confirmDelete && (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Delete course"
+              className="w-5 h-5 flex items-center justify-center text-gray-300 hover:text-red-400 transition-colors rounded"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
         <select
           value={p.activeCourseId ?? ""}
-          onChange={(e) => p.onCourseChange(Number(e.target.value))}
+          onChange={(e) => { p.onCourseChange(Number(e.target.value)); setConfirmDelete(false); }}
           className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {p.courses.map((c) => (
             <option key={c.id} value={c.id}>{c.subject} — {c.title}</option>
           ))}
         </select>
+
+        {/* Inline delete confirmation */}
+        {confirmDelete && p.activeCourseId && p.onDeleteCourse && (
+          <div className="mt-2 p-2.5 bg-red-50 border border-red-100 rounded-lg">
+            <p className="text-[10px] font-bold text-red-600 mb-1">Delete this course?</p>
+            <p className="text-[10px] text-red-500 mb-2">All sections, lessons, and resources will be permanently removed.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  setDeleting(true);
+                  try { await p.onDeleteCourse!(p.activeCourseId!); }
+                  finally { setDeleting(false); setConfirmDelete(false); }
+                }}
+                disabled={deleting}
+                className="flex-1 py-1 bg-red-500 text-white rounded-md text-[10px] font-bold hover:bg-red-600 disabled:opacity-50"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-1 border border-gray-200 text-gray-500 rounded-md text-[10px] font-bold hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Tree */}

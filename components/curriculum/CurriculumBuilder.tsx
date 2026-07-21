@@ -8,7 +8,7 @@ import type {
 } from "@/lib/portal/types";
 import {
   fetchCourses, fetchFullCatalog, fetchLessonPackage,
-  insertLesson, updateLesson, updateLessonResource, insertLessonResource,
+  insertLesson, updateLesson, updateLessonResource, insertLessonResource, deleteCourse,
 } from "@/lib/portal/db";
 import CourseTree from "./CourseTree";
 import LessonWizard from "./LessonWizard";
@@ -156,6 +156,16 @@ export default function CurriculumBuilder() {
     finally { setAddingLesson(false); }
   }
 
+  async function handleDeleteCourse(id: number) {
+    await deleteCourse(id);
+    const updated = await fetchCourses({ all: true });
+    setCourses(updated);
+    setActiveCourseId(updated[0]?.id ?? null);
+    setCatalog(null);
+    setActiveLessonId(null);
+    setLessonPkg(null);
+  }
+
   function handleWizardComplete(lessonId: number) {
     setShowWizard(false);
     if (activeCourseId) {
@@ -218,6 +228,7 @@ export default function CurriculumBuilder() {
             onTitleChange={setNewLessonTitle}
             onConfirmAdd={confirmAddLesson}
             onCancelAdd={() => setAddingToCategoryId(null)}
+            onDeleteCourse={handleDeleteCourse}
           />
 
           {/* ── Right: Lesson Detail ── */}

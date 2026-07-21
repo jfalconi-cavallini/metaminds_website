@@ -1040,6 +1040,11 @@ export async function updateCourse(id: number, payload: Partial<{
   return rowToCourse(data);
 }
 
+export async function deleteCourse(id: number): Promise<void> {
+  const { error } = await supabase.from("courses").delete().eq("id", id);
+  if (error) throw error;
+}
+
 // ── CMS: MODULES ──────────────────────────────────────────────────────────────
 
 /** All modules for a course (flat, includes both sections and categories). */
