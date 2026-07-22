@@ -17,7 +17,7 @@ import {
   fetchTutorAvailability, insertSession, cancelSession,
   updateTutorLeadTime, upsertTutorAvailability,
   fetchSessionNotesByTutor, insertSessionNote,
-  fetchHomeworkByTutor, insertHomework,
+  fetchHomeworkByTutor, insertHomework, deleteHomework,
   addHomeworkFeedback, markHomeworkComplete,
   updateSessionZoomLink, updateSession,
   fetchBlockedDates, addBlockedDate, removeBlockedDate,
@@ -26,10 +26,11 @@ import {
   fetchBlockedSlots, toggleBlockedSlot,
   updateSessionNote, deleteSessionNote,
   updateStudentProfile, updateTutorProfile,
+  fetchStudyLog,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
-  SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot,
+  SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
 } from "@/lib/portal/types";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
@@ -241,7 +242,10 @@ export default function TutorPortal() {
 
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
-  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update">("homework");
+  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability">("homework");
+  const [selectedStudyLog,    setSelectedStudyLog]    = useState<StudyLog[]>([]);
+  const [studyLogLoading,     setStudyLogLoading]     = useState(false);
+  const [hwDeletingId,        setHwDeletingId]        = useState<number | null>(null);
   const [panelHwShowForm,     setPanelHwShowForm]     = useState(false);
   const [panelHwTask,         setPanelHwTask]         = useState("");
   const [panelHwDue,          setPanelHwDue]          = useState("");
@@ -552,6 +556,16 @@ export default function TutorPortal() {
       setPanelHwSuccess(true); setTimeout(() => setPanelHwSuccess(false), 3000);
     } catch { setPanelHwError("Failed to assign. Please try again."); }
     finally { setPanelHwSaving(false); }
+  }
+
+  async function handleDeleteHomework(hwId: number) {
+    if (!confirm("Delete this assignment? This cannot be undone.")) return;
+    setHwDeletingId(hwId);
+    try {
+      await deleteHomework(hwId);
+      setHomework((prev) => prev.filter((h) => h.id !== hwId));
+    } catch { alert("Failed to delete. Please try again."); }
+    finally { setHwDeletingId(null); }
   }
 
   async function sendParentUpdate(studentId: number) {
@@ -903,6 +917,8 @@ export default function TutorPortal() {
                         setPanelHwTask(""); setPanelHwDue("");
                         setPanelHwSuccess(false); setPanelHwError("");
                         setParentUpdateText(""); setParentUpdateSuccess(false);
+                        setSelectedStudyLog([]); setStudyLogLoading(true);
+                        fetchStudyLog(s.id, 30).then(setSelectedStudyLog).catch(() => {}).finally(() => setStudyLogLoading(false));
                       }
                     }}
                   >
@@ -929,7 +945,7 @@ export default function TutorPortal() {
                     <div className="border-t border-gray-100">
                       {/* Sub-tabs */}
                       <div className="flex border-b border-gray-100">
-                        {(["homework", "sessions", "update"] as const).map((t2) => (
+                        {(["homework", "sessions", "update", "accountability"] as const).map((t2) => (
                           <button
                             key={t2}
                             onClick={() => setStudentPanelTab(t2)}
@@ -939,7 +955,7 @@ export default function TutorPortal() {
                                 : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                           >
-                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : "Parent Update"}
+                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : "Accountability"}
                           </button>
                         ))}
                       </div>
@@ -1182,6 +1198,91 @@ export default function TutorPortal() {
                                   })}
                                 </div>
                               </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Accountability sub-tab ── */}
+                      {studentPanelTab === "accountability" && (() => {
+                        const weeklyGoal = s.weeklyStudyGoalMinutes ?? 180;
+                        const todayIso2  = new Date().toISOString().slice(0, 10);
+                        const weekStart  = new Date(todayIso2);
+                        weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+                        const weekStartIso = weekStart.toISOString().slice(0, 10);
+                        const thisWeekMins = selectedStudyLog
+                          .filter((e) => e.logDate >= weekStartIso)
+                          .reduce((acc, e) => acc + e.minutes, 0);
+                        const goalPct = Math.min(100, Math.round((thisWeekMins / weeklyGoal) * 100));
+
+                        const submittedHw = sHw.filter((h) => h.status !== "pending");
+                        const completionRate = sHw.length > 0
+                          ? Math.round((submittedHw.length / sHw.length) * 100)
+                          : null;
+
+                        const hwWithTimes = sHw.filter((h) => h.estimatedMinutes != null && h.studentTimeMinutes != null);
+                        const avgEst = hwWithTimes.length > 0
+                          ? Math.round(hwWithTimes.reduce((a, h) => a + (h.estimatedMinutes ?? 0), 0) / hwWithTimes.length)
+                          : null;
+                        const avgActual = hwWithTimes.length > 0
+                          ? Math.round(hwWithTimes.reduce((a, h) => a + (h.studentTimeMinutes ?? 0), 0) / hwWithTimes.length)
+                          : null;
+
+                        return (
+                          <div className="p-4 space-y-4">
+                            {studyLogLoading ? (
+                              <p className="text-sm text-gray-400 py-4 text-center">Loading…</p>
+                            ) : (
+                              <>
+                                {/* Weekly goal */}
+                                <div className="bg-gray-50 rounded-xl p-4">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Study This Week</p>
+                                    <span className={`text-xs font-semibold ${goalPct >= 100 ? "text-emerald-600" : "text-gray-500"}`}>
+                                      {thisWeekMins} / {weeklyGoal} min
+                                    </span>
+                                  </div>
+                                  <div className="w-full bg-gray-200 rounded-full h-2">
+                                    <div
+                                      className={`h-2 rounded-full ${goalPct >= 100 ? "bg-emerald-500" : goalPct >= 60 ? "bg-blue-500" : "bg-amber-400"}`}
+                                      style={{ width: `${goalPct}%` }}
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* Stats row */}
+                                <div className="grid grid-cols-3 gap-3">
+                                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                                    <p className="text-2xl font-bold text-gray-900">{selectedStudyLog.reduce((a, e) => a + e.minutes, 0)}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase font-semibold">min (30d)</p>
+                                  </div>
+                                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                                    <p className="text-2xl font-bold text-gray-900">{completionRate != null ? `${completionRate}%` : "—"}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase font-semibold">completion</p>
+                                  </div>
+                                  <div className="bg-gray-50 rounded-xl p-3 text-center">
+                                    <p className="text-2xl font-bold text-gray-900">{avgEst != null ? `${avgEst}→${avgActual}` : "—"}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5 uppercase font-semibold">est→actual</p>
+                                  </div>
+                                </div>
+
+                                {/* Recent time logs */}
+                                {selectedStudyLog.length > 0 ? (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Recent Study Sessions</p>
+                                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                                      {selectedStudyLog.slice(0, 10).map((e) => (
+                                        <div key={e.id} className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+                                          <span className="text-gray-600">{formatDate(e.logDate)}</span>
+                                          <span className="font-semibold text-gray-900">{e.minutes} min</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <p className="text-sm text-gray-400 text-center py-4">No study time logged in the last 30 days.</p>
+                                )}
+                              </>
                             )}
                           </div>
                         );
@@ -1779,12 +1880,22 @@ export default function TutorPortal() {
                     </div>
                   )}
                 </div>
-                {h.status === "pending" && (
-                  <button onClick={() => completeHomework(h.id)}
-                    className="shrink-0 text-xs px-3 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-medium">
-                    Mark Done
+                <div className="flex items-center gap-2 shrink-0">
+                  {h.status === "pending" && (
+                    <button onClick={() => completeHomework(h.id)}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-medium">
+                      Mark Done
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDeleteHomework(h.id)}
+                    disabled={hwDeletingId === h.id}
+                    className="text-xs px-2.5 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                    title="Delete assignment"
+                  >
+                    {hwDeletingId === h.id ? "…" : "Delete"}
                   </button>
-                )}
+                </div>
               </div>
 
               {/* Submitted file */}

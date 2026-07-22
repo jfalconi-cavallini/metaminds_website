@@ -100,5 +100,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Homework row not found" }, { status: 404 });
   }
 
+  // ── 3. Auto-log study time in study_log (upsert — one entry per hw) ──────
+  if (timeMins) {
+    await admin.from("study_log").upsert({
+      student_id:  hwRow.student_id,
+      log_date:    new Date().toISOString().slice(0, 10),
+      minutes:     timeMins,
+      category:    "homework",
+      note:        studentNote?.trim() || null,
+      homework_id: hwIdNum,
+    }, { onConflict: "homework_id" });
+  }
+
   return NextResponse.json({ homework: row });
 }

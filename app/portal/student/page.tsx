@@ -16,9 +16,10 @@ import {
   fetchBlockedDates, fetchParentUpdatesByStudent,
   insertPurchaseRequest,
   autoCompletePastSessions,
+  fetchStudyLog,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -77,6 +78,7 @@ export default function StudentPortal() {
   const [sessionNotes,  setSessionNotes]  = useState<SessionNote[]>([]);
   const [homeworkList,   setHomeworkList]   = useState<Homework[]>([]);
   const [parentUpdates,  setParentUpdates]  = useState<ParentUpdate[]>([]);
+  const [studyLog,       setStudyLog]       = useState<StudyLog[]>([]);
   const [loading,        setLoading]        = useState(true);
 
   useEffect(() => {
@@ -106,7 +108,7 @@ export default function StudentPortal() {
         setBalance(pkg);
         setMySessions(sess);
         if (s?.assignedTutorId) {
-          const [t, avail, allTutorSess, notes, hw, blocked, pu] = await Promise.all([
+          const [t, avail, allTutorSess, notes, hw, blocked, pu, sl] = await Promise.all([
             fetchTutorById(s.assignedTutorId),
             fetchTutorAvailability(s.assignedTutorId),
             fetchSessionsByTutor(s.assignedTutorId),
@@ -114,6 +116,7 @@ export default function StudentPortal() {
             fetchHomework(studentId),
             fetchBlockedDates(s.assignedTutorId),
             fetchParentUpdatesByStudent(studentId),
+            fetchStudyLog(studentId),
           ]);
           setTutor(t);
           setAvailability(avail);
@@ -122,6 +125,7 @@ export default function StudentPortal() {
           setHomeworkList(hw);
           setBlockedDates(blocked);
           setParentUpdates(pu);
+          setStudyLog(sl);
         }
       } catch (err) {
         console.error("Failed to load student portal:", err);
@@ -791,6 +795,94 @@ export default function StudentPortal() {
                 )}
               </div>
             </div>
+
+            {/* ── Study Accountability ── */}
+            {(() => {
+            const weeklyGoal = student.weeklyStudyGoalMinutes ?? 180;
+            // Sunday of current week
+            const weekStart = new Date(todayIso);
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            const weekStartIso = weekStart.toISOString().slice(0, 10);
+            const thisWeekMins = studyLog
+              .filter((e) => e.logDate >= weekStartIso)
+              .reduce((s, e) => s + e.minutes, 0);
+            const goalPct = Math.min(100, Math.round((thisWeekMins / weeklyGoal) * 100));
+
+            // Last 7 days bar chart data
+            const last7 = Array.from({ length: 7 }, (_, i) => {
+              const d = new Date(todayIso);
+              d.setDate(d.getDate() - (6 - i));
+              const iso = d.toISOString().slice(0, 10);
+              const mins = studyLog.filter((e) => e.logDate === iso).reduce((s, e) => s + e.minutes, 0);
+              return { iso, mins, label: d.toLocaleDateString("en-US", { weekday: "short" }) };
+            });
+            const maxMins = Math.max(...last7.map((d) => d.mins), 1);
+
+            // Streak: consecutive days ending today or yesterday
+            const datesWithActivity = new Set(studyLog.map((e) => e.logDate));
+            let streak = 0;
+            const checkDate = new Date(todayIso);
+            if (!datesWithActivity.has(todayIso)) checkDate.setDate(checkDate.getDate() - 1);
+            while (datesWithActivity.has(checkDate.toISOString().slice(0, 10))) {
+              streak++;
+              checkDate.setDate(checkDate.getDate() - 1);
+            }
+
+            return (
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h3 className="font-bold text-gray-900">Study This Week</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">Logged from homework submissions</p>
+                  </div>
+                  {streak > 0 && (
+                    <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+                      🔥 {streak}-day streak
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Goal progress */}
+                  <div>
+                    <div className="flex items-end gap-1 mb-2">
+                      <span className="text-3xl font-bold text-gray-900">{thisWeekMins}</span>
+                      <span className="text-sm text-gray-400 mb-1">/ {weeklyGoal} min goal</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2.5 mb-2">
+                      <div
+                        className={`h-2.5 rounded-full transition-all ${goalPct >= 100 ? "bg-emerald-500" : goalPct >= 60 ? "bg-blue-500" : "bg-amber-400"}`}
+                        style={{ width: `${goalPct}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-gray-400">
+                      {goalPct >= 100
+                        ? "Goal reached! Great work this week."
+                        : `${weeklyGoal - thisWeekMins} min to reach your weekly goal`}
+                    </p>
+                  </div>
+
+                  {/* 7-day chart */}
+                  <div>
+                    <div className="flex items-end justify-between gap-1 h-16">
+                      {last7.map(({ iso, mins, label }) => (
+                        <div key={iso} className="flex flex-col items-center gap-1 flex-1">
+                          <div className="w-full flex items-end justify-center" style={{ height: "44px" }}>
+                            <div
+                              className={`w-full rounded-t-md transition-all ${iso === todayIso ? "bg-blue-500" : mins > 0 ? "bg-blue-200" : "bg-gray-100"}`}
+                              style={{ height: mins > 0 ? `${Math.max(4, Math.round((mins / maxMins) * 44))}px` : "4px" }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-medium">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+            })()}
+
           </div>
         );
       })()}

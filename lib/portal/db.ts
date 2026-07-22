@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -22,8 +22,9 @@ function rowToStudent(r: any): Student {
     allowInPerson:  r.allow_in_person ?? false,
     school:         r.school          ?? undefined,
     graduationYear: r.graduation_year ?? undefined,
-    status:         r.status          ?? "active",
-    successPlan:    r.success_plan    ?? undefined,
+    status:                 r.status                   ?? "active",
+    successPlan:            r.success_plan             ?? undefined,
+    weeklyStudyGoalMinutes: r.weekly_study_goal_minutes ?? 180,
   };
 }
 
@@ -545,6 +546,41 @@ export async function insertHomework(payload: {
   }).select().single();
   if (error) throw error;
   return rowToHomework(data);
+}
+
+export async function deleteHomework(id: number): Promise<void> {
+  const { error } = await supabase.from("homework").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── STUDY LOG ─────────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToStudyLog(r: any): StudyLog {
+  return {
+    id:         r.id,
+    studentId:  r.student_id,
+    logDate:    r.log_date,
+    minutes:    r.minutes,
+    category:   r.category,
+    note:       r.note        ?? undefined,
+    homeworkId: r.homework_id ?? undefined,
+    createdAt:  r.created_at,
+  };
+}
+
+export async function fetchStudyLog(studentId: number, daysBack = 90): Promise<StudyLog[]> {
+  const from = new Date();
+  from.setDate(from.getDate() - daysBack);
+  const fromIso = from.toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("study_log")
+    .select("*")
+    .eq("student_id", studentId)
+    .gte("log_date", fromIso)
+    .order("log_date", { ascending: false });
+  if (error) return [];
+  return data.map(rowToStudyLog);
 }
 
 // ── ZOOM LINK ─────────────────────────────────────────────────────────────────

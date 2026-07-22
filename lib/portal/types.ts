@@ -20,6 +20,7 @@ export interface Student {
   graduationYear?: string;
   status?: "active" | "inactive" | "paused";
   successPlan?: string;
+  weeklyStudyGoalMinutes?: number;
 }
 
 export interface Tutor {
@@ -84,6 +85,17 @@ export interface Homework {
   studentTimeMinutes?: number;
   studentNote?:        string;
   difficultyRating?:   "easy" | "appropriate" | "difficult";
+}
+
+export interface StudyLog {
+  id: number;
+  studentId: number;
+  logDate: string;     // ISO date "2026-07-22"
+  minutes: number;
+  category: string;    // "homework" | "reading" | etc.
+  note?: string;
+  homeworkId?: number;
+  createdAt: string;
 }
 
 export interface HoursBalance {
