@@ -6,7 +6,7 @@ import { supabase } from "./supabase";
 export interface AuthUser {
   id: string;
   email: string;
-  role: "admin" | "tutor" | "student";
+  role: "admin" | "tutor" | "student" | "parent";
   linkedId: number | null;   // tutor_id or student_id; null for admin
   fullName: string | null;
   mustResetPassword: boolean;
