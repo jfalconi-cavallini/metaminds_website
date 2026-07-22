@@ -143,7 +143,7 @@ export async function POST(request: Request) {
     .from("profiles")
     .select("id, role")
     .eq("linked_id", studentId)
-    .eq("role", "student");
+    .in("role", ["student", "parent"]);
   const linkedIds = (linkedProfiles ?? []).map((p: { id: string }) => p.id);
 
   const results: Record<string, unknown> = {};
@@ -262,14 +262,14 @@ export async function POST(request: Request) {
           email:         parentEmail,
           password:      tempPassword,
           email_confirm: true,
-          user_metadata: { role: "student", full_name: parentName, force_password_reset: true, is_parent: true },
+          user_metadata: { role: "parent", full_name: parentName, force_password_reset: true, is_parent: true },
         });
         if (createErr) {
           results.parentError = `Could not create parent account: ${createErr.message}`;
         } else {
           parentAuthId = newAuth.user.id;
           await admin.from("profiles")
-            .update({ linked_id: studentId, role: "student", force_password_reset: true })
+            .update({ linked_id: studentId, role: "parent", force_password_reset: true })
             .eq("id", parentAuthId);
           await admin.from("students").update({ parent_email: parentEmail }).eq("id", studentId);
         }

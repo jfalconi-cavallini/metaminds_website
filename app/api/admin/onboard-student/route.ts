@@ -335,7 +335,7 @@ export async function POST(request: Request) {
       parentAuthId = existingParentUser.id;
       await admin.auth.admin.updateUserById(existingParentUser.id, {
         password: parentTempPassword,
-        user_metadata: { role: "student", full_name: parentName, force_password_reset: true, is_parent: true },
+        user_metadata: { role: "parent", full_name: parentName, force_password_reset: true, is_parent: true },
       });
       results.errors.push("Parent login: email already existed — credentials reset and re-linked.");
     } else {
@@ -344,7 +344,7 @@ export async function POST(request: Request) {
         password:      parentTempPassword,
         email_confirm: true,
         user_metadata: {
-          role:                 "student",
+          role:                 "parent",
           full_name:            parentName,
           force_password_reset: true,
           is_parent:            true,
@@ -360,7 +360,7 @@ export async function POST(request: Request) {
     if (parentAuthId) {
       const { error: parentProfileErr } = await admin
         .from("profiles")
-        .update({ linked_id: studentId, role: "student", force_password_reset: true })
+        .update({ linked_id: studentId, role: "parent", force_password_reset: true })
         .eq("id", parentAuthId);
       if (parentProfileErr) {
         results.errors.push(`Parent profile link: ${parentProfileErr.message}`);

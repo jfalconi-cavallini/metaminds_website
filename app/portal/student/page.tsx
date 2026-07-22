@@ -33,7 +33,7 @@ import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 
 const CANCEL_LOCK_HOURS = 48;
 
-const navItems = [
+const ALL_NAV_ITEMS = [
   { id: "overview",  label: "Dashboard",     icon: LayoutDashboard },
   { id: "sessions",  label: "Schedule",      icon: Calendar        },
   { id: "homework",  label: "Homework",      icon: BookOpen        },
@@ -45,6 +45,9 @@ const navItems = [
   { id: "profile",   label: "Profile",       icon: User            },
   { id: "settings",  label: "Settings",      icon: SettingsIcon    },
 ];
+
+// Tabs parents are allowed to see (read-only view of their child's portal)
+const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "settings"]);
 
 /** Returns hours from now until the session starts (negative if past) */
 function hoursUntilSession(session: Session): number {
@@ -78,7 +81,14 @@ export default function StudentPortal() {
 
   useEffect(() => {
     if (!authLoaded) return;
-    if (!user || user.role !== "student" || !user.linkedId) {
+    if (!user) {
+      // Session may still be resolving after sign-in — check before redirecting
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!session) router.push("/login");
+      });
+      return;
+    }
+    if ((user.role !== "student" && user.role !== "parent") || !user.linkedId) {
       router.push("/login");
       return;
     }
@@ -401,9 +411,19 @@ export default function StudentPortal() {
     }
   }
 
+  const isParent = user?.role === "parent";
+  const navItems = isParent
+    ? ALL_NAV_ITEMS.filter((n) => PARENT_TABS.has(n.id))
+    : ALL_NAV_ITEMS;
+
+  // Guard: if a parent somehow lands on a restricted tab, bounce them to overview
+  useEffect(() => {
+    if (isParent && !PARENT_TABS.has(tab)) setTab("overview");
+  }, [isParent, tab]);
+
   if (!authLoaded || loading) {
     return (
-      <DashboardShell role="student" userName="Loading…" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+      <DashboardShell role={isParent ? "parent" : "student"} userName="Loading…" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
         <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading your dashboard…</div>
       </DashboardShell>
     );
@@ -411,7 +431,7 @@ export default function StudentPortal() {
 
   if (!student) {
     return (
-      <DashboardShell role="student" userName="Student" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+      <DashboardShell role={isParent ? "parent" : "student"} userName="Student" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
         <div className="flex items-center justify-center h-64 text-red-500 text-sm">Could not load your data. Check your Supabase connection.</div>
       </DashboardShell>
     );
@@ -478,7 +498,7 @@ export default function StudentPortal() {
   }
 
   return (
-    <DashboardShell role="student" userName={student.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+    <DashboardShell role={isParent ? "parent" : "student"} userName={student.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -2136,7 +2156,7 @@ export default function StudentPortal() {
                   )}
                 </div>
               )}
-              <div>
+              {!isParent && <div>
                 {h.status !== "pending" && (
                   <p className="text-xs text-gray-400 mb-3">
                     {h.status === "submitted"
@@ -2167,7 +2187,7 @@ export default function StudentPortal() {
                 </div>
                 {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
                 <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
-              </div>
+              </div>}
             </div>
           );
         };

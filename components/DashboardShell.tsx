@@ -13,7 +13,7 @@ interface NavItem {
 }
 
 interface Props {
-  role: "admin" | "tutor" | "student";
+  role: "admin" | "tutor" | "student" | "parent";
   userName: string;
   navItems: NavItem[];
   activeTab: string;
@@ -25,7 +25,8 @@ interface Props {
 const roleMeta = {
   admin:   { label: "Admin",            badge: "bg-purple-100 text-purple-700" },
   tutor:   { label: "Tutor",            badge: "bg-green-100 text-green-700"   },
-  student: { label: "Student / Parent", badge: "bg-blue-100 text-blue-700"     },
+  student: { label: "Student",          badge: "bg-blue-100 text-blue-700"     },
+  parent:  { label: "Parent / Guardian", badge: "bg-blue-100 text-blue-700"   },
 };
 
 export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children, fullBleed }: Props) {

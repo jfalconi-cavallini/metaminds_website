@@ -29,28 +29,32 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) {
-      setError(authError.message);
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) { setError(authError.message); setLoading(false); return; }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles").select("role").eq("id", data.user.id).single();
+
+      if (profileError || !profile) {
+        setError("Account not set up correctly. Contact MetaMinds support.");
+        setLoading(false);
+        return;
+      }
+
+      if      (profile.role === "admin")   router.push("/portal/admin");
+      else if (profile.role === "tutor")   router.push("/portal/tutor");
+      else if (profile.role === "student") router.push("/portal/student");
+      else if (profile.role === "parent")  router.push("/portal/parent");
+      else {
+        setError("Account role not recognized. Contact MetaMinds support.");
+        setLoading(false);
+      }
+    } catch (err) {
+      console.error("[login] error:", err);
+      setError("An unexpected error occurred. Please try again.");
       setLoading(false);
-      return;
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .single();
-
-    if (!profile) {
-      setError("Account not set up correctly. Contact MetaMinds support.");
-      setLoading(false);
-      return;
-    }
-
-    if (profile.role === "admin")       router.push("/portal/admin");
-    else if (profile.role === "tutor")  router.push("/portal/tutor");
-    else                                router.push("/portal/student");
   }
 
   async function handleReset(e: React.FormEvent) {
