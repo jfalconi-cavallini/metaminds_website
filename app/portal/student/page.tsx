@@ -163,6 +163,7 @@ export default function StudentPortal() {
   const [hwUploadingId,   setHwUploadingId]   = useState<number | null>(null);
   const [hwUploadErrors,  setHwUploadErrors]  = useState<Record<number, string>>({});
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
+  const [noteOpeningId,   setNoteOpeningId]   = useState<number | null>(null);
   const [hwFilter,        setHwFilter]        = useState<"todo" | "submitted" | "graded" | "all">("todo");
   const [hwExpandedIds,   setHwExpandedIds]   = useState<Set<number>>(new Set());
   const [hwTimeInputs,    setHwTimeInputs]    = useState<Record<number, string>>({});
@@ -425,6 +426,34 @@ export default function StudentPortal() {
       alert(`Could not open file: ${e instanceof Error ? e.message : "Please try again."}`);
     } finally {
       setHwOpeningId(null);
+    }
+  }
+
+  async function openNoteAttachment(note: { id: number; attachmentUrl?: string }) {
+    if (!note.attachmentUrl) return;
+    setNoteOpeningId(note.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/session-notes/signed-url", {
+        method:  "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ path: note.attachmentUrl }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Failed to fetch file");
+      }
+      const blob      = await res.blob();
+      const objectUrl = URL.createObjectURL(new Blob([blob], { type: blob.type || "application/pdf" }));
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+    } catch (e: unknown) {
+      alert(`Could not open file: ${e instanceof Error ? e.message : "Please try again."}`);
+    } finally {
+      setNoteOpeningId(null);
     }
   }
 
@@ -1599,7 +1628,7 @@ export default function StudentPortal() {
               {([
                 { label: "Total Notes",  value: regularNotes.length,  sub: "session summaries",   Icon: FileText,    iconBg: "bg-blue-50",    iconColor: "text-blue-600"    },
                 { label: "Coverage",     value: `${coverageRate}%`,   sub: "sessions documented", Icon: CheckCircle, iconBg: "bg-emerald-50", iconColor: "text-emerald-600" },
-                { label: "Resources",    value: resourceNotes.length, sub: "study links shared",  Icon: Paperclip,   iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
+                { label: "Resources",    value: resourceNotes.length + regularNotes.filter((n) => n.kamiLink || n.attachmentUrl).length, sub: "study links shared",  Icon: Paperclip,   iconBg: "bg-amber-50",   iconColor: "text-amber-600"   },
                 { label: "Subjects",     value: notedSubjects.size,   sub: "topics covered",      Icon: BookOpen,    iconBg: "bg-violet-50",  iconColor: "text-violet-600"  },
               ] as const).map(({ label, value, sub, Icon, iconBg, iconColor }) => (
                 <div key={label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-3">
@@ -1648,7 +1677,8 @@ export default function StudentPortal() {
                     {filteredNotes.map((n, i) => {
                       const isSelected = selectedNoteId === n.id;
                       const sess    = mySessions.find((s) => s.id === n.sessionId);
-                      const resCount = resourceNotes.filter((r) => r.sessionId === n.sessionId).length;
+                      const legacyResCount = resourceNotes.filter((r) => r.sessionId === n.sessionId).length;
+                      const resCount = legacyResCount + (n.kamiLink ? 1 : 0) + (n.attachmentUrl ? 1 : 0);
                       return (
                         <motion.button
                           key={n.id}
@@ -1678,7 +1708,7 @@ export default function StudentPortal() {
                                   <p className="text-sm font-bold text-gray-900 leading-snug truncate">{n.topic}</p>
                                 </div>
                                 <p className="text-[10px] text-gray-400 shrink-0 mt-px whitespace-nowrap">
-                                  {formatDate(n.createdAt.slice(0, 10))}
+                                  {formatDate((n.noteDate ?? n.createdAt).slice(0, 10))}
                                 </p>
                               </div>
                               {/* Row 2: subject chip + notes preview */}
@@ -1733,7 +1763,7 @@ export default function StudentPortal() {
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full">
-                          {formatDate(selectedNote.createdAt.slice(0, 10))}
+                          {formatDate((selectedNote.noteDate ?? selectedNote.createdAt).slice(0, 10))}
                         </span>
                         {selectedSession && (
                           <span className="text-[11px] font-semibold text-violet-700 bg-violet-50 px-2.5 py-1 rounded-full">
@@ -1770,11 +1800,34 @@ export default function StudentPortal() {
                       })()}
                     </div>
 
-                    {/* Attached Resources */}
-                    {selectedResources.length > 0 && (
+                    {/* Kami link + PDF attachment + legacy resource notes */}
+                    {(selectedNote.kamiLink || selectedNote.attachmentUrl || selectedResources.length > 0) && (
                       <div className="px-6 py-4 border-t border-gray-100">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Attached Resources</p>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Resources</p>
                         <div className="space-y-2">
+                          {selectedNote.kamiLink && (
+                            <a
+                              href={selectedNote.kamiLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2.5 text-xs font-medium text-violet-700 hover:text-violet-800 bg-violet-50 hover:bg-violet-100 border border-violet-200 px-4 py-2.5 rounded-xl transition-colors"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                              <span>Open Kami Lesson</span>
+                            </a>
+                          )}
+                          {selectedNote.attachmentUrl && (
+                            <button
+                              onClick={() => openNoteAttachment(selectedNote)}
+                              disabled={noteOpeningId === selectedNote.id}
+                              className="w-full flex items-center gap-2.5 text-xs font-medium text-blue-700 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 px-4 py-2.5 rounded-xl transition-colors disabled:opacity-50"
+                            >
+                              <Paperclip className="w-3.5 h-3.5 shrink-0" />
+                              <span className="truncate">
+                                {noteOpeningId === selectedNote.id ? "Opening…" : (selectedNote.attachmentFilename ?? "View Attachment")}
+                              </span>
+                            </button>
+                          )}
                           {selectedResources.map((r) => (
                             <a
                               key={r.id}

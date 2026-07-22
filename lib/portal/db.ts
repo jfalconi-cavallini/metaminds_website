@@ -71,6 +71,10 @@ function rowToNote(r: any): SessionNote {
     topic: r.topic,
     notes: r.notes,
     createdAt: r.created_at,
+    kamiLink:           r.kami_link            ?? undefined,
+    noteDate:           r.note_date            ?? undefined,
+    attachmentUrl:      r.attachment_url       ?? undefined,
+    attachmentFilename: r.attachment_filename  ?? undefined,
   };
 }
 
@@ -423,7 +427,8 @@ export async function fetchSessionNotesByTutor(tutorId: number): Promise<Session
 }
 
 export async function insertSessionNote(payload: {
-  tutorId: number; studentId: number; topic: string; notes: string; sessionId?: number;
+  tutorId: number; studentId: number; topic: string; notes: string;
+  sessionId?: number; kamiLink?: string; noteDate?: string;
 }): Promise<SessionNote> {
   const { data, error } = await supabase.from("session_notes").insert({
     tutor_id:   payload.tutorId,
@@ -431,6 +436,8 @@ export async function insertSessionNote(payload: {
     topic:      payload.topic,
     notes:      payload.notes,
     session_id: payload.sessionId ?? null,
+    kami_link:  payload.kamiLink  ?? null,
+    note_date:  payload.noteDate  ?? null,
   }).select().single();
   if (error) throw error;
   return rowToNote(data);
@@ -440,10 +447,17 @@ export async function updateSessionNote(
   noteId: number,
   topic: string,
   notes: string,
+  kamiLink?: string,
+  noteDate?: string,
 ): Promise<SessionNote> {
   const { data, error } = await supabase
     .from("session_notes")
-    .update({ topic, notes })
+    .update({
+      topic,
+      notes,
+      kami_link: kamiLink ?? null,
+      note_date: noteDate ?? null,
+    })
     .eq("id", noteId)
     .select()
     .single();

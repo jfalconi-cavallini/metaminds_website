@@ -59,6 +59,10 @@ export interface SessionNote {
   topic: string;
   notes: string;
   createdAt: string;
+  kamiLink?: string;
+  noteDate?: string;        // ISO date "2026-07-22"
+  attachmentUrl?: string;
+  attachmentFilename?: string;
 }
 
 export interface Homework {

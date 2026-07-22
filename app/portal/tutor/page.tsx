@@ -32,6 +32,7 @@ import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
 } from "@/lib/portal/types";
+import { ExternalLink } from "lucide-react";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -182,6 +183,9 @@ export default function TutorPortal() {
   const [noteStudentId, setNoteStudentId] = useState("");
   const [noteTopic,     setNoteTopic]     = useState("");
   const [noteText,      setNoteText]      = useState("");
+  const [noteKamiLink,  setNoteKamiLink]  = useState("");
+  const [noteDate,      setNoteDate]      = useState("");
+  const [noteFile,      setNoteFile]      = useState<File | null>(null);
   const [noteSaving,    setNoteSaving]    = useState(false);
   const [noteSuccess,   setNoteSuccess]   = useState(false);
   const [noteError,     setNoteError]     = useState("");
@@ -224,7 +228,8 @@ export default function TutorPortal() {
   const [sessionDetail,   setSessionDetail]   = useState<Session | null>(null);
   const [sdNoteTopic,     setSdNoteTopic]     = useState("");
   const [sdNoteText,      setSdNoteText]      = useState("");
-  const [sdNoteLink,      setSdNoteLink]      = useState("");
+  const [sdNoteKamiLink,  setSdNoteKamiLink]  = useState("");
+  const [sdNoteDate,      setSdNoteDate]      = useState("");
   const [sdNoteSaving,    setSdNoteSaving]    = useState(false);
   const [sdNoteSuccess,   setSdNoteSuccess]   = useState(false);
   const [sdNoteError,     setSdNoteError]     = useState("");
@@ -235,10 +240,12 @@ export default function TutorPortal() {
   const [zoomSaving,  setZoomSaving]  = useState(false);
 
   // ── NOTE EDIT ────────────────────────────────────────────────────
-  const [noteEditId,    setNoteEditId]    = useState<number | null>(null);
-  const [noteEditTopic, setNoteEditTopic] = useState("");
-  const [noteEditText,  setNoteEditText]  = useState("");
-  const [noteEditSaving, setNoteEditSaving] = useState(false);
+  const [noteEditId,       setNoteEditId]       = useState<number | null>(null);
+  const [noteEditTopic,    setNoteEditTopic]    = useState("");
+  const [noteEditText,     setNoteEditText]     = useState("");
+  const [noteEditKamiLink, setNoteEditKamiLink] = useState("");
+  const [noteEditDate,     setNoteEditDate]     = useState("");
+  const [noteEditSaving,   setNoteEditSaving]   = useState(false);
 
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
@@ -410,7 +417,13 @@ export default function TutorPortal() {
     if (!noteEditTopic.trim() || !noteEditText.trim()) return;
     setNoteEditSaving(true);
     try {
-      const updated = await updateSessionNote(noteId, noteEditTopic.trim(), noteEditText.trim());
+      const updated = await updateSessionNote(
+        noteId,
+        noteEditTopic.trim(),
+        noteEditText.trim(),
+        noteEditKamiLink.trim() || undefined,
+        noteEditDate || undefined,
+      );
       setSessionNotes((prev) => prev.map((n) => n.id === noteId ? updated : n));
       setNoteEditId(null);
     } catch { /* silent */ } finally { setNoteEditSaving(false); }
@@ -431,18 +444,16 @@ export default function TutorPortal() {
       const note = await insertSessionNote({
         tutorId, studentId: sessionDetail.studentId,
         topic: sdNoteTopic, notes: sdNoteText, sessionId: sessionDetail.id,
+        kamiLink: sdNoteKamiLink.trim() || undefined,
+        noteDate: sdNoteDate || undefined,
       });
       setSessionNotes((prev) => [note, ...prev]);
-      if (sdNoteLink.trim()) {
-        const linkNote = await insertSessionNote({
-          tutorId, studentId: sessionDetail.studentId,
-          topic: "_resource_", notes: sdNoteLink.trim(), sessionId: sessionDetail.id,
-        });
-        setSessionNotes((prev) => [linkNote, ...prev]);
-      }
-      setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink("");
+      setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteDate("");
       setSdNoteSuccess(true); setTimeout(() => setSdNoteSuccess(false), 3000);
-    } catch { setSdNoteError("Failed to save note."); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setSdNoteError(`Failed to save note: ${msg}`);
+    }
     finally { setSdNoteSaving(false); }
   }
 
@@ -450,13 +461,48 @@ export default function TutorPortal() {
     if (!noteTopic || !noteText || !noteStudentId) { setNoteError("Fill in student, topic, and notes."); return null; }
     setNoteSaving(true); setNoteError("");
     try {
-      const note = await insertSessionNote({ tutorId, studentId: Number(noteStudentId), topic: noteTopic, notes: noteText });
-      setSessionNotes((prev) => [note, ...prev]);
-      setNoteTopic(""); setNoteText("");
+      const note = await insertSessionNote({
+        tutorId, studentId: Number(noteStudentId),
+        topic: noteTopic, notes: noteText,
+        kamiLink: noteKamiLink.trim() || undefined,
+        noteDate: noteDate || undefined,
+      });
+
+      // Upload PDF attachment if one was selected
+      if (noteFile) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token ?? "";
+        const fd = new FormData();
+        fd.append("noteId", String(note.id));
+        fd.append("file", noteFile);
+        const res = await fetch("/api/session-notes/upload", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        });
+        if (res.ok) {
+          const { note: updated } = await res.json() as { note: Record<string, unknown> };
+          const mapped: import("@/lib/portal/types").SessionNote = {
+            ...note,
+            attachmentUrl:      (updated.attachment_url      as string | undefined) ?? undefined,
+            attachmentFilename: (updated.attachment_filename as string | undefined) ?? undefined,
+          };
+          setSessionNotes((prev) => [mapped, ...prev]);
+        } else {
+          setSessionNotes((prev) => [note, ...prev]);
+        }
+      } else {
+        setSessionNotes((prev) => [note, ...prev]);
+      }
+
+      setNoteTopic(""); setNoteText(""); setNoteKamiLink(""); setNoteDate(""); setNoteFile(null);
       setNoteSuccess(true); setTimeout(() => setNoteSuccess(false), 4000);
       return note.id;
-    } catch { setNoteError("Failed to save notes."); return null; }
-    finally { setNoteSaving(false); }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setNoteError(`Failed to save notes: ${msg}`);
+      return null;
+    } finally { setNoteSaving(false); }
   }
 
   async function submitHomework() {
@@ -687,8 +733,8 @@ export default function TutorPortal() {
               <div className="flex items-start gap-3 mb-6 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
                 <span className="text-amber-500 text-lg leading-none mt-0.5">⚠</span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-amber-800">Your Zoom link isn't set</p>
-                  <p className="text-xs text-amber-600 mt-0.5">Students won't have a link to join your sessions. Ask your admin to add your personal Zoom room link to your tutor profile.</p>
+                  <p className="text-sm font-semibold text-amber-800">Your Zoom link isn&apos;t set</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Students won&apos;t have a link to join your sessions. Ask your admin to add your personal Zoom room link to your tutor profile.</p>
                 </div>
               </div>
             )}
@@ -725,7 +771,7 @@ export default function TutorPortal() {
                     <div key={s.id} className="bg-white rounded-xl border-2 border-blue-200 p-5 cursor-pointer hover:border-blue-400 transition-colors"
                       onClick={(e) => {
                         if ((e.target as HTMLElement).closest("button,a,input")) return;
-                        setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+                        setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
                         setSessionDetail(s);
                       }}>
                       {/* Header */}
@@ -858,7 +904,7 @@ export default function TutorPortal() {
                   <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between cursor-pointer hover:border-blue-300 transition-colors"
                     onClick={(e) => {
                       if ((e.target as HTMLElement).closest("button,a,input")) return;
-                      setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+                      setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
                       setSessionDetail(s);
                     }}>
                     <div>
@@ -1093,7 +1139,7 @@ export default function TutorPortal() {
                                       <p className="text-xs text-gray-500">{sess.subject} · {sess.durationHours} hr · {sess.sessionType}</p>
                                     </div>
                                     <button onClick={() => {
-                                      setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink("");
+                                      setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink("");
                                       setSdNoteError(""); setSdNoteSuccess(false);
                                       setSessionDetail(sess);
                                     }} className="text-xs text-blue-600 hover:underline">
@@ -1344,7 +1390,7 @@ export default function TutorPortal() {
             } : undefined}
             onSessionClick={(s) => {
               setSelectedSlot(null);
-              setSdNoteTopic(""); setSdNoteText(""); setSdNoteLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+              setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
               setSessionDetail(s);
             }}
           />
@@ -1725,6 +1771,36 @@ export default function TutorPortal() {
                           className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Session Date (optional)</label>
+                          <input
+                            type="date"
+                            value={noteDate}
+                            onChange={(e) => setNoteDate(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Kami Link (optional)</label>
+                          <input
+                            value={noteKamiLink}
+                            onChange={(e) => setNoteKamiLink(e.target.value)}
+                            placeholder="https://app.kami.com/…"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Attach PDF (optional)</label>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                          onChange={(e) => setNoteFile(e.target.files?.[0] ?? null)}
+                          className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                        />
+                        {noteFile && <p className="text-[11px] text-gray-400 mt-1">{noteFile.name}</p>}
+                      </div>
                       {noteError && <p className="text-xs text-red-500">{noteError}</p>}
                       <div className="flex items-center gap-3">
                         <button
@@ -1774,7 +1850,13 @@ export default function TutorPortal() {
                           {!isEditing && (
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => { setNoteEditId(selectedNote.id); setNoteEditTopic(selectedNote.topic); setNoteEditText(selectedNote.notes); }}
+                                onClick={() => {
+                                  setNoteEditId(selectedNote.id);
+                                  setNoteEditTopic(selectedNote.topic);
+                                  setNoteEditText(selectedNote.notes);
+                                  setNoteEditKamiLink(selectedNote.kamiLink ?? "");
+                                  setNoteEditDate(selectedNote.noteDate ?? "");
+                                }}
                                 className="text-xs text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 font-medium"
                               >
                                 Edit
@@ -1802,6 +1884,26 @@ export default function TutorPortal() {
                               rows={10}
                               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 leading-relaxed"
                             />
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Session Date</label>
+                                <input
+                                  type="date"
+                                  value={noteEditDate}
+                                  onChange={(e) => setNoteEditDate(e.target.value)}
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Kami Link</label>
+                                <input
+                                  value={noteEditKamiLink}
+                                  onChange={(e) => setNoteEditKamiLink(e.target.value)}
+                                  placeholder="https://app.kami.com/…"
+                                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                              </div>
+                            </div>
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => saveNoteEdit(selectedNote.id)}
@@ -1816,7 +1918,26 @@ export default function TutorPortal() {
                         ) : (
                           <>
                             <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedNote.topic}</h2>
+                            {selectedNote.noteDate && (
+                              <p className="text-xs text-gray-400 mb-3">Session date: {formatDate(selectedNote.noteDate)}</p>
+                            )}
                             <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNote.notes}</p>
+                            {selectedNote.kamiLink && (
+                              <a
+                                href={selectedNote.kamiLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 mt-4 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                                Open Kami Lesson
+                              </a>
+                            )}
+                            {selectedNote.attachmentFilename && (
+                              <p className="text-xs text-gray-400 mt-3">
+                                Attachment: {selectedNote.attachmentFilename}
+                              </p>
+                            )}
                           </>
                         )}
                       </div>
@@ -2274,13 +2395,23 @@ export default function TutorPortal() {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-xs font-semibold text-blue-600 mb-0.5">{n.topic}</p>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <button onClick={() => { setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes); }}
+                            <button onClick={() => {
+                              setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes);
+                              setNoteEditKamiLink(n.kamiLink ?? ""); setNoteEditDate(n.noteDate ?? "");
+                            }}
                               className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-0.5 font-medium">Edit</button>
                             <button onClick={() => removeSessionNote(n.id)}
                               className="text-xs text-red-400 hover:text-red-600 border border-red-200 rounded px-2 py-0.5 font-medium">Remove</button>
                           </div>
                         </div>
+                        {n.noteDate && <p className="text-[11px] text-gray-400 mb-1">Session: {formatDate(n.noteDate)}</p>}
                         <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.notes}</p>
+                        {n.kamiLink && (
+                          <a href={n.kamiLink} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 mt-2 text-[11px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-2.5 py-1 rounded-lg hover:bg-violet-100">
+                            <ExternalLink className="w-3 h-3" /> Kami Lesson
+                          </a>
+                        )}
                         <p className="text-xs text-gray-400 mt-1">{formatDate(n.createdAt.slice(0, 10))}</p>
                       </>
                     )}
@@ -2304,7 +2435,16 @@ export default function TutorPortal() {
               <p className="text-sm font-semibold text-gray-900">Add Note</p>
               <input value={sdNoteTopic} onChange={(e) => setSdNoteTopic(e.target.value)} placeholder="Topic (e.g. Quadratic equations)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
               <textarea value={sdNoteText} onChange={(e) => setSdNoteText(e.target.value)} placeholder="What was covered, student progress, areas to revisit…" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
-              <input value={sdNoteLink} onChange={(e) => setSdNoteLink(e.target.value)} placeholder="Resource link (optional) — Google Drive, worksheet URL…" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Session Date (optional)</label>
+                  <input type="date" value={sdNoteDate} onChange={(e) => setSdNoteDate(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Kami Link (optional)</label>
+                  <input value={sdNoteKamiLink} onChange={(e) => setSdNoteKamiLink(e.target.value)} placeholder="https://app.kami.com/…" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+              </div>
               {sdNoteSuccess && <p className="text-xs text-green-600">Note saved!</p>}
               {sdNoteError && <p className="text-xs text-red-500">{sdNoteError}</p>}
               <button onClick={submitSessionDetailNote} disabled={sdNoteSaving || !sdNoteTopic || !sdNoteText}
