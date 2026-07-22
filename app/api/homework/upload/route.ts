@@ -12,10 +12,16 @@ export async function POST(request: Request) {
   // Parse multipart form
   let file: File | null = null;
   let hwId: string | null = null;
+  let studentTimeMinutes: string | null = null;
+  let studentNote: string | null = null;
+  let difficultyRating: string | null = null;
   try {
-    const formData = await request.formData();
-    file  = formData.get("file")  as File   | null;
-    hwId  = formData.get("hwId")  as string | null;
+    const formData    = await request.formData();
+    file              = formData.get("file")              as File   | null;
+    hwId              = formData.get("hwId")              as string | null;
+    studentTimeMinutes = formData.get("studentTimeMinutes") as string | null;
+    studentNote       = formData.get("studentNote")       as string | null;
+    difficultyRating  = formData.get("difficultyRating")  as string | null;
   } catch (e: unknown) {
     return NextResponse.json({ error: `FormData: ${e instanceof Error ? e.message : e}` }, { status: 400 });
   }
@@ -26,6 +32,14 @@ export async function POST(request: Request) {
   const hwIdNum = Number.parseInt(hwId, 10);
   if (!Number.isInteger(hwIdNum)) {
     return NextResponse.json({ error: "Invalid hwId" }, { status: 400 });
+  }
+
+  let timeMins: number | null = null;
+  if (studentTimeMinutes) {
+    timeMins = Number.parseInt(studentTimeMinutes, 10);
+    if (!Number.isInteger(timeMins) || timeMins < 1 || timeMins > 600) {
+      return NextResponse.json({ error: "Time must be between 1 and 600 minutes." }, { status: 400 });
+    }
   }
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
@@ -63,13 +77,17 @@ export async function POST(request: Request) {
   }
 
   // ── 2. Update homework row ────────────────────────────────────────
+  const validDifficulties = ["easy", "appropriate", "difficult"];
   const { data: row, error: dbError } = await admin
     .from("homework")
     .update({
-      submission_url:      path,
-      submission_filename: file.name,
-      submitted_at:        new Date().toISOString(),
-      status:              "submitted",
+      submission_url:       path,
+      submission_filename:  file.name,
+      submitted_at:         new Date().toISOString(),
+      status:               "submitted",
+      student_time_minutes: timeMins,
+      student_note:         studentNote?.trim() || null,
+      difficulty_rating:    validDifficulties.includes(difficultyRating ?? "") ? difficultyRating : null,
     })
     .eq("id", hwIdNum)
     .select()

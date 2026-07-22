@@ -78,6 +78,12 @@ export interface Homework {
   attachmentUrl?: string;
   attachmentFilename?: string;
   kamiLink?: string;
+  estimatedMinutes?:   number;
+  assignmentType?:     string;
+  instructions?:       string;
+  studentTimeMinutes?: number;
+  studentNote?:        string;
+  difficultyRating?:   "easy" | "appropriate" | "difficult";
 }
 
 export interface HoursBalance {

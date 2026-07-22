@@ -161,6 +161,9 @@ export default function StudentPortal() {
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
   const [hwFilter,        setHwFilter]        = useState<"todo" | "submitted" | "graded" | "all">("todo");
   const [hwExpandedIds,   setHwExpandedIds]   = useState<Set<number>>(new Set());
+  const [hwTimeInputs,    setHwTimeInputs]    = useState<Record<number, string>>({});
+  const [hwNoteInputs,    setHwNoteInputs]    = useState<Record<number, string>>({});
+  const [hwDiffInputs,    setHwDiffInputs]    = useState<Record<number, string>>({});
   const [notesSearch,       setNotesSearch]       = useState("");
   const [selectedNoteId,    setSelectedNoteId]    = useState<number | null>(null);
   const [selectedUpdateId,  setSelectedUpdateId]  = useState<number | null>(null);
@@ -322,6 +325,25 @@ export default function StudentPortal() {
       setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "File too large (max 10 MB)." }));
       return;
     }
+
+    // Time is required — fall back to previously reported value if not changed
+    const prevTimeMinutes = homeworkList.find((h) => h.id === hw.id)?.studentTimeMinutes;
+    const timeStr = hwTimeInputs[hw.id] ?? prevTimeMinutes?.toString() ?? "";
+    if (!timeStr.trim()) {
+      setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "Please enter the time you spent on this assignment." }));
+      return;
+    }
+    const timeMins = Number.parseInt(timeStr, 10);
+    if (!Number.isInteger(timeMins) || timeMins < 1 || timeMins > 600) {
+      setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "Time must be between 1 and 600 minutes." }));
+      return;
+    }
+
+    const prevDiff = homeworkList.find((h) => h.id === hw.id)?.difficultyRating ?? "";
+    const prevNote = homeworkList.find((h) => h.id === hw.id)?.studentNote ?? "";
+    const diffVal  = hwDiffInputs[hw.id] ?? prevDiff;
+    const noteVal  = hwNoteInputs[hw.id] ?? prevNote;
+
     setHwUploadingId(hw.id);
     setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "" }));
     try {
@@ -329,6 +351,9 @@ export default function StudentPortal() {
       const form = new FormData();
       form.append("file", file);
       form.append("hwId", String(hw.id));
+      form.append("studentTimeMinutes", String(timeMins));
+      form.append("studentNote", noteVal.trim());
+      form.append("difficultyRating", diffVal);
       const res = await fetch("/api/homework/upload", {
         method: "POST",
         headers: session ? { authorization: `Bearer ${session.access_token}` } : {},
@@ -341,17 +366,26 @@ export default function StudentPortal() {
         id: r.id, studentId: r.student_id, tutorId: r.tutor_id,
         task: r.task, assignedDate: r.assigned_date, dueDate: r.due_date ?? null,
         status: r.status, createdAt: r.created_at,
-        submissionUrl:      r.submission_url      ?? undefined,
-        submissionFilename: r.submission_filename ?? undefined,
-        submittedAt:        r.submitted_at        ?? undefined,
-        feedback:           r.feedback            ?? undefined,
-        feedbackAt:         r.feedback_at         ?? undefined,
-        attachmentUrl:      r.attachment_url      ?? undefined,
-        attachmentFilename: r.attachment_filename ?? undefined,
-        kamiLink:           r.kami_link           ?? undefined,
+        submissionUrl:      r.submission_url       ?? undefined,
+        submissionFilename: r.submission_filename  ?? undefined,
+        submittedAt:        r.submitted_at         ?? undefined,
+        feedback:           r.feedback             ?? undefined,
+        feedbackAt:         r.feedback_at          ?? undefined,
+        attachmentUrl:      r.attachment_url       ?? undefined,
+        attachmentFilename: r.attachment_filename  ?? undefined,
+        kamiLink:           r.kami_link            ?? undefined,
+        estimatedMinutes:   r.estimated_minutes    ?? undefined,
+        assignmentType:     r.assignment_type      ?? undefined,
+        instructions:       r.instructions         ?? undefined,
+        studentTimeMinutes: r.student_time_minutes ?? undefined,
+        studentNote:        r.student_note         ?? undefined,
+        difficultyRating:   r.difficulty_rating    ?? undefined,
       };
       setHomeworkList((prev) => prev.map((h) => h.id === hw.id ? updated : h));
       setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[hw.id]; return n; });
+      setHwTimeInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
+      setHwNoteInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
+      setHwDiffInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
     } catch (e: unknown) {
       setHwUploadErrors((prev) => ({
         ...prev,
@@ -2106,6 +2140,10 @@ export default function StudentPortal() {
           const file        = hwSelectedFiles[h.id];
           const isUploading = hwUploadingId === h.id;
           const uploadError = hwUploadErrors[h.id];
+          const currentTime = hwTimeInputs[h.id] ?? (h.studentTimeMinutes?.toString() ?? "");
+          const currentDiff = hwDiffInputs[h.id] ?? (h.difficultyRating ?? "");
+          const currentNote = hwNoteInputs[h.id] ?? (h.studentNote ?? "");
+          const diffLabels: Record<string, string> = { easy: "Easy", appropriate: "Appropriate", difficult: "Difficult" };
           return (
             <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-3">
               {/* Tutor-provided resources */}
@@ -2130,6 +2168,14 @@ export default function StudentPortal() {
                   )}
                 </div>
               )}
+              {/* Tutor instructions */}
+              {h.instructions && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Instructions</p>
+                  <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{h.instructions}</p>
+                </div>
+              )}
+              {/* Student's own submission */}
               {h.submissionUrl && h.submissionFilename && (
                 <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
                   <FileText className="w-4 h-4 text-gray-400 shrink-0" />
@@ -2140,6 +2186,7 @@ export default function StudentPortal() {
                   </button>
                 </div>
               )}
+              {/* Grade + feedback */}
               {h.status === "completed" && (h.grade || h.feedback) && (
                 <div className="bg-white border border-emerald-200 rounded-xl p-4 space-y-2">
                   {h.grade && (
@@ -2156,38 +2203,85 @@ export default function StudentPortal() {
                   )}
                 </div>
               )}
-              {!isParent && <div>
-                {h.status !== "pending" && (
-                  <p className="text-xs text-gray-400 mb-3">
-                    {h.status === "submitted"
-                      ? "Upload a new file to replace your current submission."
-                      : "Upload an improved version below."}
-                  </p>
-                )}
-                {file && (
-                  <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-                    <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
-                    <button onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
-                      className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Remove</button>
+              {/* Submit section — students only */}
+              {!isParent && (
+                <div>
+                  {h.status !== "pending" && (
+                    <p className="text-xs text-gray-400 mb-3">
+                      {h.status === "submitted"
+                        ? "Upload a new file to replace your current submission."
+                        : "Upload an improved version below."}
+                    </p>
+                  )}
+                  {/* Study time reporting */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3 space-y-3">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Your Study Time</p>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number" min="1" max="600" placeholder="30"
+                        value={currentTime}
+                        onChange={(e) => setHwTimeInputs((prev) => ({ ...prev, [h.id]: e.target.value }))}
+                        className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-500">minutes spent working</span>
+                      {h.estimatedMinutes != null && (
+                        <span className="text-xs text-blue-500 font-medium ml-1">(Est. {h.estimatedMinutes} min)</span>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">How was the difficulty? <span className="text-gray-400">(optional)</span></p>
+                      <div className="flex gap-2">
+                        {(["easy", "appropriate", "difficult"] as const).map((d) => (
+                          <button key={d}
+                            onClick={() => setHwDiffInputs((prev) => ({ ...prev, [h.id]: prev[h.id] === d ? "" : d }))}
+                            className={`text-xs px-3 py-1.5 rounded-lg font-medium border transition-colors ${
+                              currentDiff === d
+                                ? d === "easy" ? "bg-emerald-600 text-white border-emerald-600"
+                                  : d === "difficult" ? "bg-red-500 text-white border-red-500"
+                                  : "bg-blue-600 text-white border-blue-600"
+                                : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                            }`}>
+                            {diffLabels[d]}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Note <span className="text-gray-400">(optional)</span></p>
+                      <textarea
+                        value={currentNote}
+                        onChange={(e) => setHwNoteInputs((prev) => ({ ...prev, [h.id]: e.target.value }))}
+                        placeholder="Anything you want your tutor to know about this submission…"
+                        rows={2}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
-                )}
-                <div className="flex items-center gap-3">
-                  <label className="cursor-pointer">
-                    <input type="file" accept=".pdf,application/pdf" className="hidden"
-                      onChange={(e) => { const f = e.target.files?.[0]; if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f })); e.target.value = ""; }} />
-                    <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
-                      <Paperclip className="w-3.5 h-3.5" />{file ? "Change File" : "Attach PDF"}
-                    </span>
-                  </label>
-                  <button onClick={() => handleHomeworkUpload(h)} disabled={!file || isUploading}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                    <Upload className="w-3.5 h-3.5" />{isUploading ? "Submitting…" : "Submit"}
-                  </button>
+                  {file && (
+                    <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
+                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                      <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
+                      <button onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
+                        className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Remove</button>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <label className="cursor-pointer">
+                      <input type="file" accept=".pdf,application/pdf" className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f })); e.target.value = ""; }} />
+                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
+                        <Paperclip className="w-3.5 h-3.5" />{file ? "Change File" : "Attach PDF"}
+                      </span>
+                    </label>
+                    <button onClick={() => handleHomeworkUpload(h)} disabled={!file || isUploading}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                      <Upload className="w-3.5 h-3.5" />{isUploading ? "Submitting…" : "Submit"}
+                    </button>
+                  </div>
+                  {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
+                  <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
                 </div>
-                {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
-                <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
-              </div>}
+              )}
             </div>
           );
         };
@@ -2280,6 +2374,11 @@ export default function StudentPortal() {
                             <td className="py-4 px-5">
                               <p className="font-semibold text-gray-900 text-sm">{h.task}</p>
                               {h.assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {formatDate(h.assignedDate)}</p>}
+                              {h.estimatedMinutes != null && (
+                                <span className="inline-flex items-center text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full mt-1">
+                                  Est. {h.estimatedMinutes} min
+                                </span>
+                              )}
                             </td>
                             <td className="py-4 px-5 hidden sm:table-cell">
                               <p className="text-sm text-gray-500">{tutor?.name ?? "—"}</p>

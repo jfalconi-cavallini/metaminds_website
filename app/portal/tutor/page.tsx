@@ -195,7 +195,10 @@ export default function TutorPortal() {
   const [hwSaving,    setHwSaving]    = useState(false);
   const [hwSuccess,   setHwSuccess]   = useState(false);
   const [hwError,     setHwError]     = useState("");
-  const [hwShowForm,  setHwShowForm]  = useState(false);
+  const [hwShowForm,     setHwShowForm]     = useState(false);
+  const [hwEstMins,      setHwEstMins]      = useState("");
+  const [hwType,         setHwType]         = useState("");
+  const [hwInstructions, setHwInstructions] = useState("");
 
   // ── HOMEWORK FEEDBACK ────────────────────────────────────────────
   const [hwFeedbackId,     setHwFeedbackId]     = useState<number | null>(null);
@@ -252,6 +255,12 @@ export default function TutorPortal() {
   const [parentUpdateSaving,   setParentUpdateSaving]   = useState(false);
   const [parentUpdateSuccess,  setParentUpdateSuccess]  = useState(false);
   const [puSelectedSessionIds, setPuSelectedSessionIds] = useState<number[]>([]);
+
+  // ── NOTE LIST PANEL ──────────────────────────────────────────────
+  const [selectedNoteId,      setSelectedNoteId]      = useState<number | null>(null);
+  const [noteSearchQuery,     setNoteSearchQuery]      = useState("");
+  const [noteFilterStudentId, setNoteFilterStudentId] = useState("");
+  const [showNoteForm,        setShowNoteForm]         = useState(false);
 
   // ── SESSION EDIT ─────────────────────────────────────────────────
   const [editingSession,  setEditingSession]  = useState(false);
@@ -433,15 +442,16 @@ export default function TutorPortal() {
     finally { setSdNoteSaving(false); }
   }
 
-  async function submitNote() {
-    if (!noteTopic || !noteText || !noteStudentId) { setNoteError("Fill in student, topic, and notes."); return; }
+  async function submitNote(): Promise<number | null> {
+    if (!noteTopic || !noteText || !noteStudentId) { setNoteError("Fill in student, topic, and notes."); return null; }
     setNoteSaving(true); setNoteError("");
     try {
       const note = await insertSessionNote({ tutorId, studentId: Number(noteStudentId), topic: noteTopic, notes: noteText });
       setSessionNotes((prev) => [note, ...prev]);
       setNoteTopic(""); setNoteText("");
       setNoteSuccess(true); setTimeout(() => setNoteSuccess(false), 4000);
-    } catch { setNoteError("Failed to save notes."); }
+      return note.id;
+    } catch { setNoteError("Failed to save notes."); return null; }
     finally { setNoteSaving(false); }
   }
 
@@ -449,9 +459,13 @@ export default function TutorPortal() {
     if (!hwTask || !hwStudentId) { setHwError("Fill in student and task."); return; }
     setHwSaving(true); setHwUploading(false); setHwError("");
     try {
+      const estMinsNum = hwEstMins ? Number.parseInt(hwEstMins, 10) : undefined;
       let hw = await insertHomework({
         tutorId, studentId: Number(hwStudentId), task: hwTask,
         dueDate: hwDue || undefined, kamiLink: hwKamiLink.trim() || undefined,
+        estimatedMinutes: Number.isInteger(estMinsNum) && (estMinsNum ?? 0) > 0 ? estMinsNum : undefined,
+        assignmentType:   hwType || undefined,
+        instructions:     hwInstructions.trim() || undefined,
       });
 
       // Upload PDF attachment if provided
@@ -475,6 +489,7 @@ export default function TutorPortal() {
 
       setHomework((prev) => [hw, ...prev]);
       setHwTask(""); setHwDue(""); setHwKamiLink(""); setHwFile(null);
+      setHwEstMins(""); setHwType(""); setHwInstructions("");
       setHwSuccess(true); setTimeout(() => setHwSuccess(false), 4000);
     } catch { setHwError("Failed to assign homework."); }
     finally { setHwSaving(false); setHwUploading(false); }
@@ -631,7 +646,7 @@ export default function TutorPortal() {
   return (
     <>
     <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
-      fullBleed={tab === "library"}>
+      fullBleed={tab === "library" || tab === "notes"}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -1457,66 +1472,261 @@ export default function TutorPortal() {
       )}
 
       {/* ── SESSION NOTES ── */}
-      {tab === "notes" && (
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">Session Notes</h1>
+      {tab === "notes" && (() => {
+        const AVATAR_COLORS = ["bg-blue-500", "bg-violet-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-cyan-500", "bg-indigo-500", "bg-orange-500"];
+        const avatarColor = (studentId: number) => {
+          const idx = myStudents.findIndex((s) => s.id === studentId);
+          return AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? "bg-gray-400";
+        };
 
-          <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-            <h3 className="font-semibold text-gray-900 mb-4">Add Notes</h3>
-            <div className="space-y-3">
-              <select value={noteStudentId} onChange={(e) => setNoteStudentId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
-                <option value="">Select student…</option>
-                {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <input value={noteTopic} onChange={(e) => setNoteTopic(e.target.value)} placeholder="Topic covered (e.g. Linear equations)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
-              <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} placeholder="What was covered, student progress, areas to revisit…" rows={4} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
-              {noteSuccess && <p className="text-xs text-green-600">Notes saved!</p>}
-              {noteError && <p className="text-xs text-red-500">{noteError}</p>}
-              <button onClick={submitNote} disabled={noteSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                {noteSaving ? "Saving…" : "Save Notes"}
+        const allNotes = sessionNotes.filter((n) => n.topic !== "_resource_");
+        const filtered = allNotes
+          .filter((n) => !noteFilterStudentId || n.studentId === Number(noteFilterStudentId))
+          .filter((n) => {
+            if (!noteSearchQuery.trim()) return true;
+            const q = noteSearchQuery.toLowerCase();
+            const st = getStudent(n.studentId);
+            return n.topic.toLowerCase().includes(q) || n.notes.toLowerCase().includes(q) || (st?.name.toLowerCase().includes(q) ?? false);
+          })
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+        const selectedNote = selectedNoteId
+          ? (allNotes.find((n) => n.id === selectedNoteId) ?? null)
+          : null;
+        const selectedNoteStudent = selectedNote ? getStudent(selectedNote.studentId) : null;
+
+        return (
+          <div className="flex flex-col h-full min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
+              <h1 className="text-base font-bold text-gray-900">Session Notes</h1>
+              <button
+                onClick={() => { setShowNoteForm(true); setSelectedNoteId(null); setNoteEditId(null); setNoteTopic(""); setNoteText(""); setNoteError(""); }}
+                className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700"
+              >
+                + New Note
               </button>
             </div>
-          </div>
 
-          <h3 className="font-semibold text-gray-900 mb-3">Past Notes</h3>
-          {sessionNotes.length === 0 && <p className="text-sm text-gray-400">No notes yet.</p>}
-          <div className="space-y-4">
-            {sessionNotes.map((n) => (
-              <div key={n.id} className="bg-white rounded-xl border border-gray-200 p-5">
-                {noteEditId === n.id ? (
-                  <div className="space-y-3">
-                    <p className="text-xs text-gray-400">{getStudent(n.studentId)?.name ?? "Student"} · {formatDate(n.createdAt.slice(0, 10))}</p>
-                    <input value={noteEditTopic} onChange={(e) => setNoteEditTopic(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <textarea value={noteEditText} onChange={(e) => setNoteEditText(e.target.value)}
-                      rows={4} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                    <div className="flex gap-2">
-                      <button onClick={() => saveNoteEdit(n.id)} disabled={noteEditSaving || !noteEditTopic.trim() || !noteEditText.trim()}
-                        className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold disabled:opacity-40">
-                        {noteEditSaving ? "Saving…" : "Save Changes"}
-                      </button>
-                      <button onClick={() => setNoteEditId(null)} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+            <div className="flex flex-1 min-h-0">
+              {/* Left: note list */}
+              <div className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0">
+                <div className="p-3 border-b border-gray-100 space-y-2 shrink-0">
+                  <input
+                    value={noteSearchQuery}
+                    onChange={(e) => setNoteSearchQuery(e.target.value)}
+                    placeholder="Search notes…"
+                    className="w-full rounded-xl border border-gray-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <select
+                    value={noteFilterStudentId}
+                    onChange={(e) => setNoteFilterStudentId(e.target.value)}
+                    className="w-full rounded-xl border border-gray-200 px-2.5 py-1.5 text-xs text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">All students</option>
+                    {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="flex-1 overflow-y-auto">
+                  {filtered.length === 0 && (
+                    <div className="py-12 text-center px-4">
+                      <p className="text-xs text-gray-400">
+                        {allNotes.length === 0 ? "No notes yet. Write your first one!" : "No notes match your filters."}
+                      </p>
                     </div>
+                  )}
+                  {filtered.map((n) => {
+                    const st = getStudent(n.studentId);
+                    const isSelected = selectedNoteId === n.id;
+                    return (
+                      <button
+                        key={n.id}
+                        onClick={() => { setSelectedNoteId(n.id); setShowNoteForm(false); setNoteEditId(null); }}
+                        className={`w-full flex items-start gap-3 px-4 py-3.5 text-left border-b border-gray-50 transition-colors relative ${
+                          isSelected ? "bg-blue-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        {isSelected && <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-blue-600 rounded-r" />}
+                        <div className={`w-8 h-8 rounded-full ${avatarColor(n.studentId)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                          {st?.name[0] ?? "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <p className={`text-xs font-semibold truncate ${isSelected ? "text-blue-700" : "text-gray-900"}`}>{st?.name ?? "Student"}</p>
+                            <span className="text-[10px] text-gray-400 shrink-0">{formatDate(n.createdAt.slice(0, 10))}</span>
+                          </div>
+                          <p className={`text-xs font-medium truncate ${isSelected ? "text-blue-600" : "text-blue-500"}`}>{n.topic}</p>
+                          <p className="text-[11px] text-gray-500 truncate mt-0.5 leading-normal">
+                            {n.notes.slice(0, 70)}{n.notes.length > 70 ? "…" : ""}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right: detail or form */}
+              <div className="flex-1 overflow-y-auto bg-gray-50">
+                {/* Empty state */}
+                {!showNoteForm && !selectedNote && (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                    <span className="text-5xl mb-4">📝</span>
+                    <p className="text-sm font-semibold text-gray-700 mb-1">No note selected</p>
+                    <p className="text-xs text-gray-400 mb-4">Select a note from the list or write a new one</p>
+                    <button
+                      onClick={() => { setShowNoteForm(true); setNoteTopic(""); setNoteText(""); setNoteError(""); }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700"
+                    >
+                      + Write First Note
+                    </button>
                   </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold text-gray-900">{getStudent(n.studentId)?.name ?? "Student"}</p>
+                )}
+
+                {/* Write form */}
+                {showNoteForm && (
+                  <div className="p-6 max-w-2xl">
+                    <div className="flex items-center gap-3 mb-5">
+                      {filtered.length > 0 && (
+                        <button onClick={() => setShowNoteForm(false)} className="text-xs text-gray-400 hover:text-gray-600">← Back</button>
+                      )}
+                      <h2 className="text-base font-bold text-gray-900">New Session Note</h2>
+                    </div>
+                    <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5 space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Student</label>
+                        <select
+                          value={noteStudentId}
+                          onChange={(e) => setNoteStudentId(e.target.value)}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">Select student…</option>
+                          {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Topic</label>
+                        <input
+                          value={noteTopic}
+                          onChange={(e) => setNoteTopic(e.target.value)}
+                          placeholder="e.g. Linear equations, SAT Reading strategies…"
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Notes</label>
+                        <textarea
+                          value={noteText}
+                          onChange={(e) => setNoteText(e.target.value)}
+                          placeholder="What was covered, student progress, areas to revisit, what to assign next…"
+                          rows={8}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {noteError && <p className="text-xs text-red-500">{noteError}</p>}
                       <div className="flex items-center gap-3">
-                        <p className="text-xs text-gray-500">{formatDate(n.createdAt.slice(0, 10))}</p>
-                        <button onClick={() => { setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes); }}
-                          className="text-xs text-gray-400 hover:text-blue-600 font-medium">Edit</button>
+                        <button
+                          onClick={async () => {
+                            const newId = await submitNote();
+                            if (newId) { setShowNoteForm(false); setSelectedNoteId(newId); }
+                          }}
+                          disabled={noteSaving || !noteTopic || !noteText || !noteStudentId}
+                          className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
+                        >
+                          {noteSaving ? "Saving…" : "Save Note"}
+                        </button>
+                        {filtered.length > 0 && (
+                          <button onClick={() => setShowNoteForm(false)} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                        )}
                       </div>
                     </div>
-                    <p className="text-sm font-medium text-blue-600 mb-1">{n.topic}</p>
-                    <p className="text-sm text-gray-600">{n.notes}</p>
-                  </>
+                  </div>
                 )}
+
+                {/* Note detail */}
+                {selectedNote && !showNoteForm && (() => {
+                  const isEditing = noteEditId === selectedNote.id;
+                  return (
+                    <div className="p-6 max-w-2xl">
+                      {/* Student header */}
+                      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 mb-4 flex items-center gap-3">
+                        <div className={`w-10 h-10 rounded-full ${avatarColor(selectedNote.studentId)} flex items-center justify-center text-white font-bold text-sm shrink-0`}>
+                          {selectedNoteStudent?.name[0] ?? "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900">{selectedNoteStudent?.name ?? "Student"}</p>
+                          <p className="text-xs text-gray-400">{selectedNoteStudent?.grade} Grade · {selectedNoteStudent?.subjects.join(", ")}</p>
+                        </div>
+                        <button
+                          onClick={() => { setNoteStudentId(String(selectedNote.studentId)); setNoteTopic(""); setNoteText(""); setNoteError(""); setShowNoteForm(true); setSelectedNoteId(null); }}
+                          className="text-xs text-blue-600 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-50 font-medium whitespace-nowrap shrink-0"
+                        >
+                          + New Note
+                        </button>
+                      </div>
+
+                      {/* Note content */}
+                      <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                        <div className="flex items-start justify-between mb-4">
+                          <p className="text-xs text-gray-400">{formatDate(selectedNote.createdAt.slice(0, 10))}</p>
+                          {!isEditing && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => { setNoteEditId(selectedNote.id); setNoteEditTopic(selectedNote.topic); setNoteEditText(selectedNote.notes); }}
+                                className="text-xs text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 font-medium"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => { removeSessionNote(selectedNote.id); setSelectedNoteId(null); }}
+                                className="text-xs text-red-400 border border-red-100 rounded-lg px-2.5 py-1 hover:bg-red-50 font-medium"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-3">
+                            <input
+                              value={noteEditTopic}
+                              onChange={(e) => setNoteEditTopic(e.target.value)}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-base font-bold text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <textarea
+                              value={noteEditText}
+                              onChange={(e) => setNoteEditText(e.target.value)}
+                              rows={10}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-700 leading-relaxed"
+                            />
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => saveNoteEdit(selectedNote.id)}
+                                disabled={noteEditSaving || !noteEditTopic.trim() || !noteEditText.trim()}
+                                className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40"
+                              >
+                                {noteEditSaving ? "Saving…" : "Save Changes"}
+                              </button>
+                              <button onClick={() => setNoteEditId(null)} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <h2 className="text-xl font-bold text-gray-900 mb-4">{selectedNote.topic}</h2>
+                            <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{selectedNote.notes}</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
@@ -1554,6 +1764,20 @@ export default function TutorPortal() {
                     {h.dueDate ? ` · Due ${formatDate(h.dueDate)}` : ""}
                     {h.submittedAt ? ` · Submitted ${formatDate(h.submittedAt.slice(0, 10))}` : ""}
                   </p>
+                  {(h.assignmentType || h.estimatedMinutes != null) && (
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
+                      {h.assignmentType && (
+                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                          {h.assignmentType.replace(/_/g, " ").replace(/^(.)/, (c) => c.toUpperCase())}
+                        </span>
+                      )}
+                      {h.estimatedMinutes != null && (
+                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                          Est. {h.estimatedMinutes} min
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {h.status === "pending" && (
                   <button onClick={() => completeHomework(h.id)}
@@ -1572,6 +1796,25 @@ export default function TutorPortal() {
                     className="shrink-0 text-sm text-blue-600 hover:underline font-medium disabled:opacity-50">
                     {hwOpeningId === h.id ? "Opening…" : "View →"}
                   </button>
+                </div>
+              )}
+
+              {/* Student-reported study time */}
+              {h.studentTimeMinutes != null && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
+                  <span className="text-xs text-amber-700 font-semibold">⏱ {h.studentTimeMinutes} min reported</span>
+                  {h.difficultyRating && (
+                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                      h.difficultyRating === "easy"       ? "bg-emerald-100 text-emerald-700"
+                      : h.difficultyRating === "difficult" ? "bg-red-100 text-red-700"
+                      : "bg-blue-100 text-blue-700"
+                    }`}>
+                      {h.difficultyRating.charAt(0).toUpperCase() + h.difficultyRating.slice(1)}
+                    </span>
+                  )}
+                  {h.studentNote && (
+                    <span className="text-xs text-gray-500 italic">&ldquo;{h.studentNote}&rdquo;</span>
+                  )}
                 </div>
               )}
 
@@ -1672,6 +1915,37 @@ export default function TutorPortal() {
                     placeholder="Describe the assignment (e.g. Complete problems 1–20 from Chapter 4)"
                     rows={3}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Assignment type (optional)</label>
+                      <select value={hwType} onChange={(e) => setHwType(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select type…</option>
+                        <option value="problems">Problems</option>
+                        <option value="reading">Reading</option>
+                        <option value="practice_test">Practice Test</option>
+                        <option value="review">Review</option>
+                        <option value="essay">Essay</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Estimated time (optional)</label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min="1" max="600" placeholder="30"
+                          value={hwEstMins} onChange={(e) => setHwEstMins(e.target.value)}
+                          className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span className="text-xs text-gray-500">min</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Instructions (optional)</label>
+                    <textarea value={hwInstructions} onChange={(e) => setHwInstructions(e.target.value)}
+                      placeholder="Any specific instructions or steps for the student…"
+                      rows={2}
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Due date (optional)</label>
                     <input type="date" value={hwDue} onChange={(e) => setHwDue(e.target.value)}

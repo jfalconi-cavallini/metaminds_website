@@ -93,6 +93,12 @@ function rowToHomework(r: any): Homework {
     attachmentUrl:      r.attachment_url      ?? undefined,
     attachmentFilename: r.attachment_filename ?? undefined,
     kamiLink:           r.kami_link           ?? undefined,
+    estimatedMinutes:   r.estimated_minutes   ?? undefined,
+    assignmentType:     r.assignment_type     ?? undefined,
+    instructions:       r.instructions        ?? undefined,
+    studentTimeMinutes: r.student_time_minutes ?? undefined,
+    studentNote:        r.student_note        ?? undefined,
+    difficultyRating:   r.difficulty_rating   ?? undefined,
   };
 }
 
@@ -524,14 +530,18 @@ export async function markHomeworkComplete(id: number): Promise<Homework> {
 
 export async function insertHomework(payload: {
   studentId: number; tutorId: number; task: string; dueDate?: string; kamiLink?: string;
+  estimatedMinutes?: number; assignmentType?: string; instructions?: string;
 }): Promise<Homework> {
   const { data, error } = await supabase.from("homework").insert({
-    student_id:    payload.studentId,
-    tutor_id:      payload.tutorId,
-    task:          payload.task,
-    assigned_date: new Date().toISOString().slice(0, 10),
-    due_date:      payload.dueDate ?? null,
-    kami_link:     payload.kamiLink ?? null,
+    student_id:        payload.studentId,
+    tutor_id:          payload.tutorId,
+    task:              payload.task,
+    assigned_date:     new Date().toISOString().slice(0, 10),
+    due_date:          payload.dueDate         ?? null,
+    kami_link:         payload.kamiLink        ?? null,
+    estimated_minutes: payload.estimatedMinutes ?? null,
+    assignment_type:   payload.assignmentType  ?? null,
+    instructions:      payload.instructions    ?? null,
   }).select().single();
   if (error) throw error;
   return rowToHomework(data);
