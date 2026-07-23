@@ -31,14 +31,18 @@ import {
   fetchCourses, fetchFullCatalog,
   assignLessonToStudent, updatePlanLessonStatus, removeLessonFromPlan,
   deleteStudentPlan, updatePlanSectionBars, updatePlanSkillBaseline,
+  fetchSkillNodes, fetchNoteSkills, setNoteSkillLinks,
+  setHomeworkSkillLinks,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
+import SkillPicker from "@/components/portal/SkillPicker";
+import StudentSkillPanel from "@/components/portal/StudentSkillPanel";
 import { getSubskills } from "@/lib/portal/planConfig";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
-  StudentPlanFull, Course, CourseCatalogFull, SkillBaseline,
+  StudentPlanFull, Course, CourseCatalogFull, SkillBaseline, SkillNode,
 } from "@/lib/portal/types";
 import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload } from "lucide-react";
 
@@ -195,6 +199,8 @@ export default function TutorPortal() {
   const [noteDate,      setNoteDate]      = useState("");
   const [noteFile,      setNoteFile]      = useState<File | null>(null);
   const [noteSaving,    setNoteSaving]    = useState(false);
+  const [noteSkillIds,  setNoteSkillIds]  = useState<number[]>([]);
+  const [allSkillNodes, setAllSkillNodes] = useState<SkillNode[]>([]);
   const [noteSuccess,   setNoteSuccess]   = useState(false);
   const [noteError,     setNoteError]     = useState("");
 
@@ -212,6 +218,7 @@ export default function TutorPortal() {
   const [hwEstMins,      setHwEstMins]      = useState("");
   const [hwType,         setHwType]         = useState("");
   const [hwInstructions, setHwInstructions] = useState("");
+  const [hwSkillIds,     setHwSkillIds]     = useState<number[]>([]);
 
   // ── HOMEWORK FEEDBACK ────────────────────────────────────────────
   const [hwFeedbackId,     setHwFeedbackId]     = useState<number | null>(null);
@@ -255,10 +262,11 @@ export default function TutorPortal() {
   const [noteEditKamiLink, setNoteEditKamiLink] = useState("");
   const [noteEditDate,     setNoteEditDate]     = useState("");
   const [noteEditSaving,   setNoteEditSaving]   = useState(false);
+  const [noteEditSkillIds, setNoteEditSkillIds] = useState<number[]>([]);
 
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
-  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan">("homework");
+  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan" | "skills">("homework");
 
   // Plan sub-tab
   const [panelPlanFull,         setPanelPlanFull]         = useState<StudentPlanFull | null>(null);
@@ -337,6 +345,11 @@ export default function TutorPortal() {
       setZoomLinkVal(tutor.zoomLink ?? "");
     }
   }, [tutor]);
+
+  // Load SAT skill nodes once
+  useEffect(() => {
+    fetchSkillNodes("SAT").then(setAllSkillNodes).catch(() => {});
+  }, []);
 
   // Load plan when plan sub-tab is opened
   useEffect(() => {
@@ -495,7 +508,12 @@ export default function TutorPortal() {
         noteEditDate || undefined,
       );
       setSessionNotes((prev) => prev.map((n) => n.id === noteId ? updated : n));
+      const note = sessionNotes.find((n) => n.id === noteId);
+      if (note) {
+        await setNoteSkillLinks(noteId, noteEditSkillIds, note.studentId, tutorId);
+      }
       setNoteEditId(null);
+      setNoteEditSkillIds([]);
     } catch { /* silent */ } finally { setNoteEditSaving(false); }
   }
 
@@ -565,7 +583,11 @@ export default function TutorPortal() {
         setSessionNotes((prev) => [note, ...prev]);
       }
 
+      if (noteSkillIds.length > 0) {
+        await setNoteSkillLinks(note.id, noteSkillIds, Number(noteStudentId), tutorId);
+      }
       setNoteTopic(""); setNoteText(""); setNoteKamiLink(""); setNoteDate(""); setNoteFile(null);
+      setNoteSkillIds([]);
       setNoteSuccess(true); setTimeout(() => setNoteSuccess(false), 4000);
       return note.id;
     } catch (e: unknown) {
@@ -607,9 +629,12 @@ export default function TutorPortal() {
         setHwUploading(false);
       }
 
+      if (hwSkillIds.length > 0) {
+        await setHomeworkSkillLinks(hw.id, hwSkillIds, Number(hwStudentId), tutorId);
+      }
       setHomework((prev) => [hw, ...prev]);
       setHwTask(""); setHwDue(""); setHwKamiLink(""); setHwFile(null);
-      setHwEstMins(""); setHwType(""); setHwInstructions("");
+      setHwEstMins(""); setHwType(""); setHwInstructions(""); setHwSkillIds([]);
       setHwSuccess(true); setTimeout(() => setHwSuccess(false), 4000);
     } catch { setHwError("Failed to assign homework."); }
     finally { setHwSaving(false); setHwUploading(false); }
@@ -1107,7 +1132,7 @@ export default function TutorPortal() {
                     <div className="border-t border-gray-100">
                       {/* Sub-tabs */}
                       <div className="flex border-b border-gray-100">
-                        {(["homework", "sessions", "update", "accountability", "plan"] as const).map((t2) => (
+                        {(["homework", "sessions", "update", "accountability", "plan", "skills"] as const).map((t2) => (
                           <button
                             key={t2}
                             onClick={() => setStudentPanelTab(t2)}
@@ -1117,7 +1142,7 @@ export default function TutorPortal() {
                                 : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                           >
-                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : t2 === "accountability" ? "Accountability" : "Learning Plan"}
+                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : t2 === "accountability" ? "Accountability" : t2 === "plan" ? "Learning Plan" : "Skills"}
                           </button>
                         ))}
                       </div>
@@ -1877,6 +1902,11 @@ export default function TutorPortal() {
                           </div>
                         );
                       })()}
+
+                      {/* ── Skills sub-tab ── */}
+                      {studentPanelTab === "skills" && (
+                        <StudentSkillPanel studentId={s.id} allSkillNodes={allSkillNodes} />
+                      )}
                     </div>
                   )}
                 </div>
@@ -2345,6 +2375,12 @@ export default function TutorPortal() {
                         />
                         {noteFile && <p className="text-[11px] text-gray-400 mt-1">{noteFile.name}</p>}
                       </div>
+                      {allSkillNodes.length > 0 && (
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Skills Covered</label>
+                          <SkillPicker nodes={allSkillNodes} value={noteSkillIds} onChange={setNoteSkillIds} />
+                        </div>
+                      )}
                       {noteError && <p className="text-xs text-red-500">{noteError}</p>}
                       <div className="flex items-center gap-3">
                         <button
@@ -2394,12 +2430,14 @@ export default function TutorPortal() {
                           {!isEditing && (
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => {
+                                onClick={async () => {
                                   setNoteEditId(selectedNote.id);
                                   setNoteEditTopic(selectedNote.topic);
                                   setNoteEditText(selectedNote.notes);
                                   setNoteEditKamiLink(selectedNote.kamiLink ?? "");
                                   setNoteEditDate(selectedNote.noteDate ?? "");
+                                  const skills = await fetchNoteSkills(selectedNote.id);
+                                  setNoteEditSkillIds(skills.map((s) => s.id));
                                 }}
                                 className="text-xs text-blue-600 border border-blue-200 rounded-lg px-2.5 py-1 hover:bg-blue-50 font-medium"
                               >
@@ -2447,6 +2485,12 @@ export default function TutorPortal() {
                                   className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                               </div>
+                              {allSkillNodes.length > 0 && (
+                                <div>
+                                  <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1">Skills Covered</label>
+                                  <SkillPicker nodes={allSkillNodes} value={noteEditSkillIds} onChange={setNoteEditSkillIds} />
+                                </div>
+                              )}
                             </div>
                             <div className="flex items-center gap-2">
                               <button
@@ -2740,6 +2784,12 @@ export default function TutorPortal() {
                       placeholder="https://app.kami.com/..."
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
+                  {allSkillNodes.length > 0 && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1.5">Skills Practiced (optional)</label>
+                      <SkillPicker nodes={allSkillNodes} value={hwSkillIds} onChange={setHwSkillIds} />
+                    </div>
+                  )}
                   {hwSuccess && <p className="text-xs text-green-600 font-medium">✓ Assignment assigned!</p>}
                   {hwError && <p className="text-xs text-red-500">{hwError}</p>}
                   <button onClick={submitHomework} disabled={hwSaving || hwUploading}
@@ -2939,9 +2989,11 @@ export default function TutorPortal() {
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-xs font-semibold text-blue-600 mb-0.5">{n.topic}</p>
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <button onClick={() => {
+                            <button onClick={async () => {
                               setNoteEditId(n.id); setNoteEditTopic(n.topic); setNoteEditText(n.notes);
                               setNoteEditKamiLink(n.kamiLink ?? ""); setNoteEditDate(n.noteDate ?? "");
+                              const skills = await fetchNoteSkills(n.id);
+                              setNoteEditSkillIds(skills.map((s) => s.id));
                             }}
                               className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded px-2 py-0.5 font-medium">Edit</button>
                             <button onClick={() => removeSessionNote(n.id)}

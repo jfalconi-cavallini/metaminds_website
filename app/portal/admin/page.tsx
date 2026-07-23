@@ -101,6 +101,33 @@ export default function AdminPortal() {
     load();
   }, [authLoaded, user, router]);
 
+  // ── SKILL LIBRARY ───────────────────────────────────────────────
+  const [skillLibCount,    setSkillLibCount]    = useState<number | null>(null);
+  const [skillLibIniting,  setSkillLibIniting]  = useState(false);
+  const [skillLibResult,   setSkillLibResult]   = useState<{ inserted: number; skipped: number; total: number; errors: string[] } | null>(null);
+  const SAT_SKILL_TOTAL = 69;
+
+  async function checkSkillLib() {
+    const { count } = await supabase.from("skill_nodes").select("id", { count: "exact", head: true }).eq("course", "SAT");
+    setSkillLibCount(count ?? 0);
+  }
+
+  async function initSkillLib() {
+    setSkillLibIniting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/seed-skills", {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ course: "SAT" }),
+      });
+      const j = await res.json() as { inserted?: number; skipped?: number; total?: number; errors?: string[] };
+      setSkillLibResult({ inserted: j.inserted ?? 0, skipped: j.skipped ?? 0, total: j.total ?? 0, errors: j.errors ?? [] });
+      setSkillLibCount((prev) => (prev ?? 0) + (j.inserted ?? 0));
+    } catch { /* silent — result panel shows nothing */ }
+    finally { setSkillLibIniting(false); }
+  }
+
   // ── ARCHIVE ─────────────────────────────────────────────────────
   const [showArchivedStudents, setShowArchivedStudents] = useState(false);
   const [showArchivedTutors,   setShowArchivedTutors]   = useState(false);
@@ -1494,7 +1521,46 @@ export default function AdminPortal() {
       )}
 
       {/* ── CURRICULUM ── */}
-      {tab === "curriculum" && <CurriculumBuilder />}
+      {tab === "curriculum" && (() => {
+        if (skillLibCount === null) checkSkillLib();
+        const isReady = skillLibCount !== null && skillLibCount >= SAT_SKILL_TOTAL;
+        return (
+          <>
+            {/* Skill Library init banner */}
+            <div className="shrink-0 bg-white border-b border-gray-200 px-5 py-3 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 mr-2">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${isReady ? "bg-emerald-400" : "bg-amber-400"}`} />
+                <span className="text-xs font-semibold text-gray-700">SAT Skill Library</span>
+                {skillLibCount !== null && (
+                  <span className="text-xs text-gray-400">{skillLibCount} / {SAT_SKILL_TOTAL} nodes</span>
+                )}
+              </div>
+              {isReady ? (
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                  Ready
+                </span>
+              ) : (
+                <button
+                  onClick={initSkillLib}
+                  disabled={skillLibIniting}
+                  className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {skillLibIniting ? "Initializing…" : "Initialize SAT Skill Library"}
+                </button>
+              )}
+              {skillLibResult && (
+                <span className="text-xs text-gray-500">
+                  {skillLibResult.inserted} inserted · {skillLibResult.skipped} skipped
+                  {skillLibResult.errors.length > 0 && ` · ${skillLibResult.errors.length} errors`}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              <CurriculumBuilder />
+            </div>
+          </>
+        );
+      })()}
 
     </DashboardShell>
 

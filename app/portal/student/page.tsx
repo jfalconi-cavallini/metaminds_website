@@ -18,9 +18,10 @@ import {
   autoCompletePastSessions,
   fetchStudyLog,
   fetchStudentPlans, fetchStudentPlanFull, fetchFullCatalog,
+  fetchSkillNodes, fetchSkillLinkedNotes, fetchSkillLinkedHomework,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -34,6 +35,7 @@ import {
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
+import SkillDetailDrawer from "@/components/portal/SkillDetailDrawer";
 import { scoreToStatus, STATUS_BADGE, STATUS_LABEL } from "@/lib/portal/planConfig";
 
 const CANCEL_LOCK_HOURS = 48;
@@ -93,6 +95,11 @@ export default function StudentPortal() {
   const [planLoaded,      setPlanLoaded]      = useState(false);
   const [planExpIds,      setPlanExpIds]      = useState<Set<number>>(new Set());
   const [planSectionIdx,  setPlanSectionIdx]  = useState(0);
+  const [pathSkillNodes,     setPathSkillNodes]     = useState<SkillNode[]>([]);
+  const [skillNoteLinks,     setSkillNoteLinks]     = useState<SkillNoteLink[]>([]);
+  const [skillHomeworkLinks, setSkillHomeworkLinks] = useState<HomeworkSkillLink[]>([]);
+  const [expandedSkills,     setExpandedSkills]     = useState<Set<number>>(new Set());
+  const [selectedSkillId,    setSelectedSkillId]    = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -155,7 +162,15 @@ export default function StudentPortal() {
     setPlanLoading(true);
     (async () => {
       try {
-        const plans = await fetchStudentPlans(student.id);
+        const [plans, skillNodes, noteLinks, hwLinks] = await Promise.all([
+          fetchStudentPlans(student.id),
+          fetchSkillNodes("SAT"),
+          fetchSkillLinkedNotes(student.id),
+          fetchSkillLinkedHomework(student.id),
+        ]);
+        setPathSkillNodes(skillNodes);
+        setSkillNoteLinks(noteLinks);
+        setSkillHomeworkLinks(hwLinks);
         const active = plans.find(p => p.status === "active") ?? plans[0] ?? null;
         if (active) {
           const [full, catalog] = await Promise.all([
@@ -3235,6 +3250,8 @@ export default function StudentPortal() {
                       section={planCatalog.sections[planSectionIdx]}
                       skillBaseline={studentPlanFull.skillBaseline}
                       planLessonMap={planLessonMap}
+                      skillNodes={pathSkillNodes}
+                      onSkillClick={(id) => setSelectedSkillId(id)}
                     />
                   </div>
                 )}
@@ -3309,6 +3326,105 @@ export default function StudentPortal() {
                 <p className="text-sm text-gray-400 text-center">{total} lessons in your plan.</p>
               </div>
             )}
+
+            {/* Activity by Skill */}
+            {(skillNoteLinks.length > 0 || skillHomeworkLinks.length > 0) && (() => {
+              const allSkillIds = [...new Set([
+                ...skillNoteLinks.map(l => l.skillId),
+                ...skillHomeworkLinks.map(l => l.skillId),
+              ])];
+              const notesBySkill = new Map<number, SkillNoteLink[]>();
+              for (const l of skillNoteLinks) {
+                if (!notesBySkill.has(l.skillId)) notesBySkill.set(l.skillId, []);
+                notesBySkill.get(l.skillId)!.push(l);
+              }
+              const hwBySkill = new Map<number, HomeworkSkillLink[]>();
+              for (const h of skillHomeworkLinks) {
+                if (!hwBySkill.has(h.skillId)) hwBySkill.set(h.skillId, []);
+                hwBySkill.get(h.skillId)!.push(h);
+              }
+              return (
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                  <h3 className="text-base font-bold text-gray-900 mb-4">Activity by Skill</h3>
+                  <div className="space-y-2">
+                    {allSkillIds.map((skillId) => {
+                      const notes   = notesBySkill.get(skillId) ?? [];
+                      const hw      = hwBySkill.get(skillId) ?? [];
+                      const node    = pathSkillNodes.find((n) => n.id === skillId);
+                      const title   = node?.title ?? `Skill #${skillId}`;
+                      const isOpen  = expandedSkills.has(skillId);
+                      return (
+                        <div key={skillId} className="border border-gray-100 rounded-xl overflow-hidden">
+                          <button
+                            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                            onClick={() => {
+                              const next = new Set(expandedSkills);
+                              if (next.has(skillId)) next.delete(skillId); else next.add(skillId);
+                              setExpandedSkills(next);
+                            }}
+                          >
+                            <span className="text-left truncate mr-2">{title}</span>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {notes.length > 0 && (
+                                <span className="text-[11px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full font-medium">{notes.length} session{notes.length !== 1 ? "s" : ""}</span>
+                              )}
+                              {hw.length > 0 && (
+                                <span className="text-[11px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded-full font-medium">{hw.length} hw</span>
+                              )}
+                              <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                            </div>
+                          </button>
+                          {isOpen && (
+                            <div className="divide-y divide-gray-50 border-t border-gray-100">
+                              {notes.length > 0 && (
+                                <>
+                                  <div className="px-4 py-1.5 bg-gray-50">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Related Sessions</p>
+                                  </div>
+                                  {notes.map((lnk) => (
+                                    <div key={`n-${lnk.noteId}`} className="px-4 py-2.5 flex items-center justify-between">
+                                      <span className="text-sm text-gray-700">{lnk.topic}</span>
+                                      {lnk.noteDate && (
+                                        <span className="text-xs text-gray-400">{formatDate(lnk.noteDate)}</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                              {hw.length > 0 && (
+                                <>
+                                  <div className="px-4 py-1.5 bg-gray-50">
+                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Related Assignments</p>
+                                  </div>
+                                  {hw.map((h) => (
+                                    <div key={`h-${h.homeworkId}`} className="px-4 py-2.5 space-y-0.5">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-sm text-gray-700 truncate">{h.task}</span>
+                                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${
+                                          h.status === "completed" ? "bg-emerald-50 text-emerald-700"
+                                          : h.status === "submitted" ? "bg-blue-50 text-blue-700"
+                                          : "bg-amber-50 text-amber-700"
+                                        }`}>{h.status}</span>
+                                      </div>
+                                      <div className="flex items-center gap-3 text-[11px] text-gray-400 flex-wrap">
+                                        {h.dueDate && <span>Due {formatDate(h.dueDate)}</span>}
+                                        {h.estimatedMinutes && <span>{h.estimatedMinutes}m est.</span>}
+                                        {h.studentTimeMinutes != null && <span>{h.studentTimeMinutes}m actual</span>}
+                                        {h.grade && <span className="font-semibold text-emerald-600">{h.grade}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         );
       })()}
@@ -3947,6 +4063,16 @@ export default function StudentPortal() {
           </div>
         );
       })()}
+
+      {/* ── Skill Detail Drawer ── */}
+      <SkillDetailDrawer
+        skillId={selectedSkillId}
+        studentId={student.id}
+        skillNodes={pathSkillNodes}
+        noteLinks={skillNoteLinks}
+        hwLinks={skillHomeworkLinks}
+        onClose={() => setSelectedSkillId(null)}
+      />
 
     </DashboardShell>
   );

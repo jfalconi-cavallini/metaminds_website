@@ -389,3 +389,38 @@ export interface StudentSkill {
   createdAt:     string;
   updatedAt:     string;
 }
+
+// ── SESSION NOTE SKILLS ───────────────────────────────────────────────────────
+// Join between a session note and the skill_nodes it covered.
+
+export interface SessionNoteSkill {
+  id:            number;
+  sessionNoteId: number;
+  skillId:       number;
+  studentId:     number;
+  createdBy:     number | null;  // tutor id
+  createdAt:     string;
+}
+
+/** Lightweight summary used in the student "Sessions by Skill" view. */
+export interface SkillNoteLink {
+  skillId:   number;
+  noteId:    number;
+  topic:     string;
+  noteDate?: string;   // ISO date
+  createdAt: string;
+}
+
+/** Lightweight summary used in the student "Assignments by Skill" view. */
+export interface HomeworkSkillLink {
+  skillId:             number;
+  homeworkId:          number;
+  task:                string;
+  dueDate:             string | null;
+  status:              "pending" | "submitted" | "completed";
+  estimatedMinutes?:   number;
+  studentTimeMinutes?: number;
+  grade?:              string;
+  feedback?:           string;
+  assignedDate:        string;
+}

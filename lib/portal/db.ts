@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -1930,4 +1930,148 @@ export async function deleteStudentSkill(
     .eq("student_id", studentId)
     .eq("skill_id",   skillId);
   if (error) throw error;
+}
+
+// ── SESSION NOTE SKILLS ───────────────────────────────────────────────────────
+
+/**
+ * Fetch the skill nodes tagged on a session note.
+ * Returns the full SkillNode rows (not just IDs) so the UI can render titles.
+ */
+export async function fetchNoteSkills(noteId: number): Promise<SkillNode[]> {
+  const { data, error } = await supabase
+    .from("session_note_skills")
+    .select("skill_nodes(*)")
+    .eq("session_note_id", noteId);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => rowToSkillNode(r.skill_nodes)).filter(Boolean);
+}
+
+/**
+ * Atomically replace all skill tags on a session note.
+ * Deletes existing links first, then inserts the new set.
+ * Passing an empty array clears all tags.
+ */
+export async function setNoteSkillLinks(
+  noteId:    number,
+  skillIds:  number[],
+  studentId: number,
+  createdBy: number,
+): Promise<void> {
+  const { error: delError } = await supabase
+    .from("session_note_skills")
+    .delete()
+    .eq("session_note_id", noteId);
+  if (delError) throw delError;
+
+  if (skillIds.length === 0) return;
+
+  const { error: insError } = await supabase
+    .from("session_note_skills")
+    .insert(
+      skillIds.map((skillId) => ({
+        session_note_id: noteId,
+        skill_id:        skillId,
+        student_id:      studentId,
+        created_by:      createdBy,
+      })),
+    );
+  if (insError) throw insError;
+}
+
+/**
+ * Fetch a lightweight summary of all skill-tagged session notes for a student.
+ * Used in the student Learning Path "Sessions by Skill" panel.
+ * Returns one entry per (note × skill) pair, ordered newest first.
+ */
+export async function fetchSkillLinkedNotes(studentId: number): Promise<SkillNoteLink[]> {
+  const { data, error } = await supabase
+    .from("session_note_skills")
+    .select("skill_id, session_note_id, session_notes(topic, note_date, created_at)")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    skillId:   r.skill_id           as number,
+    noteId:    r.session_note_id    as number,
+    topic:     r.session_notes?.topic    ?? "",
+    noteDate:  r.session_notes?.note_date ?? undefined,
+    createdAt: r.session_notes?.created_at ?? "",
+  }));
+}
+
+// ── HOMEWORK ASSIGNMENT SKILLS ────────────────────────────────────────────────
+
+/**
+ * Fetch the skill nodes tagged on a homework assignment.
+ */
+export async function fetchHomeworkSkills(hwId: number): Promise<SkillNode[]> {
+  const { data, error } = await supabase
+    .from("homework_assignment_skills")
+    .select("skill_nodes(*)")
+    .eq("assignment_id", hwId);
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => rowToSkillNode(r.skill_nodes)).filter(Boolean);
+}
+
+/**
+ * Atomically replace all skill tags on a homework assignment.
+ * Deletes existing links first, then inserts the new set.
+ * Passing an empty array clears all tags.
+ */
+export async function setHomeworkSkillLinks(
+  hwId:      number,
+  skillIds:  number[],
+  studentId: number,
+  createdBy: number,
+): Promise<void> {
+  const { error: delError } = await supabase
+    .from("homework_assignment_skills")
+    .delete()
+    .eq("assignment_id", hwId);
+  if (delError) throw delError;
+
+  if (skillIds.length === 0) return;
+
+  const { error: insError } = await supabase
+    .from("homework_assignment_skills")
+    .insert(
+      skillIds.map((skillId) => ({
+        assignment_id: hwId,
+        skill_id:      skillId,
+        student_id:    studentId,
+        created_by:    createdBy,
+      })),
+    );
+  if (insError) throw insError;
+}
+
+/**
+ * Fetch a lightweight summary of all skill-tagged homework for a student.
+ * Used in the student Learning Path "Assignments by Skill" panel.
+ * Returns one entry per (assignment × skill) pair, ordered newest first.
+ */
+export async function fetchSkillLinkedHomework(studentId: number): Promise<HomeworkSkillLink[]> {
+  const { data, error } = await supabase
+    .from("homework_assignment_skills")
+    .select("skill_id, assignment_id, homework(task, due_date, status, estimated_minutes, student_time_minutes, grade, feedback, assigned_date)")
+    .eq("student_id", studentId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (data ?? []).map((r: any) => ({
+    skillId:             r.skill_id                        as number,
+    homeworkId:          r.assignment_id                   as number,
+    task:                r.homework?.task                  ?? "",
+    dueDate:             r.homework?.due_date              ?? null,
+    status:              (r.homework?.status               ?? "pending") as "pending" | "submitted" | "completed",
+    estimatedMinutes:    r.homework?.estimated_minutes     ?? undefined,
+    studentTimeMinutes:  r.homework?.student_time_minutes  ?? undefined,
+    grade:               r.homework?.grade                 ?? undefined,
+    feedback:            r.homework?.feedback              ?? undefined,
+    assignedDate:        r.homework?.assigned_date         ?? "",
+  }));
 }
