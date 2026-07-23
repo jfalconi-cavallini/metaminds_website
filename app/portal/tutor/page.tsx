@@ -225,6 +225,7 @@ export default function TutorPortal() {
   const [planUploading,  setPlanUploading]  = useState(false);
   const [planUploadErr,  setPlanUploadErr]  = useState("");
   const [planUploaded,   setPlanUploaded]   = useState(false);
+  const [planRemoving,   setPlanRemoving]   = useState(false);
 
   // ── BLOCKED DATES ───────────────────────────────────────────────
   const [blockDateInput, setBlockDateInput] = useState("");
@@ -763,9 +764,8 @@ export default function TutorPortal() {
         throw new Error(j.error ?? "Upload failed");
       }
       const j = await res.json() as { path?: string };
-      const updated = await updateStudentProfile(profileStudent.id, {
-        successPlanUrl: j.path ?? profileStudent.successPlanUrl,
-      });
+      const newUrl = j.path ?? profileStudent.successPlanUrl;
+      const updated: Student = { ...profileStudent, successPlanUrl: newUrl };
       setMyStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
       setProfileStudent(updated);
       setPlanUploaded(true);
@@ -774,6 +774,32 @@ export default function TutorPortal() {
       setPlanUploadErr(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setPlanUploading(false);
+    }
+  }
+
+  async function removeSuccessPlan() {
+    if (!profileStudent) return;
+    if (!window.confirm("Remove the Success Plan PDF?")) return;
+    setPlanRemoving(true); setPlanUploadErr("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
+      const res = await fetch("/api/student/success-plan/remove", {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ studentId: profileStudent.id }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Remove failed");
+      }
+      const updated: Student = { ...profileStudent, successPlanUrl: undefined };
+      setMyStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+      setProfileStudent(updated);
+    } catch (e: unknown) {
+      setPlanUploadErr(e instanceof Error ? e.message : "Remove failed");
+    } finally {
+      setPlanRemoving(false);
     }
   }
 
@@ -3052,6 +3078,13 @@ export default function TutorPortal() {
                     className="text-xs text-blue-600 hover:underline shrink-0 font-medium"
                   >
                     View
+                  </button>
+                  <button
+                    onClick={removeSuccessPlan}
+                    disabled={planRemoving}
+                    className="text-xs text-red-500 hover:underline shrink-0 font-medium disabled:opacity-50"
+                  >
+                    {planRemoving ? "Removing…" : "Remove"}
                   </button>
                 </div>
               )}

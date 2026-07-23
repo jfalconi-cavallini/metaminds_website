@@ -29,7 +29,8 @@ export async function POST(request: Request) {
   if (file.size > 10 * 1024 * 1024) {
     return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
   }
-  if (file.type !== "application/pdf") {
+  const isPdf = file.type === "application/pdf" || file.type === "application/octet-stream" || file.name.toLowerCase().endsWith(".pdf");
+  if (!isPdf) {
     return NextResponse.json({ error: "Only PDF files are accepted" }, { status: 400 });
   }
 
