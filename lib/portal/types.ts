@@ -353,3 +353,39 @@ export interface StudentPlanLessonFull extends StudentPlanLesson {
 export interface StudentPlanFull extends StudentPlan {
   lessons: StudentPlanLessonFull[];
 }
+
+// ── SKILL NODES ───────────────────────────────────────────────────────────────
+// Skill nodes are first-class database entities representing learnable concepts.
+// They exist independently of lessons, sessions, or homework.
+
+export interface SkillNode {
+  id:           number;
+  slug:         string;         // stable external key: "sat-math-algebra-linear-equations"
+  course:       string;         // "SAT" | "ACT" | "AP Calculus AB"
+  category:     string;         // "Math" | "Reading & Writing"
+  parentId:     number | null;  // null = top-level domain node
+  title:        string;
+  description?: string;
+  displayOrder: number;
+  createdAt:    string;
+  updatedAt:    string;
+}
+
+export type StudentSkillStatus =
+  | "not_assessed"
+  | "needs_work"
+  | "developing"
+  | "proficient"
+  | "strong";
+
+export interface StudentSkill {
+  id:            number;
+  studentId:     number;
+  skillId:       number;
+  masteryScore:  number;               // 0–6 (0 = not yet scored within status)
+  status:        StudentSkillStatus;
+  tutorNotes?:   string;
+  lastAssessed?: string;               // ISO date "2026-07-23"
+  createdAt:     string;
+  updatedAt:     string;
+}

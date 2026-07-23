@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -1743,4 +1743,191 @@ export async function updatePlanLessonStatus(
     .from("student_plan_lessons").update(u).eq("id", planLessonId).select().single();
   if (error) throw error;
   return rowToPlanLesson(data);
+}
+
+// ── SKILL NODES ───────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToSkillNode(r: any): SkillNode {
+  return {
+    id:           r.id,
+    slug:         r.slug,
+    course:       r.course,
+    category:     r.category,
+    parentId:     r.parent_id ?? null,
+    title:        r.title,
+    description:  r.description ?? undefined,
+    displayOrder: r.display_order,
+    createdAt:    r.created_at,
+    updatedAt:    r.updated_at,
+  };
+}
+
+/** Fetch the full skill tree for a course, ordered by display_order. */
+export async function fetchSkillNodes(course?: string): Promise<SkillNode[]> {
+  let q = supabase.from("skill_nodes").select("*").order("display_order");
+  if (course) q = q.eq("course", course);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map(rowToSkillNode);
+}
+
+/** Fetch a single skill node by id. Returns null if not found. */
+export async function fetchSkillNode(id: number): Promise<SkillNode | null> {
+  const { data, error } = await supabase
+    .from("skill_nodes").select("*").eq("id", id).single();
+  if (error) return null;
+  return rowToSkillNode(data);
+}
+
+/** Fetch a single skill node by slug. Returns null if not found. */
+export async function fetchSkillNodeBySlug(slug: string): Promise<SkillNode | null> {
+  const { data, error } = await supabase
+    .from("skill_nodes").select("*").eq("slug", slug).single();
+  if (error) return null;
+  return rowToSkillNode(data);
+}
+
+/** Fetch all direct children of a parent node. */
+export async function fetchChildSkillNodes(parentId: number): Promise<SkillNode[]> {
+  const { data, error } = await supabase
+    .from("skill_nodes").select("*")
+    .eq("parent_id", parentId)
+    .order("display_order");
+  if (error) throw error;
+  return (data ?? []).map(rowToSkillNode);
+}
+
+// ── STUDENT SKILLS ────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToStudentSkill(r: any): StudentSkill {
+  return {
+    id:           r.id,
+    studentId:    r.student_id,
+    skillId:      r.skill_id,
+    masteryScore: r.mastery_score,
+    status:       r.status as StudentSkillStatus,
+    tutorNotes:   r.tutor_notes   ?? undefined,
+    lastAssessed: r.last_assessed ?? undefined,
+    createdAt:    r.created_at,
+    updatedAt:    r.updated_at,
+  };
+}
+
+/** Fetch all student skill records for a student, optionally filtered by course. */
+export async function fetchStudentSkills(
+  studentId: number,
+  course?: string,
+): Promise<StudentSkill[]> {
+  if (course) {
+    // Join through skill_nodes to filter by course.
+    const { data, error } = await supabase
+      .from("student_skills")
+      .select("*, skill_nodes!inner(course)")
+      .eq("student_id", studentId)
+      .eq("skill_nodes.course", course)
+      .order("updated_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []).map(rowToStudentSkill);
+  }
+  const { data, error } = await supabase
+    .from("student_skills").select("*")
+    .eq("student_id", studentId)
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(rowToStudentSkill);
+}
+
+/** Fetch one student skill record. Returns null if not yet assessed. */
+export async function fetchStudentSkill(
+  studentId: number,
+  skillId:   number,
+): Promise<StudentSkill | null> {
+  const { data, error } = await supabase
+    .from("student_skills").select("*")
+    .eq("student_id", studentId)
+    .eq("skill_id",   skillId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToStudentSkill(data) : null;
+}
+
+/**
+ * Create or update a student's skill assessment.
+ * Tutors call this after evaluating a student on a specific skill.
+ * All fields are optional — only supplied fields are changed on update.
+ */
+export async function upsertStudentSkill(
+  studentId: number,
+  skillId:   number,
+  payload: {
+    masteryScore?: number;
+    status?:       StudentSkillStatus;
+    tutorNotes?:   string;
+    lastAssessed?: string;   // ISO date; defaults to today
+  },
+): Promise<StudentSkill> {
+  const now = new Date().toISOString().slice(0, 10);
+  const { data, error } = await supabase
+    .from("student_skills")
+    .upsert(
+      {
+        student_id:    studentId,
+        skill_id:      skillId,
+        mastery_score: payload.masteryScore ?? 0,
+        status:        payload.status       ?? "not_assessed",
+        tutor_notes:   payload.tutorNotes   ?? null,
+        last_assessed: payload.lastAssessed ?? now,
+      },
+      { onConflict: "student_id,skill_id" },
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToStudentSkill(data);
+}
+
+/**
+ * Partial update for an existing student skill record.
+ * Only the supplied fields are written — useful for updating just the notes
+ * or just the mastery score without touching other fields.
+ */
+export async function updateStudentSkill(
+  studentId: number,
+  skillId:   number,
+  payload: {
+    masteryScore?: number;
+    status?:       StudentSkillStatus;
+    tutorNotes?:   string;
+    lastAssessed?: string;
+  },
+): Promise<StudentSkill> {
+  const u: Record<string, unknown> = {};
+  if (payload.masteryScore !== undefined) u.mastery_score = payload.masteryScore;
+  if (payload.status       !== undefined) u.status        = payload.status;
+  if (payload.tutorNotes   !== undefined) u.tutor_notes   = payload.tutorNotes  || null;
+  if (payload.lastAssessed !== undefined) u.last_assessed = payload.lastAssessed || null;
+  const { data, error } = await supabase
+    .from("student_skills")
+    .update(u)
+    .eq("student_id", studentId)
+    .eq("skill_id",   skillId)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToStudentSkill(data);
+}
+
+/** Delete a student's skill assessment record. */
+export async function deleteStudentSkill(
+  studentId: number,
+  skillId:   number,
+): Promise<void> {
+  const { error } = await supabase
+    .from("student_skills")
+    .delete()
+    .eq("student_id", studentId)
+    .eq("skill_id",   skillId);
+  if (error) throw error;
 }
