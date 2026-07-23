@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -1024,9 +1024,18 @@ function rowToSkill(r: any): Skill {
 function rowToStudentPlan(r: any): StudentPlan {
   return {
     id: r.id, studentId: r.student_id, tutorId: r.tutor_id, courseId: r.course_id,
-    title: r.title, currentScore: r.current_score ?? undefined,
-    targetScore: r.target_score ?? undefined, targetDate: r.target_date ?? undefined,
+    title: r.title,
+    startingScore:        r.starting_score        ?? undefined,
+    currentScore:         r.current_score         ?? undefined,
+    targetScore:          r.target_score          ?? undefined,
+    targetDate:           r.target_date           ?? undefined,
     status: r.status, notes: r.notes ?? undefined,
+    sectionBars:          r.section_bars          ?? undefined,
+    sectionScores:        r.section_scores        ?? undefined,
+    skillBaseline:        r.skill_baseline        ?? undefined,
+    consultationNotes:    r.consultation_notes    ?? undefined,
+    sessionsPerWeek:      r.sessions_per_week     ?? undefined,
+    studyMinutesPerWeek:  r.study_minutes_per_week ?? undefined,
     createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
@@ -1354,18 +1363,30 @@ export async function fetchPlansByTutor(tutorId: number): Promise<StudentPlan[]>
 
 export async function insertStudentPlan(payload: {
   studentId: number; tutorId: number; courseId: number; title: string;
-  currentScore?: number; targetScore?: number; targetDate?: string; notes?: string;
+  startingScore?: number; currentScore?: number; targetScore?: number;
+  targetDate?: string; notes?: string;
+  sectionScores?: import("./types").PlanSectionScores;
+  skillBaseline?: import("./types").SkillBaseline;
+  consultationNotes?: import("./types").ConsultationNotes;
+  sessionsPerWeek?: number;
+  studyMinutesPerWeek?: number;
 }): Promise<StudentPlan> {
   const { data, error } = await supabase.from("student_plans").insert({
-    student_id:    payload.studentId,
-    tutor_id:      payload.tutorId,
-    course_id:     payload.courseId,
-    title:         payload.title,
-    current_score: payload.currentScore ?? null,
-    target_score:  payload.targetScore  ?? null,
-    target_date:   payload.targetDate   ?? null,
-    notes:         payload.notes        ?? null,
-    status:        "active",
+    student_id:             payload.studentId,
+    tutor_id:               payload.tutorId,
+    course_id:              payload.courseId,
+    title:                  payload.title,
+    starting_score:         payload.startingScore        ?? payload.currentScore ?? null,
+    current_score:          payload.currentScore         ?? null,
+    target_score:           payload.targetScore          ?? null,
+    target_date:            payload.targetDate            ?? null,
+    notes:                  payload.notes                ?? null,
+    section_scores:         payload.sectionScores        ?? null,
+    skill_baseline:         payload.skillBaseline        ?? null,
+    consultation_notes:     payload.consultationNotes    ?? null,
+    sessions_per_week:      payload.sessionsPerWeek      ?? null,
+    study_minutes_per_week: payload.studyMinutesPerWeek  ?? null,
+    status:                 "active",
   }).select().single();
   if (error) throw error;
   return rowToStudentPlan(data);
@@ -1431,6 +1452,27 @@ export async function updatePlanLesson(id: number, payload: Partial<{
 
 export async function deletePlanLesson(id: number): Promise<void> {
   const { error } = await supabase.from("student_plan_lessons").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteStudentPlan(planId: number): Promise<void> {
+  const { error } = await supabase.from("student_plans").delete().eq("id", planId);
+  if (error) throw error;
+}
+
+export async function updatePlanSectionBars(planId: number, bars: Record<string, number>): Promise<void> {
+  const { error } = await supabase
+    .from("student_plans")
+    .update({ section_bars: bars })
+    .eq("id", planId);
+  if (error) throw error;
+}
+
+export async function updatePlanSkillBaseline(planId: number, baseline: SkillBaseline): Promise<void> {
+  const { error } = await supabase
+    .from("student_plans")
+    .update({ skill_baseline: baseline })
+    .eq("id", planId);
   if (error) throw error;
 }
 

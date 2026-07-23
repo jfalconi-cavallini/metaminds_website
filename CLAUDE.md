@@ -1,6 +1,7 @@
 # MetaMinds — Claude Code Session Guide
 
 Every Claude session working on this codebase should read this file first.
+**Also read `PRODUCT_BIBLE.md`** before implementing any new feature — it defines the mission, learning flow, roles, curriculum philosophy, AI roadmap, and engineering principles that every implementation decision must align with.
 Full architecture, philosophy, and roadmap live in `docs/`. Knowledge base lives in `knowledge/`.
 
 ---
@@ -84,9 +85,9 @@ metaminds_website/
 | Updates | ✅ Built | Two-column: list + detail panel, message parser, Reply to Tutor |
 | Progress | ✅ Built | SVG ring stats, subject mastery bars, monthly chart, achievements |
 | Hours | ✅ Built | Package balance, purchase options |
+| Learning Path | ✅ Built | Score cards, progress bar, SAT Skills Roadmap tree (R&W + Math → categories → lessons), status dots, expandable lesson detail |
 | MetaMinds Lab | 🔜 Stub | Coming soon badge |
 | Resources | 🔜 Planned | See `docs/Roadmap.md` |
-| Learning Path | 🔜 Planned | |
 | Courses | 🔜 Planned | |
 | Projects | 🔜 Planned | |
 | Achievements | 🔜 Planned | |
@@ -99,6 +100,7 @@ metaminds_website/
 | Homework assignment + grading | ✅ Built |
 | Session notes | ✅ Built |
 | Parent updates | ✅ Built |
+| Learning Plan builder (per student) | ✅ Built | Create plan, add/remove lessons from catalog, mark complete |
 | AI Curriculum Builder | 🔜 Planned |
 
 ### Admin Portal (`/portal/admin`)
@@ -200,6 +202,7 @@ RESEND_API_KEY
 
 | File | Purpose |
 |------|---------|
+| `PRODUCT_BIBLE.md` | **Start here** — mission, learning flow, roles, curriculum philosophy, AI roadmap, business model, engineering principles |
 | `docs/Vision.md` | Mission, philosophy, long-term vision |
 | `docs/OperatingSystem.md` | What the Educational OS means technically |
 | `docs/MentorPipeline.md` | The student → mentor lifecycle + credit system |

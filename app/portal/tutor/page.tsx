@@ -27,14 +27,18 @@ import {
   updateSessionNote, deleteSessionNote,
   updateStudentProfile, updateTutorProfile,
   fetchStudyLog,
-  fetchStudentPlans, fetchStudentPlanFull, insertStudentPlan,
+  fetchStudentPlans, fetchStudentPlanFull,
   fetchCourses, fetchFullCatalog,
   assignLessonToStudent, updatePlanLessonStatus, removeLessonFromPlan,
+  deleteStudentPlan, updatePlanSectionBars, updatePlanSkillBaseline,
 } from "@/lib/portal/db";
+import PlanWizard from "@/components/portal/PlanWizard";
+import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
+import { getSubskills } from "@/lib/portal/planConfig";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
-  StudentPlanFull, Course, CourseCatalogFull,
+  StudentPlanFull, Course, CourseCatalogFull, SkillBaseline,
 } from "@/lib/portal/types";
 import { ExternalLink, ChevronRight, CheckCircle } from "lucide-react";
 
@@ -270,6 +274,15 @@ export default function TutorPortal() {
   const [panelNewTargetScore,   setPanelNewTargetScore]   = useState("");
   const [panelNewTargetDate,    setPanelNewTargetDate]    = useState("");
   const [panelCreating,         setPanelCreating]         = useState(false);
+  const [panelDeletingPlan,     setPanelDeletingPlan]     = useState(false);
+  const [panelShowBarsEditor,     setPanelShowBarsEditor]     = useState(false);
+  const [panelBarsDraft,          setPanelBarsDraft]          = useState<Record<string, number>>({});
+  const [panelSavingBars,         setPanelSavingBars]         = useState(false);
+  const [panelShowBaselineEditor, setPanelShowBaselineEditor] = useState(false);
+  const [panelBaselineDraft,      setPanelBaselineDraft]      = useState<SkillBaseline>({});
+  const [panelBaselineExpCats,    setPanelBaselineExpCats]    = useState<Set<number>>(new Set());
+  const [panelSavingBaseline,     setPanelSavingBaseline]     = useState(false);
+  const [panelPlanView,           setPanelPlanView]           = useState<"lessons" | "roadmap">("lessons");
   const [selectedStudyLog,    setSelectedStudyLog]    = useState<StudyLog[]>([]);
   const [studyLogLoading,     setStudyLogLoading]     = useState(false);
   const [hwDeletingId,        setHwDeletingId]        = useState<number | null>(null);
@@ -1320,110 +1333,28 @@ export default function TutorPortal() {
                         );
 
                         return (
-                          <div className="p-4 space-y-4">
-                            {panelPlanError && <p className="text-xs text-red-500">{panelPlanError}</p>}
-                            {panelPlanSuccess && <p className="text-xs text-emerald-600 font-medium">{panelPlanSuccess}</p>}
-
-                            {/* ── No plan: create form ── */}
-                            {!panelPlanFull && (
-                              <div className="space-y-3">
-                                <p className="text-sm text-gray-600 font-medium">No learning plan yet. Create one to get started.</p>
-
-                                <div>
-                                  <label className="text-xs text-gray-500 block mb-1">Course</label>
-                                  <select
-                                    value={panelNewCourseId ?? ""}
-                                    onChange={(e) => {
-                                      const id = Number(e.target.value);
-                                      setPanelNewCourseId(id);
-                                      const c = panelCourses.find(c2 => c2.id === id);
-                                      if (c) setPanelNewTitle(`${c.title} — Learning Plan`);
-                                    }}
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  >
-                                    {panelCourses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                                    {panelCourses.length === 0 && <option value="">No courses available</option>}
-                                  </select>
-                                </div>
-
-                                <div>
-                                  <label className="text-xs text-gray-500 block mb-1">Plan title</label>
-                                  <input
-                                    type="text"
-                                    value={panelNewTitle}
-                                    onChange={(e) => setPanelNewTitle(e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <label className="text-xs text-gray-500 block mb-1">Current score</label>
-                                    <input
-                                      type="number"
-                                      value={panelNewCurrentScore}
-                                      onChange={(e) => setPanelNewCurrentScore(e.target.value)}
-                                      placeholder="e.g. 1200"
-                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="text-xs text-gray-500 block mb-1">Target score</label>
-                                    <input
-                                      type="number"
-                                      value={panelNewTargetScore}
-                                      onChange={(e) => setPanelNewTargetScore(e.target.value)}
-                                      placeholder="e.g. 1500"
-                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <label className="text-xs text-gray-500 block mb-1">Target date (optional)</label>
-                                  <input
-                                    type="date"
-                                    value={panelNewTargetDate}
-                                    onChange={(e) => setPanelNewTargetDate(e.target.value)}
-                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                  />
-                                </div>
-
-                                <button
-                                  onClick={async () => {
-                                    if (!panelNewCourseId || !panelNewTitle || !tutor || !selectedStudentId) return;
-                                    setPanelCreating(true);
-                                    setPanelPlanError("");
-                                    try {
-                                      const plan = await insertStudentPlan({
-                                        studentId:    selectedStudentId,
-                                        tutorId:      tutor.id,
-                                        courseId:     panelNewCourseId,
-                                        title:        panelNewTitle,
-                                        currentScore: panelNewCurrentScore ? Number(panelNewCurrentScore) : undefined,
-                                        targetScore:  panelNewTargetScore  ? Number(panelNewTargetScore)  : undefined,
-                                        targetDate:   panelNewTargetDate   || undefined,
-                                      });
-                                      const [full, catalog] = await Promise.all([
-                                        fetchStudentPlanFull(selectedStudentId, plan.courseId),
-                                        fetchFullCatalog(plan.courseId),
-                                      ]);
-                                      setPanelPlanFull(full);
-                                      setPanelCatalog(catalog);
-                                      setPanelPlanSuccess("Plan created!");
-                                      setTimeout(() => setPanelPlanSuccess(""), 3000);
-                                    } catch (err) {
-                                      setPanelPlanError(err instanceof Error ? err.message : "Failed to create plan");
-                                    } finally {
-                                      setPanelCreating(false);
-                                    }
-                                  }}
-                                  disabled={panelCreating || !panelNewCourseId || !panelNewTitle}
-                                  className="w-full bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 hover:bg-blue-700 transition-colors"
-                                >
-                                  {panelCreating ? "Creating…" : "Create Plan"}
-                                </button>
+                          <div>
+                            {panelPlanSuccess && (
+                              <div className="px-4 pt-3">
+                                <p className="text-xs text-emerald-600 font-medium">{panelPlanSuccess}</p>
                               </div>
+                            )}
+
+                            {/* ── No plan: 4-step wizard ── */}
+                            {!panelPlanFull && tutor && selectedStudentId && (
+                              <PlanWizard
+                                courses={panelCourses}
+                                defaultCourseId={panelNewCourseId}
+                                tutorId={tutor.id}
+                                studentId={selectedStudentId}
+                                onComplete={(full, catalog) => {
+                                  setPanelPlanFull(full);
+                                  setPanelCatalog(catalog);
+                                  setPanelPlanSuccess("Plan created!");
+                                  setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                }}
+                                onCancel={() => setStudentPanelTab("homework")}
+                              />
                             )}
 
                             {/* ── Plan exists ── */}
@@ -1436,7 +1367,31 @@ export default function TutorPortal() {
                                 <>
                                   {/* Plan header */}
                                   <div className="bg-gray-50 rounded-xl p-3 space-y-2">
-                                    <p className="text-sm font-semibold text-gray-900">{panelPlanFull.title}</p>
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className="text-sm font-semibold text-gray-900">{panelPlanFull.title}</p>
+                                      <button
+                                        onClick={async () => {
+                                          if (!confirm("Delete this learning plan and all its lessons? This cannot be undone.")) return;
+                                          setPanelDeletingPlan(true);
+                                          try {
+                                            await deleteStudentPlan(panelPlanFull.id);
+                                            setPanelPlanFull(null);
+                                            setPanelCatalog(null);
+                                            setPanelShowBarsEditor(false);
+                                            setPanelPlanSuccess("Plan deleted.");
+                                            setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                          } catch (err) {
+                                            setPanelPlanError(err instanceof Error ? err.message : "Delete failed");
+                                          } finally {
+                                            setPanelDeletingPlan(false);
+                                          }
+                                        }}
+                                        disabled={panelDeletingPlan}
+                                        className="text-xs text-red-400 hover:text-red-600 shrink-0 font-medium disabled:opacity-50"
+                                      >
+                                        {panelDeletingPlan ? "Deleting…" : "Delete plan"}
+                                      </button>
+                                    </div>
                                     {(panelPlanFull.currentScore || panelPlanFull.targetScore) && (
                                       <p className="text-xs text-gray-500">
                                         Score: {panelPlanFull.currentScore ?? "—"} → {panelPlanFull.targetScore ?? "—"}
@@ -1453,8 +1408,188 @@ export default function TutorPortal() {
                                     </div>
                                   </div>
 
+                                  {/* Skill Proficiency Editor (0–6) */}
+                                  {panelCatalog && (() => {
+                                    const scoreBtnClass = (s: number, current: number | undefined) => {
+                                      if (current !== s) return "bg-white border-gray-200 text-gray-400 hover:border-gray-400";
+                                      if (s <= 1) return "bg-red-500 border-red-500 text-white";
+                                      if (s <= 3) return "bg-amber-400 border-amber-400 text-white";
+                                      if (s <= 5) return "bg-blue-500 border-blue-500 text-white";
+                                      return "bg-emerald-500 border-emerald-500 text-white";
+                                    };
+                                    return (
+                                      <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                        <button
+                                          onClick={() => {
+                                            if (!panelShowBaselineEditor) {
+                                              setPanelBaselineDraft(
+                                                panelPlanFull.skillBaseline
+                                                  ? JSON.parse(JSON.stringify(panelPlanFull.skillBaseline))
+                                                  : {}
+                                              );
+                                              setPanelBaselineExpCats(new Set());
+                                            }
+                                            setPanelShowBaselineEditor(v => !v);
+                                          }}
+                                          className="w-full flex items-center justify-between px-4 py-2.5 bg-gray-50 text-left"
+                                        >
+                                          <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Edit Skill Proficiency (0–6)</span>
+                                          <span className="text-gray-400 text-sm">{panelShowBaselineEditor ? "▲" : "▼"}</span>
+                                        </button>
+                                        {panelShowBaselineEditor && (
+                                          <div className="p-3 space-y-4">
+                                            <p className="text-[10px] text-gray-400 leading-relaxed">
+                                              Rate each category 0–6. Click the arrow to expand and rate individual subskills.
+                                            </p>
+                                            {panelCatalog.sections.map(section => (
+                                              <div key={section.id}>
+                                                <p className="text-xs font-semibold text-gray-700 mb-2">{section.title}</p>
+                                                <div className="space-y-1.5">
+                                                  {section.categories.map(cat => {
+                                                    const catId = String(cat.id);
+                                                    const catEntry = panelBaselineDraft[catId] ?? { subskills: {} };
+                                                    const catScore = catEntry.score;
+                                                    const isExp = panelBaselineExpCats.has(cat.id);
+                                                    const subskills = getSubskills(cat.title);
+                                                    return (
+                                                      <div key={cat.id} className="rounded-lg border border-gray-100 overflow-hidden">
+                                                        <div className="flex items-center gap-1.5 px-2 py-1.5">
+                                                          {subskills.length > 0 && (
+                                                            <button
+                                                              onClick={() => setPanelBaselineExpCats(prev => {
+                                                                const next = new Set(prev);
+                                                                if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                                                                return next;
+                                                              })}
+                                                              className="shrink-0"
+                                                            >
+                                                              <ChevronRight className={`w-3 h-3 text-gray-300 transition-transform ${isExp ? "rotate-90" : ""}`} />
+                                                            </button>
+                                                          )}
+                                                          <span className="text-xs text-gray-700 flex-1 truncate">{cat.title}</span>
+                                                          <div className="flex gap-0.5 shrink-0">
+                                                            {[0,1,2,3,4,5,6].map(s => (
+                                                              <button
+                                                                key={s}
+                                                                onClick={() => setPanelBaselineDraft(d => ({
+                                                                  ...d,
+                                                                  [catId]: { ...catEntry, score: catScore === s ? undefined : s },
+                                                                }))}
+                                                                className={`w-5 h-5 rounded-full border-2 text-[9px] font-bold transition-colors ${scoreBtnClass(s, catScore)}`}
+                                                              >
+                                                                {s}
+                                                              </button>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                        {isExp && subskills.length > 0 && (
+                                                          <div className="border-t border-gray-100 bg-gray-50 px-2 py-1.5 space-y-1.5">
+                                                            {subskills.map(skill => {
+                                                              const skillScore = catEntry.subskills?.[skill]?.score;
+                                                              return (
+                                                                <div key={skill} className="flex items-center gap-1.5">
+                                                                  <span className="text-[11px] text-gray-500 flex-1 truncate pl-4">{skill}</span>
+                                                                  <div className="flex gap-0.5 shrink-0">
+                                                                    {[0,1,2,3,4,5,6].map(s => (
+                                                                      <button
+                                                                        key={s}
+                                                                        onClick={() => setPanelBaselineDraft(d => ({
+                                                                          ...d,
+                                                                          [catId]: {
+                                                                            ...catEntry,
+                                                                            subskills: {
+                                                                              ...(catEntry.subskills ?? {}),
+                                                                              [skill]: { score: skillScore === s ? undefined : s },
+                                                                            },
+                                                                          },
+                                                                        }))}
+                                                                        className={`w-5 h-5 rounded-full border-2 text-[9px] font-bold transition-colors ${scoreBtnClass(s, skillScore)}`}
+                                                                      >
+                                                                        {s}
+                                                                      </button>
+                                                                    ))}
+                                                                  </div>
+                                                                </div>
+                                                              );
+                                                            })}
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    );
+                                                  })}
+                                                </div>
+                                              </div>
+                                            ))}
+                                            <button
+                                              onClick={async () => {
+                                                setPanelSavingBaseline(true);
+                                                try {
+                                                  await updatePlanSkillBaseline(panelPlanFull.id, panelBaselineDraft);
+                                                  const full = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
+                                                  setPanelPlanFull(full);
+                                                  setPanelShowBaselineEditor(false);
+                                                  setPanelBaselineExpCats(new Set());
+                                                  setPanelPlanSuccess("Proficiency saved!");
+                                                  setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                                } catch (err) {
+                                                  setPanelPlanError(err instanceof Error ? err.message : "Save failed");
+                                                } finally {
+                                                  setPanelSavingBaseline(false);
+                                                }
+                                              }}
+                                              disabled={panelSavingBaseline}
+                                              className="w-full bg-blue-600 text-white text-xs font-semibold rounded-lg py-2 disabled:opacity-50 hover:bg-blue-700"
+                                            >
+                                              {panelSavingBaseline ? "Saving…" : "Save Proficiency"}
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+
+                                  {/* Lessons / Roadmap tabs */}
+                                  <div className="flex border-b border-gray-100 -mx-1">
+                                    {(["lessons", "roadmap"] as const).map(v => (
+                                      <button
+                                        key={v}
+                                        onClick={() => setPanelPlanView(v)}
+                                        className={`px-3 py-1.5 text-xs font-semibold capitalize border-b-2 transition-colors -mb-px ${
+                                          panelPlanView === v
+                                            ? "border-blue-500 text-blue-600"
+                                            : "border-transparent text-gray-400 hover:text-gray-600"
+                                        }`}
+                                      >
+                                        {v}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Roadmap view */}
+                                  {panelPlanView === "roadmap" && panelCatalog && (() => {
+                                    const plMap: Record<number, typeof panelPlanFull.lessons[0]> =
+                                      Object.fromEntries(panelPlanFull.lessons.map(l => [l.lessonId, l]));
+                                    return (
+                                      <div className="space-y-3">
+                                        {panelCatalog.sections.map((section, si) => (
+                                          <div key={section.id}>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{section.title}</p>
+                                            <div className="overflow-x-auto">
+                                              <SATRoadmapGraph
+                                                section={section}
+                                                skillBaseline={panelPlanFull.skillBaseline}
+                                                planLessonMap={plMap}
+                                              />
+                                            </div>
+                                            {si < panelCatalog.sections.length - 1 && <div className="border-t border-gray-100 mt-3" />}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
+
                                   {/* Lesson list */}
-                                  {totalL === 0 ? (
+                                  {panelPlanView === "lessons" && (totalL === 0 ? (
                                     <p className="text-sm text-gray-400 text-center py-3">No lessons added yet.</p>
                                   ) : (
                                     <div className="space-y-2">
@@ -1533,7 +1668,7 @@ export default function TutorPortal() {
                                         );
                                       })}
                                     </div>
-                                  )}
+                                  ))}
 
                                   {/* Add Lesson toggle */}
                                   {!panelShowPicker ? (

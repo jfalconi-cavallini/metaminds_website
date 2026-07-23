@@ -238,17 +238,59 @@ export interface Skill {
   createdAt: string;
 }
 
+// ── Plan skill baseline types ─────────────────────────────────────────────────
+
+export interface SkillEntry {
+  score?: number;      // 0–6; undefined = Not Assessed
+  note?: string;
+  assessedAt?: string; // ISO date
+}
+
+export interface CategoryBaseline extends SkillEntry {
+  subskills: Record<string, SkillEntry>; // subskill label → entry
+}
+
+/** categoryId (as string) → baseline entry */
+export type SkillBaseline = Record<string, CategoryBaseline>;
+
+export interface PlanSectionScores {
+  rw?: number;        // SAT Reading & Writing
+  math?: number;      // SAT Math (or ACT)
+  english?: number;   // ACT English
+  reading?: number;   // ACT Reading
+  science?: number;   // ACT Science
+  composite?: number; // ACT Composite
+}
+
+export interface ConsultationNotes {
+  strengths?: string;
+  weaknesses?: string;
+  scheduleConstraints?: string;
+  studentCommitment?: string;
+  tutorRecommendation?: string;
+  firstMilestone?: string;
+}
+
+// ── Student plan ──────────────────────────────────────────────────────────────
+
 export interface StudentPlan {
   id: number;
   studentId: number;
   tutorId: number;
   courseId: number;
   title: string;
-  currentScore?: number;
+  startingScore?: number;   // baseline captured at plan creation — never updated
+  currentScore?: number;    // updated from practice-test results over time
   targetScore?: number;
   targetDate?: string;      // ISO date
   status: PlanStatus;
   notes?: string;
+  sectionBars?: Record<string, number>; // legacy 0–4 bars (migration 033)
+  sectionScores?: PlanSectionScores;    // section-level starting scores
+  skillBaseline?: SkillBaseline;        // category/subskill 0–6 baseline
+  consultationNotes?: ConsultationNotes;
+  sessionsPerWeek?: number;
+  studyMinutesPerWeek?: number;
   createdAt: string;
   updatedAt: string;
 }

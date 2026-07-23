@@ -33,6 +33,8 @@ import {
   Map as MapIcon,
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
+import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
+import { scoreToStatus, STATUS_BADGE, STATUS_LABEL } from "@/lib/portal/planConfig";
 
 const CANCEL_LOCK_HOURS = 48;
 
@@ -90,6 +92,7 @@ export default function StudentPortal() {
   const [planLoading,     setPlanLoading]     = useState(false);
   const [planLoaded,      setPlanLoaded]      = useState(false);
   const [planExpIds,      setPlanExpIds]      = useState<Set<number>>(new Set());
+  const [planSectionIdx,  setPlanSectionIdx]  = useState(0);
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -902,7 +905,8 @@ export default function StudentPortal() {
                   </div>
                   {streak > 0 && (
                     <span className="flex items-center gap-1.5 text-sm font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
-                      🔥 {streak}-day streak
+                      <TrendingUp className="w-3.5 h-3.5" />
+                      {streak}-day streak
                     </span>
                   )}
                 </div>
@@ -1374,12 +1378,12 @@ export default function StudentPortal() {
         const maxSubCount = Math.max(...Object.values(subjectMap), 1);
 
         // Achievements
-        const achievements: { icon: string; title: string; desc: string }[] = [];
-        if (completed.length >= 1)  achievements.push({ icon: "🌟", title: "First Session", desc: "Completed your first tutoring session" });
-        if (completed.length >= 5)  achievements.push({ icon: "🔥", title: "5 Sessions Strong", desc: "Completed 5 tutoring sessions" });
-        if (completed.length >= 10) achievements.push({ icon: "🏆", title: "10 Session Milestone", desc: "Reached 10 completed sessions" });
-        if (completedHw.length >= 1) achievements.push({ icon: "✅", title: "First Assignment Done", desc: "Completed and graded first assignment" });
-        if (hwRate >= 80) achievements.push({ icon: "🎯", title: "High Achiever", desc: "80%+ assignment completion rate" });
+        const achievements: { title: string; desc: string }[] = [];
+        if (completed.length >= 1)  achievements.push({ title: "First Session", desc: "Completed your first tutoring session" });
+        if (completed.length >= 5)  achievements.push({ title: "5 Sessions Strong", desc: "Completed 5 tutoring sessions" });
+        if (completed.length >= 10) achievements.push({ title: "10 Session Milestone", desc: "Reached 10 completed sessions" });
+        if (completedHw.length >= 1) achievements.push({ title: "First Assignment Done", desc: "Completed and graded first assignment" });
+        if (hwRate >= 80) achievements.push({ title: "High Achiever", desc: "80%+ assignment completion rate" });
 
         // Study tips (cycle by day of week)
         const tips = [
@@ -1529,7 +1533,9 @@ export default function StudentPortal() {
                   <div className="space-y-4">
                     {achievements.slice(0, 4).map((a) => (
                       <div key={a.title} className="flex items-center gap-3">
-                        <span className="text-xl shrink-0">{a.icon}</span>
+                        <div className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                          <Star className="w-4 h-4 text-amber-500" />
+                        </div>
                         <div className="min-w-0">
                           <p className="text-xs font-bold text-gray-800">{a.title}</p>
                           <p className="text-[11px] text-gray-400">{a.desc}</p>
@@ -2910,73 +2916,222 @@ export default function StudentPortal() {
           </div>
         );
 
-        const total = studentPlanFull.lessons.length;
-        const completedCount = studentPlanFull.lessons.filter(l => l.status === "completed").length;
-        const inProgressCount = studentPlanFull.lessons.filter(l => l.status === "in_progress").length;
-        const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+        const total         = studentPlanFull.lessons.length;
+        const completedCount= studentPlanFull.lessons.filter(l => l.status === "completed").length;
+        const inProgressCount=studentPlanFull.lessons.filter(l => l.status === "in_progress").length;
+        const pct           = total > 0 ? Math.round((completedCount / total) * 100) : 0;
 
-        // Build a lookup from lessonId → plan lesson
         const planLessonMap: Record<number, StudentPlanLessonFull> = {};
         for (const pl of studentPlanFull.lessons) planLessonMap[pl.lessonId] = pl;
 
+        const ss = studentPlanFull.sectionScores;
+        const hasBaseline = !!studentPlanFull.skillBaseline && Object.keys(studentPlanFull.skillBaseline).length > 0;
+
+        // Weeks until target date
+        const weeksLeft = studentPlanFull.targetDate
+          ? Math.max(0, Math.round((new Date(studentPlanFull.targetDate).getTime() - Date.now()) / (7 * 86400000)))
+          : null;
+
+        // Activity stats (computed from already-loaded state)
+        const completedSessions = mySessions.filter(s => s.status === "completed");
+        const sessionHours = completedSessions.reduce((sum, s) => sum + s.durationHours, 0);
+        const studyMinutesTotal = studyLog.reduce((sum, e) => sum + e.minutes, 0);
+        const studyHours = +(studyMinutesTotal / 60).toFixed(1);
+
+        // Score-based milestones (4 checkpoints between start and goal)
+        const startScore = studentPlanFull.startingScore ?? studentPlanFull.currentScore ?? null;
+        const goalScore  = studentPlanFull.targetScore ?? null;
+        const milestones = (startScore && goalScore && goalScore > startScore)
+          ? [1, 2, 3, 4].map(n => ({
+              n,
+              score: Math.round((startScore + ((goalScore - startScore) * n) / 4) / 10) * 10,
+            }))
+          : null;
+        // Current milestone = first checkpoint not yet consistently exceeded (based on lesson progress as proxy)
+        const curMilestoneIdx = milestones
+          ? Math.min(milestones.length - 1, Math.floor(pct / 25))
+          : 0;
+        const curMilestone = milestones?.[curMilestoneIdx] ?? null;
+        const milestoneAchieved = pct === 100;
+
         return (
-          <div className="space-y-6">
-            {/* Score header cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {([
+          <div className="space-y-4">
+
+            {/* ── Milestone banner ── */}
+            <div className="bg-slate-900 rounded-2xl px-5 py-4 flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-0.5">
+                  {milestoneAchieved ? "Plan Complete" : "Current Milestone"}
+                </p>
+                <p className="text-lg font-bold text-white">
+                  {milestoneAchieved
+                    ? "All Milestones Achieved"
+                    : curMilestone
+                    ? `Milestone ${curMilestone.n} — Score ${curMilestone.score}+`
+                    : `Milestone 1 — First Practice Test`}
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {milestoneAchieved
+                    ? "Goal reached — great work!"
+                    : curMilestone
+                    ? `Reach ${curMilestone.score} consistently on practice tests`
+                    : "Complete your first scored practice test with your tutor"}
+                </p>
+              </div>
+              <div className="flex flex-col items-end gap-1 shrink-0">
+                <p className="text-2xl font-bold text-white">{pct}%</p>
+                <div className="w-28 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full transition-all duration-700" style={{ width: `${pct}%` }} />
+                </div>
+                <p className="text-[10px] text-slate-500">{completedCount} of {total} lessons</p>
+              </div>
+            </div>
+
+            {/* ── Top stat row ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
                 {
-                  label: "Current Score",
-                  value: studentPlanFull.currentScore ? String(studentPlanFull.currentScore) : "—",
+                  label: "Starting Score",
+                  value: (studentPlanFull.startingScore ?? studentPlanFull.currentScore)
+                    ? String(studentPlanFull.startingScore ?? studentPlanFull.currentScore)
+                    : "—",
                   sub: "baseline",
-                  color: "text-gray-900",
-                  bg: "bg-white",
+                  accent: "text-gray-900",
+                  Icon: BookOpen,
+                  iconBg: "bg-blue-50",
+                  iconColor: "text-blue-500",
                 },
                 {
                   label: "Goal Score",
                   value: studentPlanFull.targetScore ? String(studentPlanFull.targetScore) : "—",
                   sub: "target",
-                  color: "text-blue-600",
-                  bg: "bg-blue-50 border-blue-100",
+                  accent: "text-blue-600",
+                  Icon: Zap,
+                  iconBg: "bg-blue-50",
+                  iconColor: "text-blue-500",
                 },
                 {
-                  label: "Completed",
+                  label: "Time Remaining",
+                  value: weeksLeft !== null ? `${weeksLeft}` : "—",
+                  sub: weeksLeft !== null ? "weeks" : "no date set",
+                  accent: weeksLeft !== null && weeksLeft <= 4 ? "text-red-500" : "text-violet-600",
+                  Icon: CalendarDays,
+                  iconBg: "bg-violet-50",
+                  iconColor: "text-violet-500",
+                },
+                {
+                  label: "Study Goal",
+                  value: studentPlanFull.studyMinutesPerWeek ? String(studentPlanFull.studyMinutesPerWeek) : "—",
+                  sub: "min / week",
+                  accent: "text-amber-600",
+                  Icon: Clock,
+                  iconBg: "bg-amber-50",
+                  iconColor: "text-amber-500",
+                },
+                {
+                  label: "Lessons Done",
                   value: `${completedCount}/${total}`,
-                  sub: "lessons",
-                  color: "text-emerald-600",
-                  bg: "bg-emerald-50 border-emerald-100",
+                  sub: `${pct}% complete`,
+                  accent: pct === 100 ? "text-emerald-600" : "text-blue-600",
+                  Icon: CheckCircle,
+                  iconBg: "bg-emerald-50",
+                  iconColor: "text-emerald-500",
                 },
-                {
-                  label: "Progress",
-                  value: `${pct}%`,
-                  sub: "overall",
-                  color: inProgressCount > 0 ? "text-blue-600" : pct === 100 ? "text-emerald-600" : "text-gray-700",
-                  bg: "bg-white",
-                },
-              ] as const).map((card) => (
-                <div key={card.label} className={`${card.bg} border border-gray-100 rounded-2xl p-4 shadow-sm`}>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
-                  <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
+              ].map(card => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className={`text-2xl font-bold ${card.accent}`}>{card.value}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
                 </div>
               ))}
             </div>
 
-            {/* Progress bar */}
+            {/* ── Score Journey bar ── */}
+            {(studentPlanFull.startingScore ?? studentPlanFull.currentScore) && studentPlanFull.targetScore && (() => {
+              const MIN = 400, MAX = 1600, SPAN = MAX - MIN;
+              const cur  = studentPlanFull.startingScore ?? studentPlanFull.currentScore ?? MIN;
+              const goal = studentPlanFull.targetScore;
+              const curPct  = Math.max(0, Math.min(100, ((cur  - MIN) / SPAN) * 100));
+              const goalPct = Math.max(0, Math.min(100, ((goal - MIN) / SPAN) * 100));
+              const gap = goal - cur;
+              return (
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm px-6 py-5">
+                  <div className="flex items-center justify-between mb-6">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Score Journey</p>
+                    {gap > 0 && (
+                      <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-0.5">
+                        +{gap} points to goal
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative mb-10">
+                    <div className="h-3 w-full bg-gray-100 rounded-full relative">
+                      <div className="absolute inset-y-0 left-0 bg-emerald-400 rounded-l-full" style={{ width: `${curPct}%` }} />
+                      {gap > 0 && <div className="absolute inset-y-0 bg-blue-200" style={{ left: `${curPct}%`, width: `${Math.max(0, goalPct - curPct)}%` }} />}
+                    </div>
+                    <div className="absolute" style={{ left: `${curPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
+                      <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
+                        <span className="text-sm font-bold text-gray-900 block">{cur}</span>
+                        <span className="text-[10px] text-gray-400">starting</span>
+                      </div>
+                    </div>
+                    <div className="absolute" style={{ left: `${goalPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
+                      <div className="w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-md flex items-center justify-center">
+                        <div className="w-2 h-2 rounded-full bg-white" />
+                      </div>
+                      <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
+                        <span className="text-sm font-bold text-blue-600 block">{goal}</span>
+                        <span className="text-[10px] text-gray-400">goal</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-300 mt-2 px-0.5">
+                    {[400, 600, 800, 1000, 1200, 1400, 1600].map(v => <span key={v}>{v}</span>)}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* ── Section Scores (R&W / Math) ── */}
+            {ss && (ss.rw || ss.math || ss.english || ss.reading || ss.science) && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Section Scores — Starting</p>
+                <div className="flex flex-wrap gap-4">
+                  {[
+                    { key: "rw",      label: "Reading & Writing", max: 800,  color: "text-violet-600 bg-violet-50" },
+                    { key: "math",    label: "Math",              max: 800,  color: "text-blue-600 bg-blue-50"    },
+                    { key: "english", label: "English",           max: 36,   color: "text-emerald-600 bg-emerald-50" },
+                    { key: "reading", label: "Reading",           max: 36,   color: "text-amber-600 bg-amber-50"  },
+                    { key: "science", label: "Science",           max: 36,   color: "text-red-600 bg-red-50"      },
+                  ].map(f => {
+                    const val = (ss as Record<string,number|undefined>)[f.key];
+                    if (!val) return null;
+                    return (
+                      <div key={f.key} className={`flex flex-col items-center px-4 py-3 rounded-xl ${f.color.split(" ")[1]} border border-opacity-20`}>
+                        <span className={`text-2xl font-bold ${f.color.split(" ")[0]}`}>{val}</span>
+                        <span className="text-xs text-gray-500 mt-0.5">{f.label}</span>
+                        <span className="text-[10px] text-gray-400">/ {f.max}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Overall progress bar ── */}
             <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-sm font-semibold text-gray-700">{studentPlanFull.title}</p>
-                {studentPlanFull.targetDate && (
-                  <span className="text-xs text-gray-400 flex items-center gap-1">
-                    <CalendarDays className="w-3 h-3" />
-                    Target: {formatDate(studentPlanFull.targetDate)}
-                  </span>
-                )}
+                <span className="text-sm font-bold text-blue-600">{pct}%</span>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5">
-                <div
-                  className="h-2.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-700"
-                  style={{ width: `${pct}%` }}
-                />
+              <div className="w-full bg-gray-100 rounded-full h-2">
+                <div className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-700" style={{ width: `${pct}%` }} />
               </div>
               <div className="flex gap-4 mt-2 text-xs text-gray-500">
                 <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />{completedCount} done</span>
@@ -2985,189 +3140,113 @@ export default function StudentPortal() {
               </div>
             </div>
 
-            {/* SAT Skills Tree */}
+            {/* ── Activity stats ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                {
+                  label: "Sessions Done",
+                  value: String(completedSessions.length),
+                  sub: `${sessionHours} hrs in session`,
+                  accent: "text-blue-600",
+                  Icon: Video,
+                  iconBg: "bg-blue-50",
+                  iconColor: "text-blue-500",
+                },
+                {
+                  label: "Self Study",
+                  value: `${studyHours}h`,
+                  sub: studyMinutesTotal > 0 ? `${studyMinutesTotal} min logged` : "none logged yet",
+                  accent: "text-violet-600",
+                  Icon: FileText,
+                  iconBg: "bg-violet-50",
+                  iconColor: "text-violet-500",
+                },
+                {
+                  label: "Hours Remaining",
+                  value: balance ? String(balance.remaining) : "—",
+                  sub: balance ? `of ${balance.totalPurchased} purchased` : "no package",
+                  accent: balance && balance.remaining <= 3 ? "text-red-500" : "text-emerald-600",
+                  Icon: Timer,
+                  iconBg: "bg-emerald-50",
+                  iconColor: "text-emerald-500",
+                },
+                {
+                  label: "Total Hours Used",
+                  value: balance ? String(balance.totalUsed) : "—",
+                  sub: "session hours",
+                  accent: "text-gray-700",
+                  Icon: TrendingUp,
+                  iconBg: "bg-gray-50",
+                  iconColor: "text-gray-400",
+                },
+              ].map(card => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className={`text-2xl font-bold ${card.accent}`}>{card.value}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Node graph roadmap ── */}
             {planCatalog && (
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{planCatalog.title} — Skills Roadmap</p>
-                </div>
-
-                {/* Two-column section layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
-                  {planCatalog.sections.map((section) => {
-                    // Count how many lessons in this section are in the plan
-                    const sectionLessonIds = section.categories.flatMap(c => c.lessons.map(l => l.id));
-                    const sectionPlanCount = sectionLessonIds.filter(id => id in planLessonMap).length;
-                    const sectionDoneCount = sectionLessonIds.filter(id => planLessonMap[id]?.status === "completed").length;
-
-                    return (
-                      <div key={section.id} className="p-5">
-                        {/* Section header */}
-                        <div className="flex items-center justify-between mb-4">
-                          <h3 className="text-sm font-bold text-gray-900">{section.title}</h3>
-                          {sectionPlanCount > 0 && (
-                            <span className="text-xs text-gray-400">{sectionDoneCount}/{sectionPlanCount} done</span>
+                {/* Header + tabs */}
+                <div className="px-5 pt-4 pb-0 border-b border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">
+                    {planCatalog.title} — Skills Roadmap
+                  </p>
+                  <div className="flex">
+                    {planCatalog.sections.map((s, i) => {
+                      const sIds = s.categories.flatMap(c => c.lessons.map(l => l.id));
+                      const sDone = sIds.filter(id => planLessonMap[id]?.status === "completed").length;
+                      const sPlan = sIds.filter(id => id in planLessonMap).length;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => setPlanSectionIdx(i)}
+                          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-colors -mb-px ${
+                            planSectionIdx === i
+                              ? "border-blue-500 text-blue-600"
+                              : "border-transparent text-gray-400 hover:text-gray-600"
+                          }`}
+                        >
+                          {s.title}
+                          {sPlan > 0 && (
+                            <span className="text-[10px] font-bold text-gray-400">
+                              {sDone}/{sPlan}
+                            </span>
                           )}
-                        </div>
-
-                        {/* Categories */}
-                        <div className="space-y-3">
-                          {section.categories.map((cat) => {
-                            const isExpCat = planExpIds.has(cat.id);
-                            const catPlanLessons = cat.lessons.filter(l => l.id in planLessonMap);
-                            const catDone = catPlanLessons.filter(l => planLessonMap[l.id]?.status === "completed").length;
-                            const hasPlanLessons = catPlanLessons.length > 0;
-
-                            return (
-                              <div key={cat.id} className={`rounded-xl border transition-colors ${hasPlanLessons ? "border-blue-100 bg-blue-50/30" : "border-gray-100 bg-gray-50/50"}`}>
-                                <button
-                                  onClick={() => setPlanExpIds(prev => {
-                                    const next = new Set(prev);
-                                    if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
-                                    return next;
-                                  })}
-                                  className="w-full flex items-center justify-between px-4 py-3 text-left"
-                                >
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    <span className={`text-sm font-semibold truncate ${hasPlanLessons ? "text-gray-800" : "text-gray-400"}`}>
-                                      {cat.title}
-                                    </span>
-                                    {hasPlanLessons && (
-                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-100 rounded-full px-1.5 py-0.5 shrink-0">
-                                        {catPlanLessons.length}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2 shrink-0">
-                                    {hasPlanLessons && (
-                                      <span className="text-xs text-gray-400">{catDone}/{catPlanLessons.length}</span>
-                                    )}
-                                    <ChevronRight className={`w-4 h-4 text-gray-300 transition-transform duration-150 ${isExpCat ? "rotate-90" : ""}`} />
-                                  </div>
-                                </button>
-
-                                {isExpCat && (
-                                  <div className="px-4 pb-3 space-y-2">
-                                    {cat.lessons.length === 0 ? (
-                                      <p className="text-xs text-gray-400 italic">No lessons in this category yet.</p>
-                                    ) : (
-                                      cat.lessons.map((lesson) => {
-                                        const pl = planLessonMap[lesson.id];
-                                        const inPlan = !!pl;
-                                        const isExpLesson = planExpIds.has(lesson.id * 1000 + 1); // unique key for lesson expansion
-                                        const dotColor = !inPlan
-                                          ? "bg-gray-200"
-                                          : pl.status === "completed"
-                                            ? "bg-emerald-400"
-                                            : pl.status === "in_progress"
-                                              ? "bg-blue-400"
-                                              : "bg-gray-300";
-                                        const statusLabel = !inPlan ? null
-                                          : pl.status === "completed" ? "Done"
-                                          : pl.status === "in_progress" ? "Active"
-                                          : "Pending";
-                                        const statusTextColor = pl?.status === "completed"
-                                          ? "text-emerald-600 bg-emerald-50"
-                                          : pl?.status === "in_progress"
-                                            ? "text-blue-600 bg-blue-50"
-                                            : "text-gray-400 bg-gray-50";
-
-                                        return (
-                                          <Fragment key={lesson.id}>
-                                            <div
-                                              className={`flex items-center gap-2.5 px-1 py-1 rounded-lg transition-colors ${inPlan ? "cursor-pointer hover:bg-white" : "opacity-40"}`}
-                                              onClick={() => {
-                                                if (!inPlan) return;
-                                                setPlanExpIds(prev => {
-                                                  const next = new Set(prev);
-                                                  const k = lesson.id * 1000 + 1;
-                                                  if (next.has(k)) next.delete(k); else next.add(k);
-                                                  return next;
-                                                });
-                                              }}
-                                            >
-                                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
-                                              <span className={`text-sm flex-1 ${pl?.status === "completed" ? "line-through text-gray-400" : inPlan ? "text-gray-800 font-medium" : "text-gray-500"}`}>
-                                                {lesson.title}
-                                              </span>
-                                              {statusLabel && (
-                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${statusTextColor}`}>{statusLabel}</span>
-                                              )}
-                                              {inPlan && lesson.estimatedMinutes && (
-                                                <span className="text-xs text-gray-400 shrink-0">{lesson.estimatedMinutes}m</span>
-                                              )}
-                                              {inPlan && (
-                                                <ChevronRight className={`w-3 h-3 text-gray-300 shrink-0 transition-transform ${isExpLesson ? "rotate-90" : ""}`} />
-                                              )}
-                                            </div>
-                                            {isExpLesson && pl && (
-                                              <div className="ml-5 mb-2 p-3 bg-white border border-gray-100 rounded-xl space-y-2">
-                                                {lesson.description && (
-                                                  <p className="text-xs text-gray-600 leading-relaxed">{lesson.description}</p>
-                                                )}
-                                                {pl.scheduledDate && (
-                                                  <p className="text-xs text-gray-400 flex items-center gap-1">
-                                                    <CalendarDays className="w-3 h-3" /> Scheduled: {formatDate(pl.scheduledDate)}
-                                                  </p>
-                                                )}
-                                                {pl.tutorNotes && (
-                                                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
-                                                    <p className="text-[10px] font-bold text-amber-700 uppercase mb-0.5">Tutor Note</p>
-                                                    <p className="text-xs text-amber-800">{pl.tutorNotes}</p>
-                                                  </div>
-                                                )}
-                                                {pl.resources.filter(r => r.url).length > 0 && (
-                                                  <div className="flex flex-wrap gap-1.5">
-                                                    {pl.resources.filter(r => r.url).map(r => (
-                                                      <a
-                                                        key={r.id}
-                                                        href={r.url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1"
-                                                      >
-                                                        <ExternalLink className="w-2.5 h-2.5" />
-                                                        {r.label}
-                                                      </a>
-                                                    ))}
-                                                  </div>
-                                                )}
-                                                {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
-                                                  <div>
-                                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Objectives</p>
-                                                    <ul className="space-y-0.5">
-                                                      {lesson.learningObjectives.map((obj, i) => (
-                                                        <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
-                                                          <span className="text-blue-400 font-bold shrink-0">·</span>{obj}
-                                                        </li>
-                                                      ))}
-                                                    </ul>
-                                                  </div>
-                                                )}
-                                              </div>
-                                            )}
-                                          </Fragment>
-                                        );
-                                      })
-                                    )}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
+
+                {/* Node graph */}
+                {planCatalog.sections[planSectionIdx] && (
+                  <div className="p-5">
+                    <SATRoadmapGraph
+                      section={planCatalog.sections[planSectionIdx]}
+                      skillBaseline={studentPlanFull.skillBaseline}
+                      planLessonMap={planLessonMap}
+                    />
+                  </div>
+                )}
 
                 {/* Legend */}
                 <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-4">
                   {([
                     { color: "bg-emerald-400", label: "Completed" },
                     { color: "bg-blue-400",    label: "In Progress" },
-                    { color: "bg-gray-300",    label: "In Plan" },
-                    { color: "bg-gray-200",    label: "Not Yet Assigned" },
+                    { color: "bg-amber-400",   label: "Developing" },
+                    { color: "bg-red-400",     label: "Needs Work" },
+                    { color: "bg-gray-300",    label: "Not Assessed" },
                   ] as const).map(({ color, label }) => (
                     <span key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
                       <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
@@ -3178,7 +3257,53 @@ export default function StudentPortal() {
               </div>
             )}
 
-            {/* Lesson count when no catalog loaded but plan exists */}
+            {/* ── Baseline skill detail (expandable list, below graph) ── */}
+            {planCatalog && hasBaseline && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-3 border-b border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Starting Proficiency Detail</p>
+                </div>
+                <div className="px-5 pb-5 space-y-4">
+                  {planCatalog.sections.map(section => (
+                    <div key={section.id} className="pt-3">
+                      <p className="text-xs font-bold text-gray-700 mb-2">{section.title}</p>
+                      <div className="space-y-1.5">
+                        {section.categories.map(cat => {
+                          const catEntry = studentPlanFull.skillBaseline?.[String(cat.id)];
+                          if (!catEntry?.score && !Object.values(catEntry?.subskills ?? {}).some(s => s.score !== undefined)) return null;
+                          const st = scoreToStatus(catEntry?.score);
+                          return (
+                            <div key={cat.id}>
+                              <div className="flex items-center gap-2 py-0.5">
+                                <span className="text-xs font-semibold text-gray-700 flex-1">{cat.title}</span>
+                                {catEntry?.score !== undefined && (
+                                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[st]}`}>
+                                    {catEntry.score}/6 — {STATUS_LABEL[st]}
+                                  </span>
+                                )}
+                              </div>
+                              {Object.entries(catEntry?.subskills ?? {}).map(([skill, entry]) => {
+                                if (entry.score === undefined) return null;
+                                const sst = scoreToStatus(entry.score);
+                                return (
+                                  <div key={skill} className="flex items-center gap-2 pl-3 py-0.5">
+                                    <span className="text-xs text-gray-500 flex-1">{skill}</span>
+                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${STATUS_BADGE[sst]}`}>
+                                      {entry.score}/6
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {!planCatalog && total > 0 && (
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
                 <p className="text-sm text-gray-400 text-center">{total} lessons in your plan.</p>
@@ -3308,7 +3433,7 @@ export default function StudentPortal() {
                     {displayInitials}
                   </div>
                   <span className="text-xs font-bold px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-white shadow-sm">
-                    ⭐ Premium Student
+                    Premium Student
                   </span>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
