@@ -748,16 +748,24 @@ export default function TutorPortal() {
     if (!profileStudent) return;
     setPlanUploading(true); setPlanUploadErr(""); setPlanUploaded(false);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not authenticated");
       const form = new FormData();
       form.append("file", file);
       form.append("studentId", String(profileStudent.id));
-      const res = await fetch("/api/student/success-plan/upload", { method: "POST", body: form });
+      const res = await fetch("/api/student/success-plan/upload", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: form,
+      });
       if (!res.ok) {
         const j = await res.json() as { error?: string };
         throw new Error(j.error ?? "Upload failed");
       }
-      // Refresh student record with new URL
-      const updated = await updateStudentProfile(profileStudent.id, {});
+      const j = await res.json() as { path?: string };
+      const updated = await updateStudentProfile(profileStudent.id, {
+        successPlanUrl: j.path ?? profileStudent.successPlanUrl,
+      });
       setMyStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
       setProfileStudent(updated);
       setPlanUploaded(true);
@@ -3025,9 +3033,13 @@ export default function TutorPortal() {
                   <button
                     onClick={async () => {
                       try {
+                        const { data: { session } } = await supabase.auth.getSession();
                         const res = await fetch("/api/student/success-plan/view", {
                           method: "POST",
-                          headers: { "content-type": "application/json" },
+                          headers: {
+                            "content-type": "application/json",
+                            ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                          },
                           body: JSON.stringify({ path: profileStudent.successPlanUrl }),
                         });
                         if (!res.ok) throw new Error("Failed to load");

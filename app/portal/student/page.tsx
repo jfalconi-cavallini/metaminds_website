@@ -3500,9 +3500,13 @@ export default function StudentPortal() {
                 <button
                   onClick={async () => {
                     try {
+                      const { data: { session } } = await supabase.auth.getSession();
                       const res = await fetch("/api/student/success-plan/view", {
                         method: "POST",
-                        headers: { "content-type": "application/json" },
+                        headers: {
+                          "content-type": "application/json",
+                          ...(session ? { Authorization: `Bearer ${session.access_token}` } : {}),
+                        },
                         body: JSON.stringify({ path: student.successPlanUrl }),
                       });
                       if (!res.ok) throw new Error("Failed to load");
