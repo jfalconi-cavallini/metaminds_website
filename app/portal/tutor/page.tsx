@@ -40,7 +40,7 @@ import type {
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
   StudentPlanFull, Course, CourseCatalogFull, SkillBaseline,
 } from "@/lib/portal/types";
-import { ExternalLink, ChevronRight, CheckCircle } from "lucide-react";
+import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload } from "lucide-react";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -222,9 +222,9 @@ export default function TutorPortal() {
 
   // ── STUDENT PROFILE MODAL ───────────────────────────────────────
   const [profileStudent, setProfileStudent] = useState<Student | null>(null);
-  const [planText,       setPlanText]       = useState("");
-  const [planSaving,     setPlanSaving]     = useState(false);
-  const [planSaved,      setPlanSaved]      = useState(false);
+  const [planUploading,  setPlanUploading]  = useState(false);
+  const [planUploadErr,  setPlanUploadErr]  = useState("");
+  const [planUploaded,   setPlanUploaded]   = useState(false);
 
   // ── BLOCKED DATES ───────────────────────────────────────────────
   const [blockDateInput, setBlockDateInput] = useState("");
@@ -744,16 +744,29 @@ export default function TutorPortal() {
     } catch { /* silent */ } finally { setAvailSaving(false); }
   }
 
-  async function savePlan() {
+  async function uploadSuccessPlan(file: File) {
     if (!profileStudent) return;
-    setPlanSaving(true); setPlanSaved(false);
+    setPlanUploading(true); setPlanUploadErr(""); setPlanUploaded(false);
     try {
-      const updated = await updateStudentProfile(profileStudent.id, { successPlan: planText });
+      const form = new FormData();
+      form.append("file", file);
+      form.append("studentId", String(profileStudent.id));
+      const res = await fetch("/api/student/success-plan/upload", { method: "POST", body: form });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Upload failed");
+      }
+      // Refresh student record with new URL
+      const updated = await updateStudentProfile(profileStudent.id, {});
       setMyStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
       setProfileStudent(updated);
-      setPlanSaved(true);
-      setTimeout(() => setPlanSaved(false), 3000);
-    } catch { /* silent */ } finally { setPlanSaving(false); }
+      setPlanUploaded(true);
+      setTimeout(() => setPlanUploaded(false), 4000);
+    } catch (e: unknown) {
+      setPlanUploadErr(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setPlanUploading(false);
+    }
   }
 
   if (!authLoaded || loading) {
@@ -1046,7 +1059,7 @@ export default function TutorPortal() {
                         {bal?.remaining ?? 0} hrs
                       </span>
                       <button
-                        onClick={(e) => { e.stopPropagation(); setProfileStudent(s); setPlanText(s.successPlan ?? ""); }}
+                        onClick={(e) => { e.stopPropagation(); setProfileStudent(s); setPlanUploadErr(""); setPlanUploaded(false); }}
                         className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-2.5 py-1.5"
                       >
                         Profile
@@ -3000,21 +3013,57 @@ export default function TutorPortal() {
               </div>
             )}
             <div>
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Success Plan</p>
-              <textarea
-                value={planText}
-                onChange={(e) => setPlanText(e.target.value)}
-                placeholder="Write the student's personalized success plan — goals, current level, areas to improve, milestones…"
-                rows={5}
-                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <div className="flex items-center gap-3 mt-2">
-                <button onClick={savePlan} disabled={planSaving}
-                  className="px-4 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-                  {planSaving ? "Saving…" : "Save Plan"}
-                </button>
-                {planSaved && <p className="text-xs text-emerald-600 font-medium">✓ Saved</p>}
-              </div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Success Plan PDF</p>
+
+              {/* Current PDF */}
+              {profileStudent.successPlanUrl && (
+                <div className="flex items-center gap-2 mb-3 p-2.5 bg-blue-50 border border-blue-100 rounded-xl">
+                  <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span className="text-xs text-blue-700 font-medium flex-1 truncate">
+                    {profileStudent.successPlanUrl.split("/").pop()?.replace(/^\d+_/, "") ?? "Success Plan"}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      try {
+                        const res = await fetch("/api/student/success-plan/view", {
+                          method: "POST",
+                          headers: { "content-type": "application/json" },
+                          body: JSON.stringify({ path: profileStudent.successPlanUrl }),
+                        });
+                        if (!res.ok) throw new Error("Failed to load");
+                        const blob = await res.blob();
+                        window.open(URL.createObjectURL(blob), "_blank");
+                      } catch {
+                        alert("Could not open the PDF.");
+                      }
+                    }}
+                    className="text-xs text-blue-600 hover:underline shrink-0 font-medium"
+                  >
+                    View
+                  </button>
+                </div>
+              )}
+
+              {/* Upload new PDF */}
+              <label className={`flex items-center gap-2 w-full cursor-pointer border-2 border-dashed rounded-xl px-4 py-3 transition-colors ${planUploading ? "border-gray-200 bg-gray-50" : "border-gray-200 hover:border-blue-300 bg-white"}`}>
+                <Upload className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className="text-sm text-gray-500">
+                  {planUploading ? "Uploading…" : profileStudent.successPlanUrl ? "Replace PDF" : "Upload Success Plan PDF"}
+                </span>
+                <input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  className="hidden"
+                  disabled={planUploading}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) uploadSuccessPlan(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {planUploadErr && <p className="text-xs text-red-500 mt-1.5">{planUploadErr}</p>}
+              {planUploaded && <p className="text-xs text-emerald-600 font-medium mt-1.5">PDF uploaded successfully.</p>}
             </div>
           </div>
         </Modal>

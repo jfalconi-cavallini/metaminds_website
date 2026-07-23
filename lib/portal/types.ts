@@ -20,6 +20,7 @@ export interface Student {
   graduationYear?: string;
   status?: "active" | "inactive" | "paused";
   successPlan?: string;
+  successPlanUrl?: string;
   weeklyStudyGoalMinutes?: number;
 }
 

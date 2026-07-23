@@ -12,7 +12,7 @@ export function adminClient() {
 export interface AuthedCaller {
   id: string;
   email: string | null;
-  role: "admin" | "tutor" | "student";
+  role: "admin" | "tutor" | "student" | "parent";
   linkedId: number | null;
 }
 

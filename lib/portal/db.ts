@@ -24,6 +24,7 @@ function rowToStudent(r: any): Student {
     graduationYear: r.graduation_year ?? undefined,
     status:                 r.status                   ?? "active",
     successPlan:            r.success_plan             ?? undefined,
+    successPlanUrl:         r.success_plan_url         ?? undefined,
     weeklyStudyGoalMinutes: r.weekly_study_goal_minutes ?? 180,
   };
 }
@@ -737,21 +738,22 @@ export async function addPackageHours(
 export async function updateStudentProfile(id: number, payload: Partial<{
   name: string; email: string; grade: string; subjects: string[]; programs: string[];
   phone: string; parentName: string; parentEmail: string; parentPhone: string; notes: string;
-  allowInPerson: boolean; successPlan: string;
+  allowInPerson: boolean; successPlan: string; successPlanUrl: string;
 }>): Promise<Student> {
   const update: Record<string, unknown> = {};
-  if (payload.name          !== undefined) update.name           = payload.name;
-  if (payload.email         !== undefined) update.email          = payload.email;
-  if (payload.grade         !== undefined) update.grade          = payload.grade;
-  if (payload.subjects      !== undefined) update.subjects       = payload.subjects;
-  if (payload.programs      !== undefined) update.programs       = payload.programs;
-  if (payload.phone         !== undefined) update.phone          = payload.phone;
-  if (payload.parentName    !== undefined) update.parent_name    = payload.parentName;
-  if (payload.parentEmail   !== undefined) update.parent_email   = payload.parentEmail;
-  if (payload.parentPhone   !== undefined) update.parent_phone   = payload.parentPhone;
-  if (payload.notes         !== undefined) update.notes          = payload.notes;
-  if (payload.allowInPerson !== undefined) update.allow_in_person = payload.allowInPerson;
-  if (payload.successPlan   !== undefined) update.success_plan   = payload.successPlan || null;
+  if (payload.name           !== undefined) update.name             = payload.name;
+  if (payload.email          !== undefined) update.email            = payload.email;
+  if (payload.grade          !== undefined) update.grade            = payload.grade;
+  if (payload.subjects       !== undefined) update.subjects         = payload.subjects;
+  if (payload.programs       !== undefined) update.programs         = payload.programs;
+  if (payload.phone          !== undefined) update.phone            = payload.phone;
+  if (payload.parentName     !== undefined) update.parent_name      = payload.parentName;
+  if (payload.parentEmail    !== undefined) update.parent_email     = payload.parentEmail;
+  if (payload.parentPhone    !== undefined) update.parent_phone     = payload.parentPhone;
+  if (payload.notes          !== undefined) update.notes            = payload.notes;
+  if (payload.allowInPerson  !== undefined) update.allow_in_person  = payload.allowInPerson;
+  if (payload.successPlan    !== undefined) update.success_plan     = payload.successPlan    || null;
+  if (payload.successPlanUrl !== undefined) update.success_plan_url = payload.successPlanUrl || null;
   const { data, error } = await supabase.from("students").update(update).eq("id", id).select().single();
   if (error) throw error;
   return rowToStudent(data);
