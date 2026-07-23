@@ -27,12 +27,16 @@ import {
   updateSessionNote, deleteSessionNote,
   updateStudentProfile, updateTutorProfile,
   fetchStudyLog,
+  fetchStudentPlans, fetchStudentPlanFull, insertStudentPlan,
+  fetchCourses, fetchFullCatalog,
+  assignLessonToStudent, updatePlanLessonStatus, removeLessonFromPlan,
 } from "@/lib/portal/db";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
+  StudentPlanFull, Course, CourseCatalogFull,
 } from "@/lib/portal/types";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ChevronRight, CheckCircle } from "lucide-react";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -249,7 +253,23 @@ export default function TutorPortal() {
 
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
-  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability">("homework");
+  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan">("homework");
+
+  // Plan sub-tab
+  const [panelPlanFull,         setPanelPlanFull]         = useState<StudentPlanFull | null>(null);
+  const [panelPlanLoading,      setPanelPlanLoading]      = useState(false);
+  const [panelPlanError,        setPanelPlanError]        = useState("");
+  const [panelPlanSuccess,      setPanelPlanSuccess]      = useState("");
+  const [panelCourses,          setPanelCourses]          = useState<Course[]>([]);
+  const [panelCatalog,          setPanelCatalog]          = useState<CourseCatalogFull | null>(null);
+  const [panelShowPicker,       setPanelShowPicker]       = useState(false);
+  const [panelPickerExpSec,     setPanelPickerExpSec]     = useState<number | null>(null);
+  const [panelNewCourseId,      setPanelNewCourseId]      = useState<number | null>(null);
+  const [panelNewTitle,         setPanelNewTitle]         = useState("");
+  const [panelNewCurrentScore,  setPanelNewCurrentScore]  = useState("");
+  const [panelNewTargetScore,   setPanelNewTargetScore]   = useState("");
+  const [panelNewTargetDate,    setPanelNewTargetDate]    = useState("");
+  const [panelCreating,         setPanelCreating]         = useState(false);
   const [selectedStudyLog,    setSelectedStudyLog]    = useState<StudyLog[]>([]);
   const [studyLogLoading,     setStudyLogLoading]     = useState(false);
   const [hwDeletingId,        setHwDeletingId]        = useState<number | null>(null);
@@ -303,6 +323,42 @@ export default function TutorPortal() {
       setZoomLinkVal(tutor.zoomLink ?? "");
     }
   }, [tutor]);
+
+  // Load plan when plan sub-tab is opened
+  useEffect(() => {
+    if (studentPanelTab !== "plan" || !selectedStudentId) return;
+    setPanelPlanLoading(true);
+    setPanelPlanError("");
+    setPanelPlanFull(null);
+    setPanelCatalog(null);
+    setPanelShowPicker(false);
+    setPanelPlanSuccess("");
+    (async () => {
+      try {
+        const [plans, courses] = await Promise.all([
+          fetchStudentPlans(selectedStudentId),
+          fetchCourses(),
+        ]);
+        setPanelCourses(courses);
+        const activePlan = plans.find(p => p.status === "active") ?? plans[0] ?? null;
+        if (activePlan) {
+          const [full, catalog] = await Promise.all([
+            fetchStudentPlanFull(selectedStudentId, activePlan.courseId),
+            fetchFullCatalog(activePlan.courseId),
+          ]);
+          setPanelPlanFull(full);
+          setPanelCatalog(catalog);
+        } else if (courses.length > 0) {
+          setPanelNewCourseId(courses[0].id);
+          setPanelNewTitle(`${courses[0].title} — Learning Plan`);
+        }
+      } catch (err) {
+        setPanelPlanError(err instanceof Error ? err.message : "Failed to load plan");
+      } finally {
+        setPanelPlanLoading(false);
+      }
+    })();
+  }, [studentPanelTab, selectedStudentId]);
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const upcoming = localSessions
@@ -991,7 +1047,7 @@ export default function TutorPortal() {
                     <div className="border-t border-gray-100">
                       {/* Sub-tabs */}
                       <div className="flex border-b border-gray-100">
-                        {(["homework", "sessions", "update", "accountability"] as const).map((t2) => (
+                        {(["homework", "sessions", "update", "accountability", "plan"] as const).map((t2) => (
                           <button
                             key={t2}
                             onClick={() => setStudentPanelTab(t2)}
@@ -1001,7 +1057,7 @@ export default function TutorPortal() {
                                 : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                           >
-                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : "Accountability"}
+                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : t2 === "accountability" ? "Accountability" : "Learning Plan"}
                           </button>
                         ))}
                       </div>
@@ -1245,6 +1301,312 @@ export default function TutorPortal() {
                                 </div>
                               </div>
                             )}
+                          </div>
+                        );
+                      })()}
+
+                      {/* ── Learning Plan sub-tab ── */}
+                      {studentPanelTab === "plan" && (() => {
+                        async function refreshPlan() {
+                          if (!panelPlanFull) return;
+                          const full = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
+                          setPanelPlanFull(full);
+                        }
+
+                        if (panelPlanLoading) return (
+                          <div className="flex items-center justify-center py-10">
+                            <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          </div>
+                        );
+
+                        return (
+                          <div className="p-4 space-y-4">
+                            {panelPlanError && <p className="text-xs text-red-500">{panelPlanError}</p>}
+                            {panelPlanSuccess && <p className="text-xs text-emerald-600 font-medium">{panelPlanSuccess}</p>}
+
+                            {/* ── No plan: create form ── */}
+                            {!panelPlanFull && (
+                              <div className="space-y-3">
+                                <p className="text-sm text-gray-600 font-medium">No learning plan yet. Create one to get started.</p>
+
+                                <div>
+                                  <label className="text-xs text-gray-500 block mb-1">Course</label>
+                                  <select
+                                    value={panelNewCourseId ?? ""}
+                                    onChange={(e) => {
+                                      const id = Number(e.target.value);
+                                      setPanelNewCourseId(id);
+                                      const c = panelCourses.find(c2 => c2.id === id);
+                                      if (c) setPanelNewTitle(`${c.title} — Learning Plan`);
+                                    }}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    {panelCourses.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                                    {panelCourses.length === 0 && <option value="">No courses available</option>}
+                                  </select>
+                                </div>
+
+                                <div>
+                                  <label className="text-xs text-gray-500 block mb-1">Plan title</label>
+                                  <input
+                                    type="text"
+                                    value={panelNewTitle}
+                                    onChange={(e) => setPanelNewTitle(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-xs text-gray-500 block mb-1">Current score</label>
+                                    <input
+                                      type="number"
+                                      value={panelNewCurrentScore}
+                                      onChange={(e) => setPanelNewCurrentScore(e.target.value)}
+                                      placeholder="e.g. 1200"
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-xs text-gray-500 block mb-1">Target score</label>
+                                    <input
+                                      type="number"
+                                      value={panelNewTargetScore}
+                                      onChange={(e) => setPanelNewTargetScore(e.target.value)}
+                                      placeholder="e.g. 1500"
+                                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label className="text-xs text-gray-500 block mb-1">Target date (optional)</label>
+                                  <input
+                                    type="date"
+                                    value={panelNewTargetDate}
+                                    onChange={(e) => setPanelNewTargetDate(e.target.value)}
+                                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  />
+                                </div>
+
+                                <button
+                                  onClick={async () => {
+                                    if (!panelNewCourseId || !panelNewTitle || !tutor || !selectedStudentId) return;
+                                    setPanelCreating(true);
+                                    setPanelPlanError("");
+                                    try {
+                                      const plan = await insertStudentPlan({
+                                        studentId:    selectedStudentId,
+                                        tutorId:      tutor.id,
+                                        courseId:     panelNewCourseId,
+                                        title:        panelNewTitle,
+                                        currentScore: panelNewCurrentScore ? Number(panelNewCurrentScore) : undefined,
+                                        targetScore:  panelNewTargetScore  ? Number(panelNewTargetScore)  : undefined,
+                                        targetDate:   panelNewTargetDate   || undefined,
+                                      });
+                                      const [full, catalog] = await Promise.all([
+                                        fetchStudentPlanFull(selectedStudentId, plan.courseId),
+                                        fetchFullCatalog(plan.courseId),
+                                      ]);
+                                      setPanelPlanFull(full);
+                                      setPanelCatalog(catalog);
+                                      setPanelPlanSuccess("Plan created!");
+                                      setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                    } catch (err) {
+                                      setPanelPlanError(err instanceof Error ? err.message : "Failed to create plan");
+                                    } finally {
+                                      setPanelCreating(false);
+                                    }
+                                  }}
+                                  disabled={panelCreating || !panelNewCourseId || !panelNewTitle}
+                                  className="w-full bg-blue-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-50 hover:bg-blue-700 transition-colors"
+                                >
+                                  {panelCreating ? "Creating…" : "Create Plan"}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* ── Plan exists ── */}
+                            {panelPlanFull && (() => {
+                              const totalL = panelPlanFull.lessons.length;
+                              const doneL  = panelPlanFull.lessons.filter(l => l.status === "completed").length;
+                              const pctL   = totalL > 0 ? Math.round((doneL / totalL) * 100) : 0;
+
+                              return (
+                                <>
+                                  {/* Plan header */}
+                                  <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                                    <p className="text-sm font-semibold text-gray-900">{panelPlanFull.title}</p>
+                                    {(panelPlanFull.currentScore || panelPlanFull.targetScore) && (
+                                      <p className="text-xs text-gray-500">
+                                        Score: {panelPlanFull.currentScore ?? "—"} → {panelPlanFull.targetScore ?? "—"}
+                                      </p>
+                                    )}
+                                    {panelPlanFull.targetDate && (
+                                      <p className="text-xs text-gray-400">Target date: {formatDate(panelPlanFull.targetDate)}</p>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                      <div className="flex-1 bg-gray-200 rounded-full h-1.5">
+                                        <div className="h-1.5 rounded-full bg-blue-500 transition-all" style={{ width: `${pctL}%` }} />
+                                      </div>
+                                      <span className="text-xs text-gray-500 shrink-0">{doneL}/{totalL}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Lesson list */}
+                                  {totalL === 0 ? (
+                                    <p className="text-sm text-gray-400 text-center py-3">No lessons added yet.</p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      {panelPlanFull.lessons.map((pl, idx) => {
+                                        const statusColor = pl.status === "completed"
+                                          ? "text-emerald-600 bg-emerald-50"
+                                          : pl.status === "in_progress"
+                                            ? "text-blue-600 bg-blue-50"
+                                            : "text-gray-500 bg-gray-100";
+                                        return (
+                                          <div key={pl.id} className="bg-white border border-gray-100 rounded-xl p-3 flex items-center gap-3">
+                                            <span className="w-6 h-6 bg-gray-100 rounded-full flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">
+                                              {pl.status === "completed" ? <CheckCircle className="w-4 h-4 text-emerald-500" /> : idx + 1}
+                                            </span>
+                                            <div className="flex-1 min-w-0">
+                                              <p className={`text-sm font-medium truncate ${pl.status === "completed" ? "line-through text-gray-400" : "text-gray-900"}`}>
+                                                {pl.lesson?.title ?? "Lesson"}
+                                              </p>
+                                              {pl.scheduledDate && (
+                                                <p className="text-xs text-gray-400">{formatDate(pl.scheduledDate)}</p>
+                                              )}
+                                            </div>
+                                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${statusColor}`}>
+                                              {pl.status === "completed" ? "Done" : pl.status === "in_progress" ? "Active" : "Pending"}
+                                            </span>
+                                            <div className="flex gap-2 shrink-0">
+                                              {pl.status !== "completed" && (
+                                                <button
+                                                  onClick={async () => {
+                                                    try {
+                                                      await updatePlanLessonStatus(pl.id, "completed");
+                                                      await refreshPlan();
+                                                      setPanelPlanSuccess("Marked complete!");
+                                                      setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                                    } catch (err) {
+                                                      setPanelPlanError(err instanceof Error ? err.message : "Error");
+                                                    }
+                                                  }}
+                                                  className="text-xs text-emerald-600 hover:underline font-medium"
+                                                >
+                                                  ✓
+                                                </button>
+                                              )}
+                                              {pl.status === "completed" && (
+                                                <button
+                                                  onClick={async () => {
+                                                    try {
+                                                      await updatePlanLessonStatus(pl.id, "pending");
+                                                      await refreshPlan();
+                                                    } catch (err) {
+                                                      setPanelPlanError(err instanceof Error ? err.message : "Error");
+                                                    }
+                                                  }}
+                                                  className="text-xs text-gray-400 hover:text-gray-600 font-medium"
+                                                  title="Undo complete"
+                                                >
+                                                  ↩
+                                                </button>
+                                              )}
+                                              <button
+                                                onClick={async () => {
+                                                  if (!confirm("Remove this lesson from the plan?")) return;
+                                                  try {
+                                                    await removeLessonFromPlan(pl.id);
+                                                    await refreshPlan();
+                                                  } catch (err) {
+                                                    setPanelPlanError(err instanceof Error ? err.message : "Error");
+                                                  }
+                                                }}
+                                                className="text-xs text-red-400 hover:text-red-600 font-medium"
+                                              >
+                                                ✕
+                                              </button>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+
+                                  {/* Add Lesson toggle */}
+                                  {!panelShowPicker ? (
+                                    <button
+                                      onClick={() => setPanelShowPicker(true)}
+                                      className="w-full text-sm text-blue-600 hover:underline font-medium py-1 text-center"
+                                    >
+                                      + Add Lesson
+                                    </button>
+                                  ) : (
+                                    <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b border-gray-100">
+                                        <p className="text-xs font-bold text-gray-600 uppercase tracking-wide">Add Lesson</p>
+                                        <button onClick={() => { setPanelShowPicker(false); setPanelPickerExpSec(null); }} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+                                      </div>
+                                      <div className="max-h-72 overflow-y-auto">
+                                        {!panelCatalog ? (
+                                          <p className="text-sm text-gray-400 text-center py-4">Loading catalog…</p>
+                                        ) : panelCatalog.sections.length === 0 ? (
+                                          <p className="text-sm text-gray-400 text-center py-4">No lessons in catalog yet.</p>
+                                        ) : (
+                                          panelCatalog.sections.map((sec) => (
+                                            <div key={sec.id}>
+                                              <button
+                                                onClick={() => setPanelPickerExpSec(panelPickerExpSec === sec.id ? null : sec.id)}
+                                                className="w-full text-left px-4 py-2.5 flex items-center justify-between hover:bg-gray-50 transition-colors border-b border-gray-50"
+                                              >
+                                                <span className="text-sm font-semibold text-gray-700">{sec.title}</span>
+                                                <ChevronRight className={`w-4 h-4 text-gray-400 transition-transform ${panelPickerExpSec === sec.id ? "rotate-90" : ""}`} />
+                                              </button>
+                                              {panelPickerExpSec === sec.id && sec.categories.map((cat) => (
+                                                <div key={cat.id} className="border-b border-gray-50 last:border-0">
+                                                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wide px-6 py-2 bg-gray-50/50">{cat.title}</p>
+                                                  {cat.lessons.length === 0 && (
+                                                    <p className="text-xs text-gray-400 px-6 py-2 italic">No lessons yet</p>
+                                                  )}
+                                                  {cat.lessons.map((lesson) => {
+                                                    const alreadyAdded = panelPlanFull.lessons.some(pl => pl.lessonId === lesson.id);
+                                                    return (
+                                                      <button
+                                                        key={lesson.id}
+                                                        disabled={alreadyAdded}
+                                                        onClick={async () => {
+                                                          try {
+                                                            await assignLessonToStudent({ planId: panelPlanFull.id, lessonId: lesson.id });
+                                                            await refreshPlan();
+                                                            setPanelPlanSuccess(`"${lesson.title}" added!`);
+                                                            setTimeout(() => setPanelPlanSuccess(""), 3000);
+                                                          } catch (err) {
+                                                            setPanelPlanError(err instanceof Error ? err.message : "Error");
+                                                          }
+                                                        }}
+                                                        className={`w-full text-left px-8 py-2 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors ${alreadyAdded ? "opacity-40 cursor-not-allowed" : ""}`}
+                                                      >
+                                                        <span className="text-gray-800">{lesson.title}</span>
+                                                        {alreadyAdded
+                                                          ? <span className="text-[10px] text-gray-400 shrink-0">Added</span>
+                                                          : <span className="text-xs text-blue-600 font-medium shrink-0">+ Add</span>
+                                                        }
+                                                      </button>
+                                                    );
+                                                  })}
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ))
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         );
                       })()}

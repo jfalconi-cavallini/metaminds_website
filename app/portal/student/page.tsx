@@ -17,9 +17,10 @@ import {
   insertPurchaseRequest,
   autoCompletePastSessions,
   fetchStudyLog,
+  fetchStudentPlans, fetchStudentPlanFull, fetchFullCatalog,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -29,6 +30,7 @@ import {
   Paperclip, Upload, Lightbulb, TrendingUp, Star, Zap, MapPin,
   Search, ThumbsUp, ThumbsDown, ExternalLink, MessageCircle,
   User, Settings as SettingsIcon, Camera, Download, Trash2,
+  Map as MapIcon,
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
 
@@ -42,13 +44,14 @@ const ALL_NAV_ITEMS = [
   { id: "updates",   label: "Updates",       icon: Bell            },
   { id: "progress",  label: "Progress",      icon: TrendingUp      },
   { id: "hours",     label: "Hours",         icon: Clock           },
+  { id: "path",      label: "Learning Path", icon: MapIcon         },
   { id: "lab",       label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon" },
   { id: "profile",   label: "Profile",       icon: User            },
   { id: "settings",  label: "Settings",      icon: SettingsIcon    },
 ];
 
 // Tabs parents are allowed to see (read-only view of their child's portal)
-const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "settings"]);
+const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path", "settings"]);
 
 /** Returns hours from now until the session starts (negative if past) */
 function hoursUntilSession(session: Session): number {
@@ -80,6 +83,13 @@ export default function StudentPortal() {
   const [parentUpdates,  setParentUpdates]  = useState<ParentUpdate[]>([]);
   const [studyLog,       setStudyLog]       = useState<StudyLog[]>([]);
   const [loading,        setLoading]        = useState(true);
+
+  // Learning Path
+  const [studentPlanFull, setStudentPlanFull] = useState<StudentPlanFull | null>(null);
+  const [planCatalog,     setPlanCatalog]     = useState<CourseCatalogFull | null>(null);
+  const [planLoading,     setPlanLoading]     = useState(false);
+  const [planLoaded,      setPlanLoaded]      = useState(false);
+  const [planExpIds,      setPlanExpIds]      = useState<Set<number>>(new Set());
 
   useEffect(() => {
     if (!authLoaded) return;
@@ -135,6 +145,32 @@ export default function StudentPortal() {
     }
     load();
   }, [authLoaded, user, router]);
+
+  // Learning Path lazy load
+  useEffect(() => {
+    if (tab !== "path" || !student || planLoaded) return;
+    setPlanLoading(true);
+    (async () => {
+      try {
+        const plans = await fetchStudentPlans(student.id);
+        const active = plans.find(p => p.status === "active") ?? plans[0] ?? null;
+        if (active) {
+          const [full, catalog] = await Promise.all([
+            fetchStudentPlanFull(student.id, active.courseId),
+            fetchFullCatalog(active.courseId),
+          ]);
+          setStudentPlanFull(full);
+          setPlanCatalog(catalog);
+        }
+        setPlanLoaded(true);
+      } catch (err) {
+        console.error("Learning path load error:", err);
+        setPlanLoaded(true);
+      } finally {
+        setPlanLoading(false);
+      }
+    })();
+  }, [tab, student, planLoaded]);
 
   // Book Session
   const [selectedSlot,    setSelectedSlot]    = useState<{ date: string; time: string } | null>(null);
@@ -2851,6 +2887,304 @@ export default function StudentPortal() {
             </div>
           )}
         </div>
+        );
+      })()}
+
+      {/* ── LEARNING PATH ── */}
+      {tab === "path" && (() => {
+        if (planLoading) return (
+          <div className="flex items-center justify-center py-20">
+            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          </div>
+        );
+
+        if (!studentPlanFull) return (
+          <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+            <div className="w-20 h-20 bg-gradient-to-br from-blue-50 to-blue-100 rounded-3xl flex items-center justify-center mb-5">
+              <MapIcon className="w-10 h-10 text-blue-400" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">No Learning Path Yet</h2>
+            <p className="text-gray-500 text-sm max-w-xs leading-relaxed">
+              Your tutor will set up your personalized SAT learning path. Check back soon!
+            </p>
+          </div>
+        );
+
+        const total = studentPlanFull.lessons.length;
+        const completedCount = studentPlanFull.lessons.filter(l => l.status === "completed").length;
+        const inProgressCount = studentPlanFull.lessons.filter(l => l.status === "in_progress").length;
+        const pct = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+        // Build a lookup from lessonId → plan lesson
+        const planLessonMap: Record<number, StudentPlanLessonFull> = {};
+        for (const pl of studentPlanFull.lessons) planLessonMap[pl.lessonId] = pl;
+
+        return (
+          <div className="space-y-6">
+            {/* Score header cards */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {([
+                {
+                  label: "Current Score",
+                  value: studentPlanFull.currentScore ? String(studentPlanFull.currentScore) : "—",
+                  sub: "baseline",
+                  color: "text-gray-900",
+                  bg: "bg-white",
+                },
+                {
+                  label: "Goal Score",
+                  value: studentPlanFull.targetScore ? String(studentPlanFull.targetScore) : "—",
+                  sub: "target",
+                  color: "text-blue-600",
+                  bg: "bg-blue-50 border-blue-100",
+                },
+                {
+                  label: "Completed",
+                  value: `${completedCount}/${total}`,
+                  sub: "lessons",
+                  color: "text-emerald-600",
+                  bg: "bg-emerald-50 border-emerald-100",
+                },
+                {
+                  label: "Progress",
+                  value: `${pct}%`,
+                  sub: "overall",
+                  color: inProgressCount > 0 ? "text-blue-600" : pct === 100 ? "text-emerald-600" : "text-gray-700",
+                  bg: "bg-white",
+                },
+              ] as const).map((card) => (
+                <div key={card.label} className={`${card.bg} border border-gray-100 rounded-2xl p-4 shadow-sm`}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                  <p className={`text-2xl font-bold ${card.color}`}>{card.value}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{card.sub}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Progress bar */}
+            <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-sm font-semibold text-gray-700">{studentPlanFull.title}</p>
+                {studentPlanFull.targetDate && (
+                  <span className="text-xs text-gray-400 flex items-center gap-1">
+                    <CalendarDays className="w-3 h-3" />
+                    Target: {formatDate(studentPlanFull.targetDate)}
+                  </span>
+                )}
+              </div>
+              <div className="w-full bg-gray-100 rounded-full h-2.5">
+                <div
+                  className="h-2.5 rounded-full bg-gradient-to-r from-blue-500 to-blue-600 transition-all duration-700"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <div className="flex gap-4 mt-2 text-xs text-gray-500">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />{completedCount} done</span>
+                {inProgressCount > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" />{inProgressCount} in progress</span>}
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-200 inline-block" />{total - completedCount - inProgressCount} pending</span>
+              </div>
+            </div>
+
+            {/* SAT Skills Tree */}
+            {planCatalog && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{planCatalog.title} — Skills Roadmap</p>
+                </div>
+
+                {/* Two-column section layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+                  {planCatalog.sections.map((section) => {
+                    // Count how many lessons in this section are in the plan
+                    const sectionLessonIds = section.categories.flatMap(c => c.lessons.map(l => l.id));
+                    const sectionPlanCount = sectionLessonIds.filter(id => id in planLessonMap).length;
+                    const sectionDoneCount = sectionLessonIds.filter(id => planLessonMap[id]?.status === "completed").length;
+
+                    return (
+                      <div key={section.id} className="p-5">
+                        {/* Section header */}
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-bold text-gray-900">{section.title}</h3>
+                          {sectionPlanCount > 0 && (
+                            <span className="text-xs text-gray-400">{sectionDoneCount}/{sectionPlanCount} done</span>
+                          )}
+                        </div>
+
+                        {/* Categories */}
+                        <div className="space-y-3">
+                          {section.categories.map((cat) => {
+                            const isExpCat = planExpIds.has(cat.id);
+                            const catPlanLessons = cat.lessons.filter(l => l.id in planLessonMap);
+                            const catDone = catPlanLessons.filter(l => planLessonMap[l.id]?.status === "completed").length;
+                            const hasPlanLessons = catPlanLessons.length > 0;
+
+                            return (
+                              <div key={cat.id} className={`rounded-xl border transition-colors ${hasPlanLessons ? "border-blue-100 bg-blue-50/30" : "border-gray-100 bg-gray-50/50"}`}>
+                                <button
+                                  onClick={() => setPlanExpIds(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                                    return next;
+                                  })}
+                                  className="w-full flex items-center justify-between px-4 py-3 text-left"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className={`text-sm font-semibold truncate ${hasPlanLessons ? "text-gray-800" : "text-gray-400"}`}>
+                                      {cat.title}
+                                    </span>
+                                    {hasPlanLessons && (
+                                      <span className="text-[10px] font-bold text-blue-600 bg-blue-100 rounded-full px-1.5 py-0.5 shrink-0">
+                                        {catPlanLessons.length}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2 shrink-0">
+                                    {hasPlanLessons && (
+                                      <span className="text-xs text-gray-400">{catDone}/{catPlanLessons.length}</span>
+                                    )}
+                                    <ChevronRight className={`w-4 h-4 text-gray-300 transition-transform duration-150 ${isExpCat ? "rotate-90" : ""}`} />
+                                  </div>
+                                </button>
+
+                                {isExpCat && (
+                                  <div className="px-4 pb-3 space-y-2">
+                                    {cat.lessons.length === 0 ? (
+                                      <p className="text-xs text-gray-400 italic">No lessons in this category yet.</p>
+                                    ) : (
+                                      cat.lessons.map((lesson) => {
+                                        const pl = planLessonMap[lesson.id];
+                                        const inPlan = !!pl;
+                                        const isExpLesson = planExpIds.has(lesson.id * 1000 + 1); // unique key for lesson expansion
+                                        const dotColor = !inPlan
+                                          ? "bg-gray-200"
+                                          : pl.status === "completed"
+                                            ? "bg-emerald-400"
+                                            : pl.status === "in_progress"
+                                              ? "bg-blue-400"
+                                              : "bg-gray-300";
+                                        const statusLabel = !inPlan ? null
+                                          : pl.status === "completed" ? "Done"
+                                          : pl.status === "in_progress" ? "Active"
+                                          : "Pending";
+                                        const statusTextColor = pl?.status === "completed"
+                                          ? "text-emerald-600 bg-emerald-50"
+                                          : pl?.status === "in_progress"
+                                            ? "text-blue-600 bg-blue-50"
+                                            : "text-gray-400 bg-gray-50";
+
+                                        return (
+                                          <Fragment key={lesson.id}>
+                                            <div
+                                              className={`flex items-center gap-2.5 px-1 py-1 rounded-lg transition-colors ${inPlan ? "cursor-pointer hover:bg-white" : "opacity-40"}`}
+                                              onClick={() => {
+                                                if (!inPlan) return;
+                                                setPlanExpIds(prev => {
+                                                  const next = new Set(prev);
+                                                  const k = lesson.id * 1000 + 1;
+                                                  if (next.has(k)) next.delete(k); else next.add(k);
+                                                  return next;
+                                                });
+                                              }}
+                                            >
+                                              <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${dotColor}`} />
+                                              <span className={`text-sm flex-1 ${pl?.status === "completed" ? "line-through text-gray-400" : inPlan ? "text-gray-800 font-medium" : "text-gray-500"}`}>
+                                                {lesson.title}
+                                              </span>
+                                              {statusLabel && (
+                                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${statusTextColor}`}>{statusLabel}</span>
+                                              )}
+                                              {inPlan && lesson.estimatedMinutes && (
+                                                <span className="text-xs text-gray-400 shrink-0">{lesson.estimatedMinutes}m</span>
+                                              )}
+                                              {inPlan && (
+                                                <ChevronRight className={`w-3 h-3 text-gray-300 shrink-0 transition-transform ${isExpLesson ? "rotate-90" : ""}`} />
+                                              )}
+                                            </div>
+                                            {isExpLesson && pl && (
+                                              <div className="ml-5 mb-2 p-3 bg-white border border-gray-100 rounded-xl space-y-2">
+                                                {lesson.description && (
+                                                  <p className="text-xs text-gray-600 leading-relaxed">{lesson.description}</p>
+                                                )}
+                                                {pl.scheduledDate && (
+                                                  <p className="text-xs text-gray-400 flex items-center gap-1">
+                                                    <CalendarDays className="w-3 h-3" /> Scheduled: {formatDate(pl.scheduledDate)}
+                                                  </p>
+                                                )}
+                                                {pl.tutorNotes && (
+                                                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-2">
+                                                    <p className="text-[10px] font-bold text-amber-700 uppercase mb-0.5">Tutor Note</p>
+                                                    <p className="text-xs text-amber-800">{pl.tutorNotes}</p>
+                                                  </div>
+                                                )}
+                                                {pl.resources.filter(r => r.url).length > 0 && (
+                                                  <div className="flex flex-wrap gap-1.5">
+                                                    {pl.resources.filter(r => r.url).map(r => (
+                                                      <a
+                                                        key={r.id}
+                                                        href={r.url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-lg px-2 py-1"
+                                                      >
+                                                        <ExternalLink className="w-2.5 h-2.5" />
+                                                        {r.label}
+                                                      </a>
+                                                    ))}
+                                                  </div>
+                                                )}
+                                                {lesson.learningObjectives && lesson.learningObjectives.length > 0 && (
+                                                  <div>
+                                                    <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Objectives</p>
+                                                    <ul className="space-y-0.5">
+                                                      {lesson.learningObjectives.map((obj, i) => (
+                                                        <li key={i} className="text-xs text-gray-600 flex items-start gap-1.5">
+                                                          <span className="text-blue-400 font-bold shrink-0">·</span>{obj}
+                                                        </li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </Fragment>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Legend */}
+                <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 flex flex-wrap gap-4">
+                  {([
+                    { color: "bg-emerald-400", label: "Completed" },
+                    { color: "bg-blue-400",    label: "In Progress" },
+                    { color: "bg-gray-300",    label: "In Plan" },
+                    { color: "bg-gray-200",    label: "Not Yet Assigned" },
+                  ] as const).map(({ color, label }) => (
+                    <span key={label} className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <span className={`w-2.5 h-2.5 rounded-full ${color}`} />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Lesson count when no catalog loaded but plan exists */}
+            {!planCatalog && total > 0 && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <p className="text-sm text-gray-400 text-center">{total} lessons in your plan.</p>
+              </div>
+            )}
+          </div>
         );
       })()}
 
