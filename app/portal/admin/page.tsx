@@ -128,6 +128,40 @@ export default function AdminPortal() {
     finally { setSkillLibIniting(false); }
   }
 
+  // ── STUDENT PREVIEW ─────────────────────────────────────────────
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError,   setPreviewError]   = useState<string | null>(null);
+
+  async function openStudentPreview(studentId: number) {
+    setPreviewError(null);
+    // Open a blank tab synchronously before any async work — prevents popup blocking
+    const newTab = window.open("about:blank", "_blank");
+    if (!newTab) {
+      setPreviewError("Popups are blocked. Allow popups for this site to use preview.");
+      return;
+    }
+    setPreviewLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/start-preview", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body:    JSON.stringify({ studentId }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Failed to start preview");
+      }
+      const { previewUrl } = await res.json() as { previewUrl: string };
+      newTab.location.href = previewUrl;
+    } catch (err) {
+      newTab.close();
+      setPreviewError(err instanceof Error ? err.message : "Could not open preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   // ── ARCHIVE ─────────────────────────────────────────────────────
   const [showArchivedStudents, setShowArchivedStudents] = useState(false);
   const [showArchivedTutors,   setShowArchivedTutors]   = useState(false);
@@ -1619,7 +1653,17 @@ export default function AdminPortal() {
                 >
                   {syncEmailLoading ? "Syncing…" : "Resync Login Email"}
                 </button>
+                <button
+                  onClick={() => openStudentPreview(ps.id)}
+                  disabled={previewLoading}
+                  className="px-4 py-2 border border-violet-200 text-violet-700 bg-violet-50 rounded-lg text-sm font-medium hover:bg-violet-100 disabled:opacity-50 transition-colors"
+                >
+                  {previewLoading ? "Opening…" : "View as Student"}
+                </button>
               </div>
+              {previewError && (
+                <p className="text-xs text-red-500 font-medium">{previewError}</p>
+              )}
               {syncEmailMsg && (
                 <p className={`text-xs font-medium ${syncEmailMsg.ok ? "text-green-600" : "text-red-500"}`}>
                   {syncEmailMsg.text}

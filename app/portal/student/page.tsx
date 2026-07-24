@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback, Fragment } from "react";
-import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
+import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { purchaseOptions, formatDate, resolveZoomUrl } from "@/lib/portal/utils";
@@ -67,7 +67,7 @@ function hoursUntilSession(session: Session): number {
 
 export default function StudentPortal() {
   const { user, authLoaded } = useAuth();
-  const router = useRouter();
+  const ctx = usePortalViewerContext(user, authLoaded);
   const [tab, setTab] = useState("overview");
 
   const handleTabChange = useCallback((id: string) => {
@@ -101,24 +101,17 @@ export default function StudentPortal() {
   const [expandedSkills,     setExpandedSkills]     = useState<Set<number>>(new Set());
   const [selectedSkillId,    setSelectedSkillId]    = useState<number | null>(null);
 
+  // Data load — waits for the viewer context to resolve auth and (if admin) preview token
+  const { previewReady, effectiveStudentId, isAdminPreview } = ctx;
   useEffect(() => {
-    if (!authLoaded) return;
-    if (!user) {
-      // Session may still be resolving after sign-in — check before redirecting
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) router.push("/login");
-      });
-      return;
-    }
-    if ((user.role !== "student" && user.role !== "parent") || !user.linkedId) {
-      router.push("/login");
-      return;
-    }
-    const studentId = user.linkedId;
+    if (!previewReady || !effectiveStudentId) return;
+    const studentId = effectiveStudentId;
 
     async function load() {
       try {
-        await autoCompletePastSessions();
+        // Skip auto-complete in admin preview — admin session has broad RLS permissions
+        // and would mark sessions as completed across all students
+        if (!isAdminPreview) await autoCompletePastSessions();
         const [s, pkg, sess] = await Promise.all([
           fetchStudentById(studentId),
           fetchPackageByStudent(studentId),
@@ -154,7 +147,7 @@ export default function StudentPortal() {
       }
     }
     load();
-  }, [authLoaded, user, router]);
+  }, [previewReady, effectiveStudentId, isAdminPreview]);
 
   // Learning Path lazy load
   useEffect(() => {
@@ -307,6 +300,7 @@ export default function StudentPortal() {
   }, [student, bookSubject]);
 
   async function submitBooking() {
+    if (!ctx.canManageSchedule) return;
     if (!selectedSlot || !student || !student.assignedTutorId) return;
     setBookError("");
     try {
@@ -338,6 +332,7 @@ export default function StudentPortal() {
   }
 
   async function handleCancelSession(session: Session) {
+    if (!ctx.canManageSchedule) return;
     if (!student) return;
     setCancellingId(session.id);
     setCancelError("");
@@ -358,6 +353,7 @@ export default function StudentPortal() {
   }
 
   async function handleReschedule(session: Session) {
+    if (!ctx.canManageSchedule) return;
     if (!student) return;
     setCancellingId(session.id);
     try {
@@ -378,6 +374,7 @@ export default function StudentPortal() {
   }
 
   async function handleHomeworkUpload(hw: { id: number }) {
+    if (!ctx.canSubmitHomework) return;
     const file = hwSelectedFiles[hw.id];
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) {
@@ -512,6 +509,7 @@ export default function StudentPortal() {
   }
 
   async function requestPurchase(opt: PurchaseOption) {
+    if (!ctx.canPurchaseHours) return;
     if (!student) return;
     setPurchaseSaving(true);
     setPurchaseError("");
@@ -559,7 +557,8 @@ export default function StudentPortal() {
   }
 
   // Force password reset — block dashboard access until new password is set
-  if (user?.mustResetPassword && !forceResetDone) {
+  // Skip entirely in admin preview: the admin's account never needs a force-reset
+  if (!ctx.isAdminPreview && user?.mustResetPassword && !forceResetDone) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8 w-full max-w-md">
@@ -620,6 +619,26 @@ export default function StudentPortal() {
 
   return (
     <DashboardShell role={isParent ? "parent" : "student"} userName={student.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+
+      {/* ── ADMIN PREVIEW BANNER ── */}
+      {ctx.isAdminPreview && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3 bg-amber-50 border-b-2 border-amber-200">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="shrink-0 text-[10px] font-bold px-2.5 py-1 bg-amber-200 text-amber-900 rounded-full uppercase tracking-widest">
+              Read-only
+            </span>
+            <span className="text-sm font-semibold text-amber-900 truncate">
+              Admin Preview — Viewing the portal as {ctx.previewStudentName}
+            </span>
+          </div>
+          <button
+            onClick={ctx.exitPreview}
+            className="shrink-0 text-xs font-semibold text-amber-700 border border-amber-300 px-3 py-1.5 rounded-xl hover:bg-amber-100 transition-colors"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -1342,7 +1361,8 @@ export default function StudentPortal() {
                     <p className="text-xs text-amber-600">You only have {balance?.remaining ?? 0} hr remaining. Select a shorter duration.</p>
                   )}
                   {bookError && <p className="text-xs text-red-500">{bookError}</p>}
-                  <button onClick={submitBooking} disabled={(balance?.remaining ?? 0) < bookDuration}
+                  <button onClick={submitBooking} disabled={!ctx.canManageSchedule || (balance?.remaining ?? 0) < bookDuration}
+                    title={!ctx.canManageSchedule ? "Not available in admin preview" : undefined}
                     className="w-full py-3 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                     Confirm Booking
                   </button>
@@ -2475,7 +2495,8 @@ export default function StudentPortal() {
                         <Paperclip className="w-3.5 h-3.5" />{file ? "Change File" : "Attach PDF"}
                       </span>
                     </label>
-                    <button onClick={() => handleHomeworkUpload(h)} disabled={!file || isUploading}
+                    <button onClick={() => handleHomeworkUpload(h)} disabled={!ctx.canSubmitHomework || !file || isUploading}
+                      title={!ctx.canSubmitHomework ? "Not available in admin preview" : undefined}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
                       <Upload className="w-3.5 h-3.5" />{isUploading ? "Submitting…" : "Submit"}
                     </button>
@@ -2698,7 +2719,9 @@ export default function StudentPortal() {
             </div>
             <button
               onClick={() => setShowBuyPanel((v) => !v)}
-              className="shrink-0 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+              disabled={!ctx.canPurchaseHours}
+              title={!ctx.canPurchaseHours ? "Not available in admin preview" : undefined}
+              className="shrink-0 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               + Buy More Hours
             </button>

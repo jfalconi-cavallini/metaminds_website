@@ -56,8 +56,9 @@ export async function POST(request: Request) {
   if (hwLookupError || !hwRow) {
     return NextResponse.json({ error: "Homework not found" }, { status: 404 });
   }
-  const owns = caller.role === "student" && caller.linkedId === hwRow.student_id;
-  if (!owns && caller.role !== "admin") {
+  // Only the owning student may submit homework — admins are explicitly excluded
+  // to prevent unintended writes during admin preview mode.
+  if (caller.role !== "student" || caller.linkedId !== hwRow.student_id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
