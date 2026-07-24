@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import type { AuthUser } from "@/lib/auth";
@@ -47,48 +47,95 @@ export function usePortalViewerContext(
   const [previewViewAs,      setPreviewViewAs]      = useState<"student" | "parent">("student");
   const [previewReady,       setPreviewReady]       = useState(false);
 
-  useEffect(() => {
-    if (!authLoaded) return;
+  // Ref prevents the effect from starting a second validation or redirecting
+  // when onAuthStateChange re-fires the effect with a new `user` object reference
+  // after validation has already started or completed.
+  const validationState = useRef<"idle" | "validating" | "done">("idle");
 
-    // Not authenticated yet — wait for session or redirect to login
+  useEffect(() => {
+    if (!authLoaded) {
+      console.log("[preview] step1: auth not loaded yet, waiting");
+      return;
+    }
+
     if (!user) {
+      console.log("[preview] step2: authLoaded=true but user=null — checking session");
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) router.push("/login");
+        if (!session) {
+          console.log("[preview] step2a: no session found → redirect /login");
+          router.push("/login");
+        } else {
+          console.log("[preview] step2b: session exists but user not set yet — waiting for useAuth");
+        }
       });
       return;
     }
 
+    console.log(`[preview] step3: user loaded, role=${user.role}, validationState=${validationState.current}`);
+
     if (user.role === "admin") {
+      // If validation already started or completed, do not re-enter the flow.
+      // onAuthStateChange re-fires this effect with a new `user` object even
+      // though the admin hasn't changed — we must not redirect in that case.
+      if (validationState.current !== "idle") {
+        console.log(`[preview] step4: validation already ${validationState.current}, skipping re-run`);
+        return;
+      }
+
       const params = new URLSearchParams(window.location.search);
       const token  = params.get("preview");
+      console.log(`[preview] step5: token in URL = ${token ? token.slice(0, 8) + "…" : "null"}`);
+
       if (!token) {
-        // Admin visited /portal/student without a preview token — redirect home
+        console.log("[preview] step5a: no token → redirect /portal/admin");
         router.push("/portal/admin");
         return;
       }
-      // Validate the token server-side; student ID comes from DB, never from URL
+
+      validationState.current = "validating";
+      console.log("[preview] step6: starting server-side token validation");
+
+      // Remove token from URL now (before async work) so back-navigation is clean.
+      // We've already captured it in `token` above.
+      window.history.replaceState({}, "", "/portal/student");
+
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
+          console.log(`[preview] step7: session for validate call present=${!!session}`);
+
           const res = await fetch(
             `/api/admin/validate-preview?token=${encodeURIComponent(token)}`,
             { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } },
           );
-          if (!res.ok) { router.push("/portal/admin"); return; }
+          console.log(`[preview] step8: validate-preview response status=${res.status}`);
+
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({})) as { error?: string };
+            console.log(`[preview] step8a: validation failed: ${body.error ?? "unknown"} → redirect /portal/admin`);
+            validationState.current = "idle";
+            router.push("/portal/admin");
+            return;
+          }
+
           const data = await res.json() as {
             studentId: number;
             studentName: string;
             previewId: number;
             viewAs: "student" | "parent";
           };
+          console.log(`[preview] step9: validation OK — studentId=${data.studentId} viewAs=${data.viewAs}`);
+
           setPreviewStudentId(data.studentId);
           setPreviewStudentName(data.studentName);
           setPreviewId(data.previewId);
           setPreviewViewAs(data.viewAs ?? "student");
-          // Remove the token from the URL — keeps it out of browser history going forward
-          window.history.replaceState({}, "", "/portal/student");
+          validationState.current = "done";
           setPreviewReady(true);
-        } catch {
+          console.log("[preview] step10: previewReady=true, preview is live");
+        } catch (err) {
+          console.error("[preview] step8b: unexpected error during validation:", err);
+          validationState.current = "idle";
           router.push("/portal/admin");
         }
       })();
@@ -97,10 +144,12 @@ export function usePortalViewerContext(
 
     // Reject any other non-student/parent roles
     if ((user.role !== "student" && user.role !== "parent") || !user.linkedId) {
+      console.log(`[preview] step11: unexpected role=${user.role} linkedId=${user.linkedId} → redirect /login`);
       router.push("/login");
       return;
     }
 
+    console.log(`[preview] step12: normal ${user.role} flow, setting previewReady`);
     setPreviewReady(true);
   }, [authLoaded, user, router]);
 
@@ -124,6 +173,7 @@ export function usePortalViewerContext(
         // Best-effort — the session expires naturally after 90 minutes
       }
     }
+    validationState.current = "idle";
     router.push("/portal/admin");
   }
 
