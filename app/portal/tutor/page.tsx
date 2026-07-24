@@ -78,6 +78,7 @@ const navItems = [
   { id: "notes",     label: "Session Notes"  },
   { id: "homework",  label: "Homework"       },
   { id: "library",   label: "Course Library" },
+  { id: "settings",  label: "Settings"       },
 ];
 
 
@@ -2001,59 +2002,6 @@ export default function TutorPortal() {
             </Modal>
           )}
 
-          {/* Personal Zoom Link + Meeting ID */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900">Zoom Settings</h3>
-              {zoomLinkSaved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Set your personal meeting link and ID once — students can click to join or type the ID directly into Zoom.
-            </p>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Join Link</label>
-            <input
-              value={zoomLinkVal}
-              onChange={(e) => setZoomLinkVal(e.target.value)}
-              placeholder="https://zoom.us/j/123456789"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Meeting ID</label>
-            <input
-              value={meetingIdVal}
-              onChange={(e) => setMeetingIdVal(e.target.value)}
-              placeholder="123 456 7890"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <button onClick={savePersonalZoomLink} disabled={zoomLinkSaving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-              {zoomLinkSaving ? "Saving…" : "Save"}
-            </button>
-          </div>
-
-          {/* Booking lead time */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
-            <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900">Student Booking Window</h3>
-              {leadSaved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
-            </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Students cannot book sessions within this many hours of the start time.
-              Currently saved: <span className="font-semibold text-gray-700">{tutor.bookingLeadHours} hours</span>.
-            </p>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm w-fit mb-4">
-              {([24, 48] as const).map((h, i) => (
-                <button key={h} type="button" onClick={() => setLeadHours(h)}
-                  className={`px-5 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${leadHours === h ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
-                  {h} hours
-                </button>
-              ))}
-            </div>
-            {leadError && <p className="text-xs text-red-500 mb-2">{leadError}</p>}
-            <button onClick={saveLeadTime} disabled={leadSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
-              {leadSaving ? "Saving…" : "Save"}
-            </button>
-          </div>
-
           {/* Availability editor */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
             <div className="flex items-center justify-between mb-4">
@@ -2202,6 +2150,66 @@ export default function TutorPortal() {
               </button>
             </div>
             {blockError && <p className="text-xs text-red-500 mt-2">{blockError}</p>}
+          </div>
+        </div>
+      )}
+
+      {/* ── SETTINGS ── */}
+      {tab === "settings" && (
+        <div className="max-w-lg space-y-6">
+          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+
+          {/* Zoom */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-gray-900">Zoom Settings</h3>
+              {zoomLinkSaved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Set your personal meeting link and ID once — students can click to join or type the ID directly into Zoom.
+            </p>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Join Link</label>
+            <input
+              value={zoomLinkVal}
+              onChange={(e) => setZoomLinkVal(e.target.value)}
+              placeholder="https://zoom.us/j/123456789"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Meeting ID</label>
+            <input
+              value={meetingIdVal}
+              onChange={(e) => setMeetingIdVal(e.target.value)}
+              placeholder="123 456 7890"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button onClick={savePersonalZoomLink} disabled={zoomLinkSaving}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              {zoomLinkSaving ? "Saving…" : "Save"}
+            </button>
+          </div>
+
+          {/* Booking lead time */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-1">
+              <h3 className="font-semibold text-gray-900">Student Booking Window</h3>
+              {leadSaved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Students cannot book sessions within this many hours of the start time.
+              Currently saved: <span className="font-semibold text-gray-700">{tutor.bookingLeadHours} hours</span>.
+            </p>
+            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm w-fit mb-4">
+              {([24, 48] as const).map((h, i) => (
+                <button key={h} type="button" onClick={() => setLeadHours(h)}
+                  className={`px-5 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${leadHours === h ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                  {h} hours
+                </button>
+              ))}
+            </div>
+            {leadError && <p className="text-xs text-red-500 mb-2">{leadError}</p>}
+            <button onClick={saveLeadTime} disabled={leadSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              {leadSaving ? "Saving…" : "Save"}
+            </button>
           </div>
         </div>
       )}
@@ -2630,6 +2638,15 @@ export default function TutorPortal() {
                     className="shrink-0 text-sm text-blue-600 hover:underline font-medium disabled:opacity-50">
                     {hwOpeningId === h.id ? "Opening…" : "View →"}
                   </button>
+                </div>
+              )}
+              {/* Kami link */}
+              {h.kamiLink && (
+                <div className="mb-3">
+                  <a href={h.kamiLink} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
+                    ✏️ Open in Kami
+                  </a>
                 </div>
               )}
 
