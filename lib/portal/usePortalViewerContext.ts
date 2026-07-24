@@ -101,6 +101,7 @@ export function usePortalViewerContext(
   }, [authLoaded, user, router]);
 
   const isAdminPreview    = user?.role === "admin" && previewStudentId !== null;
+  const isParent          = user?.role === "parent";
   const effectiveStudentId = isAdminPreview ? previewStudentId : (user?.linkedId ?? null);
 
   async function exitPreview() {
@@ -129,11 +130,11 @@ export function usePortalViewerContext(
     previewStudentName,
     previewId,
     previewReady,
-    canSubmitHomework:   !isAdminPreview,
-    canManageSchedule:   !isAdminPreview,
-    canPurchaseHours:    !isAdminPreview,
+    canSubmitHomework:   !isAdminPreview && !isParent,
+    canManageSchedule:   !isAdminPreview && !isParent,
+    canPurchaseHours:    !isAdminPreview && !isParent,
     canReply:            !isAdminPreview,
-    canEditAccount:      !isAdminPreview,
+    canEditAccount:      !isAdminPreview && !isParent,
     exitPreview,
   };
 }

@@ -112,6 +112,10 @@ export default function AdminPortal() {
     setSkillLibCount(count ?? 0);
   }
 
+  useEffect(() => {
+    if (tab === "curriculum" && skillLibCount === null) checkSkillLib();
+  }, [tab, skillLibCount]);
+
   async function initSkillLib() {
     setSkillLibIniting(true);
     try {
@@ -528,7 +532,7 @@ export default function AdminPortal() {
           .catch(console.error);
       }
       setAddHoursFor(null);
-    } catch { setAddHoursError("Failed to add hours."); }
+    } catch { setFulfillingRequestId(null); setAddHoursError("Failed to add hours."); }
     finally { setAddHoursLoading(false); }
   }
 
@@ -591,7 +595,6 @@ export default function AdminPortal() {
             body: JSON.stringify({ role: "student", linkedId: profileStudent.id, newEmail: pfEmail }),
           });
           const emailJson = await emailRes.json();
-          console.log("[update-email student]", emailJson);
           if (!emailRes.ok) {
             alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
           }
@@ -621,7 +624,6 @@ export default function AdminPortal() {
             body: JSON.stringify({ role: "tutor", linkedId: profileTutor.id, newEmail: pfTutEmail }),
           });
           const emailJson = await emailRes.json();
-          console.log("[update-email tutor]", emailJson);
           if (!emailRes.ok) {
             alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
           }
@@ -1479,7 +1481,7 @@ export default function AdminPortal() {
               <tbody className="divide-y divide-gray-100">
                 {packages.map((b) => {
                   const student = getStudent(b.studentId);
-                  const pct = Math.min(100, (b.totalUsed / b.totalPurchased) * 100);
+                  const pct = b.totalPurchased > 0 ? Math.min(100, (b.totalUsed / b.totalPurchased) * 100) : 0;
                   return (
                     <tr key={b.studentId}>
                       <td className="px-4 py-3 font-medium text-gray-900">{student?.name ?? "—"}</td>
@@ -1501,7 +1503,7 @@ export default function AdminPortal() {
                   );
                 })}
                 {/* Students without packages */}
-                {students.filter((s) => !packages.find((b) => b.studentId === s.id)).map((s) => (
+                {students.filter((s) => !s.archived && !packages.find((b) => b.studentId === s.id)).map((s) => (
                   <tr key={s.id} className="opacity-60">
                     <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                     <td className="px-4 py-3 text-gray-400" colSpan={5}>No package</td>
@@ -1550,7 +1552,6 @@ export default function AdminPortal() {
 
       {/* ── CURRICULUM ── */}
       {tab === "curriculum" && (() => {
-        if (skillLibCount === null) checkSkillLib();
         const isReady = skillLibCount !== null && skillLibCount >= SAT_SKILL_TOTAL;
         return (
           <>

@@ -45,7 +45,7 @@ export default function LoginPage() {
       if      (profile.role === "admin")   router.push("/portal/admin");
       else if (profile.role === "tutor")   router.push("/portal/tutor");
       else if (profile.role === "student") router.push("/portal/student");
-      else if (profile.role === "parent")  router.push("/portal/parent");
+      else if (profile.role === "parent")  router.push("/portal/student");
       else {
         setError("Account role not recognized. Contact MetaMinds support.");
         setLoading(false);

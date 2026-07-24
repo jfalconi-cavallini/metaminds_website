@@ -55,7 +55,7 @@ const ALL_NAV_ITEMS = [
 ];
 
 // Tabs parents are allowed to see (read-only view of their child's portal)
-const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path", "settings"]);
+const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path"]);
 
 /** Returns hours from now until the session starts (negative if past) */
 function hoursUntilSession(session: Session): number {
@@ -2297,7 +2297,7 @@ export default function StudentPortal() {
                       )}
 
                       {/* Footer */}
-                      {tutor?.email && (
+                      {tutor?.email && ctx.canReply && (
                         <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/60 flex items-center justify-between gap-4">
                           <p className="text-xs text-gray-400">Have a question about this update?</p>
                           <a
@@ -2338,7 +2338,7 @@ export default function StudentPortal() {
         const futurePending = pending.filter((h) => !!h.dueDate && h.dueDate > today);
 
         // To Do = all pending, sorted overdue first then by due date
-        const urgentPending = pending.sort((a, b) => {
+        const urgentPending = [...pending].sort((a, b) => {
           if (!a.dueDate && !b.dueDate) return 0;
           if (!a.dueDate) return 1;
           if (!b.dueDate) return -1;
@@ -2790,7 +2790,7 @@ export default function StudentPortal() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Package</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Expires {formatDate(balance.expiresAt)}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Expires {balance.expiresAt ? formatDate(balance.expiresAt) : "—"}</p>
                   <button
                     onClick={() => setTab("sessions")}
                     className="mt-3 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700"
@@ -3211,15 +3211,6 @@ export default function StudentPortal() {
                   Icon: FileText,
                   iconBg: "bg-violet-50",
                   iconColor: "text-violet-500",
-                },
-                {
-                  label: "Hours Remaining",
-                  value: balance ? String(balance.remaining) : "—",
-                  sub: balance ? `of ${balance.totalPurchased} purchased` : "no package",
-                  accent: balance && balance.remaining <= 3 ? "text-red-500" : "text-emerald-600",
-                  Icon: Timer,
-                  iconBg: "bg-emerald-50",
-                  iconColor: "text-emerald-500",
                 },
                 {
                   label: "Total Hours Used",
