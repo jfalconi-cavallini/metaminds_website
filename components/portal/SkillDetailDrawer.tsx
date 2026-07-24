@@ -3,17 +3,17 @@
 import { useEffect, useState } from "react";
 import { X, FileText, BookOpen, Clock, Star, AlertCircle } from "lucide-react";
 import type { SkillNode, SkillNoteLink, HomeworkSkillLink, StudentSkill } from "@/lib/portal/types";
-import { fetchStudentSkill } from "@/lib/portal/db";
+import { fetchStudentSkill, fetchSkillLinkedNotes, fetchSkillLinkedHomework } from "@/lib/portal/db";
 import { formatDate } from "@/lib/portal/utils";
 import { scoreToStatus, STATUS_LABEL, STATUS_BADGE } from "@/lib/portal/planConfig";
 
 interface Props {
-  skillId:   number | null;
-  studentId: number;
+  skillId:    number | null;
+  studentId:  number;
   skillNodes: SkillNode[];
-  noteLinks:  SkillNoteLink[];
-  hwLinks:    HomeworkSkillLink[];
-  onClose:   () => void;
+  noteLinks?: SkillNoteLink[];    // if omitted, fetched internally
+  hwLinks?:   HomeworkSkillLink[]; // if omitted, fetched internally
+  onClose:    () => void;
 }
 
 export default function SkillDetailDrawer({
@@ -21,6 +21,37 @@ export default function SkillDetailDrawer({
 }: Props) {
   const [mastery,    setMastery]    = useState<StudentSkill | null>(null);
   const [mastLoaded, setMastLoaded] = useState<number | null>(null);
+
+  // Self-fetch mode: when noteLinks/hwLinks are not pre-loaded by the parent
+  const selfLoad = noteLinks === undefined || hwLinks === undefined;
+  const [internalNoteLinks, setInternalNoteLinks] = useState<SkillNoteLink[]>([]);
+  const [internalHwLinks,   setInternalHwLinks]   = useState<HomeworkSkillLink[]>([]);
+  const [dataLoadedFor,     setDataLoadedFor]     = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!selfLoad || dataLoadedFor === studentId) return;
+    let cancelled = false;
+    async function load() {
+      try {
+        const [notes, hw] = await Promise.all([
+          fetchSkillLinkedNotes(studentId),
+          fetchSkillLinkedHomework(studentId),
+        ]);
+        if (!cancelled) {
+          setInternalNoteLinks(notes);
+          setInternalHwLinks(hw);
+          setDataLoadedFor(studentId);
+        }
+      } catch {
+        if (!cancelled) setDataLoadedFor(studentId);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [selfLoad, studentId, dataLoadedFor]);
+
+  const resolvedNoteLinks = noteLinks ?? internalNoteLinks;
+  const resolvedHwLinks   = hwLinks   ?? internalHwLinks;
 
   // Lazy-load mastery record for the current skill
   useEffect(() => {
@@ -48,8 +79,8 @@ export default function SkillDetailDrawer({
   if (skillId === null) return null;
 
   const node     = skillNodes.find(n => n.id === skillId);
-  const sessions = noteLinks.filter(l => l.skillId === skillId);
-  const hw       = hwLinks.filter(h => h.skillId === skillId);
+  const sessions = resolvedNoteLinks.filter(l => l.skillId === skillId);
+  const hw       = resolvedHwLinks.filter(h => h.skillId === skillId);
   const hasAny   = sessions.length > 0 || hw.length > 0;
 
   const masteryStatus = mastery ? scoreToStatus(mastery.masteryScore) : "not-assessed";

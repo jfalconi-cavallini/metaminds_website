@@ -38,6 +38,7 @@ import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
 import SkillPicker from "@/components/portal/SkillPicker";
 import StudentSkillPanel from "@/components/portal/StudentSkillPanel";
+import SkillDetailDrawer from "@/components/portal/SkillDetailDrawer";
 import { getSubskills } from "@/lib/portal/planConfig";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
@@ -267,6 +268,7 @@ export default function TutorPortal() {
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
   const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan" | "skills">("homework");
+  const [tutorSkillId,        setTutorSkillId]        = useState<number | null>(null);
 
   // Plan sub-tab
   const [panelPlanFull,         setPanelPlanFull]         = useState<StudentPlanFull | null>(null);
@@ -1651,6 +1653,8 @@ export default function TutorPortal() {
                                                 section={section}
                                                 skillBaseline={panelPlanFull.skillBaseline}
                                                 planLessonMap={plMap}
+                                                skillNodes={allSkillNodes}
+                                                onSkillClick={(id) => setTutorSkillId(id)}
                                               />
                                             </div>
                                             {si < panelCatalog.sections.length - 1 && <div className="border-t border-gray-100 mt-3" />}
@@ -2854,6 +2858,16 @@ export default function TutorPortal() {
       {tab === "library" && <CourseLibrary />}
 
     </DashboardShell>
+
+    {/* ── SKILL DETAIL DRAWER (roadmap node clicks in student plan view) ── */}
+    {tutorSkillId !== null && selectedStudentId !== null && (
+      <SkillDetailDrawer
+        skillId={tutorSkillId}
+        studentId={selectedStudentId}
+        skillNodes={allSkillNodes}
+        onClose={() => setTutorSkillId(null)}
+      />
+    )}
 
     {/* ── SESSION DETAIL MODAL (global — works from overview & calendar) ── */}
     {sessionDetail && (() => {
