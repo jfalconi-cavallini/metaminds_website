@@ -24,5 +24,9 @@ CREATE UNIQUE INDEX IF NOT EXISTS admin_preview_token_idx ON admin_preview_sessi
 -- Admin audit queries
 CREATE INDEX IF NOT EXISTS admin_preview_admin_idx ON admin_preview_sessions(admin_id);
 
--- No RLS — table is accessed exclusively via the service-role API routes.
--- Direct anon/user client access is intentionally not granted.
+ALTER TABLE admin_preview_sessions ENABLE ROW LEVEL SECURITY;
+
+-- RLS is enabled with no permissive policies, which blocks all browser-client
+-- access. The service-role API routes bypass RLS and are the only intended
+-- consumers of this table. Defense in depth: even if a grant were accidentally
+-- added, no policy means no access for anon/authenticated roles.
