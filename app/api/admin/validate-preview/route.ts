@@ -19,7 +19,7 @@ export async function GET(request: Request) {
 
   const { data: preview, error } = await admin
     .from("admin_preview_sessions")
-    .select("id, admin_id, student_id, expires_at, ended_at, students(name)")
+    .select("id, admin_id, student_id, expires_at, ended_at, view_as, students(name)")
     .eq("token", token)
     .eq("admin_id", caller.id)   // only this admin's own sessions
     .is("ended_at", null)
@@ -36,18 +36,20 @@ export async function GET(request: Request) {
     student_id: number;
     expires_at: string;
     ended_at: string | null;
+    view_as: string;
     students: { name: string } | { name: string }[] | null;
   };
 
   const studentsField = Array.isArray(p.students) ? p.students[0] : p.students;
   const studentName = studentsField?.name ?? "Student";
 
-  console.log(`[preview] VALIDATE admin=${caller.id} student=${p.student_id} previewId=${p.id}`);
+  console.log(`[preview] VALIDATE admin=${caller.id} student=${p.student_id} previewId=${p.id} viewAs=${p.view_as}`);
 
   return NextResponse.json({
     studentId:   p.student_id,
     studentName,
     previewId:   p.id,
     expiresAt:   p.expires_at,
+    viewAs:      (p.view_as === "parent" ? "parent" : "student") as "student" | "parent",
   });
 }

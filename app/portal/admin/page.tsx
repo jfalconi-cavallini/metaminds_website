@@ -136,7 +136,7 @@ export default function AdminPortal() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError,   setPreviewError]   = useState<string | null>(null);
 
-  async function openStudentPreview(studentId: number) {
+  async function openStudentPreview(studentId: number, viewAs: "student" | "parent" = "student") {
     setPreviewError(null);
     setPreviewLoading(true);
     try {
@@ -144,7 +144,7 @@ export default function AdminPortal() {
       const res = await fetch("/api/admin/start-preview", {
         method:  "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
-        body:    JSON.stringify({ studentId }),
+        body:    JSON.stringify({ studentId, viewAs }),
       });
       if (!res.ok) {
         const j = await res.json() as { error?: string };
@@ -1649,11 +1649,18 @@ export default function AdminPortal() {
                   {syncEmailLoading ? "Syncing…" : "Resync Login Email"}
                 </button>
                 <button
-                  onClick={() => openStudentPreview(ps.id)}
+                  onClick={() => openStudentPreview(ps.id, "student")}
                   disabled={previewLoading}
                   className="px-4 py-2 border border-violet-200 text-violet-700 bg-violet-50 rounded-lg text-sm font-medium hover:bg-violet-100 disabled:opacity-50 transition-colors"
                 >
                   {previewLoading ? "Opening…" : "View as Student"}
+                </button>
+                <button
+                  onClick={() => openStudentPreview(ps.id, "parent")}
+                  disabled={previewLoading}
+                  className="px-4 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 rounded-lg text-sm font-medium hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                >
+                  {previewLoading ? "Opening…" : "View as Parent"}
                 </button>
               </div>
               {previewError && (

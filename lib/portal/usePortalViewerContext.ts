@@ -9,6 +9,7 @@ export interface PortalViewerContext {
   viewerRole:          "student" | "parent" | "admin";
   effectiveStudentId:  number | null;
   isAdminPreview:      boolean;
+  previewViewAs:       "student" | "parent";
   previewStudentName:  string | null;
   previewId:           number | null;
   // true once the auth/preview check has resolved and data loading can begin
@@ -43,6 +44,7 @@ export function usePortalViewerContext(
   const [previewStudentId,   setPreviewStudentId]   = useState<number | null>(null);
   const [previewStudentName, setPreviewStudentName] = useState<string | null>(null);
   const [previewId,          setPreviewId]          = useState<number | null>(null);
+  const [previewViewAs,      setPreviewViewAs]      = useState<"student" | "parent">("student");
   const [previewReady,       setPreviewReady]       = useState(false);
 
   useEffect(() => {
@@ -77,10 +79,12 @@ export function usePortalViewerContext(
             studentId: number;
             studentName: string;
             previewId: number;
+            viewAs: "student" | "parent";
           };
           setPreviewStudentId(data.studentId);
           setPreviewStudentName(data.studentName);
           setPreviewId(data.previewId);
+          setPreviewViewAs(data.viewAs ?? "student");
           // Remove the token from the URL — keeps it out of browser history going forward
           window.history.replaceState({}, "", "/portal/student");
           setPreviewReady(true);
@@ -127,6 +131,7 @@ export function usePortalViewerContext(
     viewerRole:          (user?.role ?? "student") as PortalViewerContext["viewerRole"],
     effectiveStudentId,
     isAdminPreview,
+    previewViewAs,
     previewStudentName,
     previewId,
     previewReady,

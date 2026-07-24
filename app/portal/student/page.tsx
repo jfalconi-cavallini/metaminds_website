@@ -102,7 +102,7 @@ export default function StudentPortal() {
   const [selectedSkillId,    setSelectedSkillId]    = useState<number | null>(null);
 
   // Data load — waits for the viewer context to resolve auth and (if admin) preview token
-  const { previewReady, effectiveStudentId, isAdminPreview } = ctx;
+  const { previewReady, effectiveStudentId, isAdminPreview, previewViewAs } = ctx;
   useEffect(() => {
     if (!previewReady || !effectiveStudentId) return;
     const studentId = effectiveStudentId;
@@ -530,7 +530,7 @@ export default function StudentPortal() {
     }
   }
 
-  const isParent = user?.role === "parent";
+  const isParent = user?.role === "parent" || (ctx.isAdminPreview && previewViewAs === "parent");
   const navItems = isParent
     ? ALL_NAV_ITEMS.filter((n) => PARENT_TABS.has(n.id))
     : ALL_NAV_ITEMS;
@@ -628,7 +628,7 @@ export default function StudentPortal() {
               Read-only
             </span>
             <span className="text-sm font-semibold text-amber-900 truncate">
-              Admin Preview — Viewing the portal as {ctx.previewStudentName}
+              Admin Preview — {ctx.previewViewAs === "parent" ? "Parent" : "Student"} view for {ctx.previewStudentName}
             </span>
           </div>
           <button
