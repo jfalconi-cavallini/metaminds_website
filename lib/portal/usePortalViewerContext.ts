@@ -50,6 +50,19 @@ export function usePortalViewerContext(
 
     // Not authenticated yet — wait for session or redirect to login
     if (!user) {
+      // If there's a preview token in the URL, the admin session may still be
+      // initializing in this new tab: @supabase/ssr fires INITIAL_SESSION
+      // asynchronously after the first getSession() call returns null.
+      // Don't redirect immediately — wait for onAuthStateChange to fire and
+      // set user. Use a 5-second fallback in case the session is genuinely absent.
+      if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("preview")) {
+        const t = window.setTimeout(() => {
+          supabase.auth.getSession().then(({ data: { session } }) => {
+            if (!session) router.push("/login");
+          });
+        }, 5000);
+        return () => window.clearTimeout(t);
+      }
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (!session) router.push("/login");
       });
