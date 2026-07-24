@@ -50,7 +50,19 @@ export async function proxy(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
-    if (!profile || !allowedRoles.includes(profile.role)) {
+    if (!profile) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
+
+    // Admins can access any portal path — the preview token is validated client-side
+    // by usePortalViewerContext before any student data is loaded.
+    if (profile.role === "admin") {
+      return response;
+    }
+
+    if (!allowedRoles.includes(profile.role)) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       return NextResponse.redirect(url);
