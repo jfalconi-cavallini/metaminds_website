@@ -134,12 +134,6 @@ export default function AdminPortal() {
 
   async function openStudentPreview(studentId: number) {
     setPreviewError(null);
-    // Open a blank tab synchronously before any async work — prevents popup blocking
-    const newTab = window.open("about:blank", "_blank");
-    if (!newTab) {
-      setPreviewError("Popups are blocked. Allow popups for this site to use preview.");
-      return;
-    }
     setPreviewLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -153,9 +147,9 @@ export default function AdminPortal() {
         throw new Error(j.error ?? "Failed to start preview");
       }
       const { previewUrl } = await res.json() as { previewUrl: string };
-      newTab.location.href = previewUrl;
+      // Navigate in the same tab — avoids session loss in a new tab context
+      router.push(previewUrl);
     } catch (err) {
-      newTab.close();
       setPreviewError(err instanceof Error ? err.message : "Could not open preview.");
     } finally {
       setPreviewLoading(false);
