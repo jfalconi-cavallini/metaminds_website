@@ -673,7 +673,7 @@ export default function StudentPortal() {
                   <p className="font-bold text-sm leading-snug">{formatDate(nextSession.date)}</p>
                   <p className="text-blue-100 text-sm mt-0.5">{nextSession.time} · {nextSession.subject}</p>
                   <p className="text-blue-200 text-xs mt-0.5">{nextSession.durationHours} hr · {nextSession.sessionType}</p>
-                  <div className="mt-3">
+                  <div className="mt-3 space-y-1.5">
                     {(nextSession.zoomLink ?? tutor?.zoomLink) ? (
                       <button
                         onClick={() => window.open(resolveZoomUrl((nextSession.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
@@ -688,6 +688,9 @@ export default function StudentPortal() {
                       >
                         View Schedule →
                       </button>
+                    )}
+                    {tutor?.meetingId && (
+                      <p className="text-blue-200 text-[11px]">Meeting ID: {tutor.meetingId}</p>
                     )}
                   </div>
                 </div>
@@ -738,14 +741,19 @@ export default function StudentPortal() {
                         <p className="text-sm font-semibold text-gray-900 truncate">{sessionToday.subject} Session</p>
                         <p className="text-xs text-gray-400">{sessionToday.time} · {sessionToday.durationHours} hr</p>
                       </div>
-                      {(sessionToday.zoomLink ?? tutor?.zoomLink) && (
-                        <button
-                          onClick={() => window.open(resolveZoomUrl((sessionToday.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
-                          className="text-xs text-blue-600 font-semibold hover:underline shrink-0"
-                        >
-                          Join →
-                        </button>
-                      )}
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        {(sessionToday.zoomLink ?? tutor?.zoomLink) && (
+                          <button
+                            onClick={() => window.open(resolveZoomUrl((sessionToday.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
+                            className="text-xs text-blue-600 font-semibold hover:underline"
+                          >
+                            Join →
+                          </button>
+                        )}
+                        {tutor?.meetingId && (
+                          <span className="text-[10px] text-gray-400">ID: {tutor.meetingId}</span>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -1246,13 +1254,18 @@ export default function StudentPortal() {
                         {/* Actions */}
                         <div className="pr-4 pl-2 shrink-0 flex items-center gap-1.5">
                           {(s.zoomLink ?? tutor?.zoomLink) && (
-                            <button
-                              onClick={() => window.open(resolveZoomUrl((s.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
-                              className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
-                            >
-                              <Video className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Join</span>
-                            </button>
+                            <div className="flex flex-col items-end gap-0.5">
+                              <button
+                                onClick={() => window.open(resolveZoomUrl((s.zoomLink ?? tutor?.zoomLink)!), "_blank", "noopener,noreferrer")}
+                                className="flex items-center gap-1 text-sm font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
+                              >
+                                <Video className="w-3.5 h-3.5" />
+                                <span className="hidden sm:inline">Join</span>
+                              </button>
+                              {tutor?.meetingId && (
+                                <span className="text-[10px] text-gray-400">ID: {tutor.meetingId}</span>
+                              )}
+                            </div>
                           )}
                           {locked ? (
                             <span className="text-[11px] text-gray-300 italic px-2">Locked</span>

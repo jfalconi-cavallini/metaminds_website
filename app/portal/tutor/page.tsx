@@ -170,8 +170,9 @@ export default function TutorPortal() {
   const [schedSuccess,     setSchedSuccess]     = useState(false);
   const [schedError,       setSchedError]       = useState("");
 
-  // ── PERSONAL ZOOM LINK ──────────────────────────────────────────
+  // ── PERSONAL ZOOM LINK + MEETING ID ─────────────────────────────
   const [zoomLinkVal,     setZoomLinkVal]     = useState("");
+  const [meetingIdVal,    setMeetingIdVal]    = useState("");
   const [zoomLinkSaving,  setZoomLinkSaving]  = useState(false);
   const [zoomLinkSaved,   setZoomLinkSaved]   = useState(false);
 
@@ -345,6 +346,7 @@ export default function TutorPortal() {
     if (tutor) {
       setLeadHours(tutor.bookingLeadHours === 48 ? 48 : 24);
       setZoomLinkVal(tutor.zoomLink ?? "");
+      setMeetingIdVal(tutor.meetingId ?? "");
     }
   }, [tutor]);
 
@@ -428,7 +430,7 @@ export default function TutorPortal() {
   async function savePersonalZoomLink() {
     setZoomLinkSaving(true); setZoomLinkSaved(false);
     try {
-      await updateTutorProfile(tutorId, { zoomLink: zoomLinkVal.trim() });
+      await updateTutorProfile(tutorId, { zoomLink: zoomLinkVal.trim(), meetingId: meetingIdVal.trim() });
       setZoomLinkSaved(true); setTimeout(() => setZoomLinkSaved(false), 3000);
     } catch { /* silent */ } finally { setZoomLinkSaving(false); }
   }
@@ -1999,20 +2001,28 @@ export default function TutorPortal() {
             </Modal>
           )}
 
-          {/* Personal Zoom Link */}
+          {/* Personal Zoom Link + Meeting ID */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900">Personal Zoom Link</h3>
+              <h3 className="font-semibold text-gray-900">Zoom Settings</h3>
               {zoomLinkSaved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
             </div>
             <p className="text-xs text-gray-400 mb-4">
-              Set your personal meeting link once — all your sessions will use it automatically.
+              Set your personal meeting link and ID once — students can click to join or type the ID directly into Zoom.
             </p>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Join Link</label>
             <input
               value={zoomLinkVal}
               onChange={(e) => setZoomLinkVal(e.target.value)}
-              placeholder="https://zoom.us/j/your-meeting-id"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="https://zoom.us/j/123456789"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Meeting ID</label>
+            <input
+              value={meetingIdVal}
+              onChange={(e) => setMeetingIdVal(e.target.value)}
+              placeholder="123 456 7890"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button onClick={savePersonalZoomLink} disabled={zoomLinkSaving}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
