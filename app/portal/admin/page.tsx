@@ -152,6 +152,7 @@ export default function AdminPortal() {
       }
       const { previewUrl } = await res.json() as { previewUrl: string };
       // Navigate in the same tab — avoids session loss in a new tab context
+      console.log("[preview] ADMIN: navigating to", previewUrl);
       router.push(previewUrl);
     } catch (err) {
       setPreviewError(err instanceof Error ? err.message : "Could not open preview.");
