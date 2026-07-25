@@ -3224,14 +3224,23 @@ export default function StudentPortal() {
         const studyMinutesTotal = studyLog.reduce((sum, e) => sum + e.minutes, 0);
         const studyHours = +(studyMinutesTotal / 60).toFixed(1);
 
-        // Practice test score progression — only composite scores count for the journey
+        // Practice test score progression
         const testsWithScore = practiceTests.filter(t => t.overallScore != null);
         const latestTest     = testsWithScore.length > 0 ? testsWithScore[testsWithScore.length - 1] : null;
         const latestScore    = latestTest?.overallScore ?? null;
 
+        // Estimated composite: most recent R&W + most recent Math across all tests
+        const reversed       = [...practiceTests].reverse();
+        const latestRW       = reversed.find(t => t.rwScore   != null)?.rwScore   ?? null;
+        const latestMath     = reversed.find(t => t.mathScore != null)?.mathScore ?? null;
+        const estimatedComposite = (latestRW != null && latestMath != null) ? latestRW + latestMath : null;
+
+        // Use real composite if available, otherwise fall back to estimated, then plan currentScore
+        const curScore      = latestScore ?? estimatedComposite ?? studentPlanFull.currentScore ?? null;
+        const isEstimated   = latestScore == null && estimatedComposite != null;
+
         // Score-based milestones (4 checkpoints between start and goal)
         const startScore = studentPlanFull.startingScore ?? null;
-        const curScore   = latestScore ?? studentPlanFull.currentScore ?? startScore;
         const goalScore  = studentPlanFull.targetScore ?? null;
         const milestones = (startScore && goalScore && goalScore > startScore)
           ? [1, 2, 3, 4].map(n => ({
@@ -3285,12 +3294,14 @@ export default function StudentPortal() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
                 {
-                  label: latestScore ? "Latest Score" : "Starting Score",
-                  value: (latestScore ?? startScore) ? String(latestScore ?? startScore) : "—",
-                  sub: latestScore && startScore && latestScore !== startScore
+                  label: curScore && curScore !== startScore ? "Current Score" : "Starting Score",
+                  value: curScore ? `${isEstimated ? "~" : ""}${curScore}` : (startScore ? String(startScore) : "—"),
+                  sub: isEstimated
+                    ? `R&W ${latestRW} + Math ${latestMath} (est.)`
+                    : curScore && startScore && curScore !== startScore
                     ? `started at ${startScore}`
                     : "baseline",
-                  accent: latestScore && startScore && latestScore > startScore ? "text-emerald-700" : "text-gray-900",
+                  accent: curScore && startScore && curScore > startScore ? "text-emerald-700" : "text-gray-900",
                   Icon: BookOpen,
                   iconBg: "bg-blue-50",
                   iconColor: "text-blue-500",
@@ -3360,8 +3371,8 @@ export default function StudentPortal() {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Score Journey</p>
                     <div className="flex items-center gap-2">
                       {gained > 0 && (
-                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-0.5">
-                          +{gained} gained
+                        <span className={`text-xs font-semibold rounded-full px-2.5 py-0.5 border ${isEstimated ? "text-amber-700 bg-amber-50 border-amber-100" : "text-emerald-700 bg-emerald-50 border-emerald-100"}`}>
+                          ~+{gained}{isEstimated ? " (est.)" : " gained"}
                         </span>
                       )}
                       {pointsLeft > 0 && (
@@ -3389,10 +3400,12 @@ export default function StudentPortal() {
                     {/* Current score marker (only if different from start) */}
                     {curScore && curScore !== startScore && (
                       <div className="absolute" style={{ left: `${curPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
-                        <div className="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
+                        <div className={`w-5 h-5 rounded-full border-2 border-white shadow-md ${isEstimated ? "bg-amber-400" : "bg-emerald-500"}`} />
                         <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
-                          <span className="text-sm font-bold text-emerald-700 block">{curScore}</span>
-                          <span className="text-[10px] text-gray-400">current</span>
+                          <span className={`text-sm font-bold block ${isEstimated ? "text-amber-600" : "text-emerald-700"}`}>
+                            {isEstimated ? "~" : ""}{curScore}
+                          </span>
+                          <span className="text-[10px] text-gray-400">{isEstimated ? "est." : "current"}</span>
                         </div>
                       </div>
                     )}
