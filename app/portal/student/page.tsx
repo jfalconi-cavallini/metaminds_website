@@ -3235,9 +3235,9 @@ export default function StudentPortal() {
         const latestMath     = reversed.find(t => t.mathScore != null)?.mathScore ?? null;
         const estimatedComposite = (latestRW != null && latestMath != null) ? latestRW + latestMath : null;
 
-        // Use real composite if available, otherwise fall back to estimated, then plan currentScore
-        const curScore      = latestScore ?? estimatedComposite ?? studentPlanFull.currentScore ?? null;
-        const isEstimated   = latestScore == null && estimatedComposite != null;
+        // Use real composite if available, otherwise estimated from sections — never stale plan.currentScore
+        const curScore    = latestScore ?? estimatedComposite ?? null;
+        const isEstimated = latestScore == null && estimatedComposite != null;
 
         // Score-based milestones (4 checkpoints between start and goal)
         const startScore = studentPlanFull.startingScore ?? null;
@@ -3385,7 +3385,8 @@ export default function StudentPortal() {
                   <div className="relative mb-12">
                     <div className="h-3 w-full bg-gray-100 rounded-full relative overflow-hidden">
                       {/* Progress from start to current */}
-                      <div className="absolute inset-y-0 left-0 bg-emerald-400 rounded-l-full transition-all duration-700" style={{ width: `${curPct}%` }} />
+                      <div className={`absolute inset-y-0 transition-all duration-700 ${isEstimated ? "bg-amber-400" : "bg-emerald-400"}`}
+                        style={{ left: `${startPct}%`, width: `${Math.max(0, curPct - startPct)}%` }} />
                       {/* Gap from current to goal */}
                       {pointsLeft > 0 && <div className="absolute inset-y-0 bg-blue-200" style={{ left: `${curPct}%`, width: `${Math.max(0, goalPct - curPct)}%` }} />}
                     </div>

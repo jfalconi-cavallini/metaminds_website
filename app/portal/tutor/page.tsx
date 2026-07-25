@@ -1722,7 +1722,13 @@ export default function TutorPortal() {
                                                 setPanelTestDeletingId(tr.id);
                                                 try {
                                                   await deletePracticeTestResult(tr.id);
-                                                  setPanelTestResults(prev => prev.filter(r => r.id !== tr.id));
+                                                  const remaining = panelTestResults.filter(r => r.id !== tr.id);
+                                                  setPanelTestResults(remaining);
+                                                  // Keep plan currentScore in sync: use latest remaining composite, or null
+                                                  const latestComposite = [...remaining].reverse().find(r => r.overallScore != null)?.overallScore ?? null;
+                                                  await updateStudentPlan(panelPlanFull.id, { currentScore: latestComposite ?? 0 });
+                                                  const updated = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
+                                                  setPanelPlanFull(updated);
                                                 } catch (err) {
                                                   setPanelPlanError(err instanceof Error ? err.message : "Delete failed");
                                                 } finally {
