@@ -239,6 +239,7 @@ export default function TutorPortal() {
   const [hwPastCompletedDate,setHwPastCompletedDate]= useState("");
   const [hwPastGrade,        setHwPastGrade]        = useState("");
   const [hwPastFeedback,     setHwPastFeedback]     = useState("");
+  const [hwPastTimeMins,     setHwPastTimeMins]     = useState("");
   const [hwPastSaving,       setHwPastSaving]       = useState(false);
   const [hwPastError,        setHwPastError]        = useState("");
 
@@ -813,20 +814,21 @@ export default function TutorPortal() {
     setHwPastSaving(true); setHwPastError("");
     try {
       const hw = await logCompletedHomework({
-        studentId:      Number(hwPastStudentId),
+        studentId:           Number(hwPastStudentId),
         tutorId,
-        task:           hwPastTask.trim(),
-        assignedDate:   hwPastAssignedDate,
-        completedDate:  hwPastCompletedDate,
-        assignmentType: hwPastType || undefined,
-        grade:          hwPastGrade.trim() || undefined,
-        feedback:       hwPastFeedback.trim() || undefined,
+        task:                hwPastTask.trim(),
+        assignedDate:        hwPastAssignedDate,
+        completedDate:       hwPastCompletedDate,
+        assignmentType:      hwPastType || undefined,
+        grade:               hwPastGrade.trim() || undefined,
+        feedback:            hwPastFeedback.trim() || undefined,
+        studentTimeMinutes:  hwPastTimeMins ? parseInt(hwPastTimeMins) : undefined,
       });
       setHomework((prev) => [hw, ...prev]);
       setHwPastShowForm(false);
       setHwPastStudentId(""); setHwPastTask(""); setHwPastType("");
       setHwPastAssignedDate(""); setHwPastCompletedDate("");
-      setHwPastGrade(""); setHwPastFeedback("");
+      setHwPastGrade(""); setHwPastFeedback(""); setHwPastTimeMins("");
     } catch (err) {
       setHwPastError(err instanceof Error ? err.message : "Failed to save.");
     } finally {
@@ -3065,6 +3067,15 @@ export default function TutorPortal() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Time Spent <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                      <div className="flex items-center gap-2">
+                        <input type="number" min="1" max="600" placeholder="30"
+                          value={hwPastTimeMins} onChange={(e) => setHwPastTimeMins(e.target.value)}
+                          className="w-24 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span className="text-sm text-gray-400">min</span>
+                      </div>
+                    </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Grade <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                       <input type="text" value={hwPastGrade} onChange={(e) => setHwPastGrade(e.target.value)}

@@ -547,7 +547,8 @@ export default function StudentPortal() {
       }));
       const saved = await upsertVocabularySubmissions(entries);
       setVocabEntries((prev) => ({ ...prev, [hwId]: saved }));
-      const updated = await markHomeworkSubmitted(hwId);
+      const timeMins = hwTimeInputs[hwId] ? parseInt(hwTimeInputs[hwId]) : undefined;
+      const updated = await markHomeworkSubmitted(hwId, timeMins && !isNaN(timeMins) ? timeMins : undefined);
       setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
     } catch {
       setVocabErrors((prev) => ({ ...prev, [hwId]: "Failed to save submission. Please try again." }));
@@ -2571,7 +2572,20 @@ export default function StudentPortal() {
                       );
                     })}
                     {!isParent && (
-                      <div className="pt-1 flex flex-col gap-2">
+                      <div className="pt-1 space-y-3">
+                        {/* Time spent */}
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number" min="1" max="600" placeholder="20"
+                            value={currentTime}
+                            onChange={(e) => setHwTimeInputs((prev) => ({ ...prev, [h.id]: e.target.value }))}
+                            className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className="text-sm text-gray-500">minutes spent studying</span>
+                          {h.estimatedMinutes != null && (
+                            <span className="text-xs text-blue-500 font-medium">(Est. {h.estimatedMinutes} min)</span>
+                          )}
+                        </div>
                         {error && <p className="text-xs text-red-500">{error}</p>}
                         <button
                           onClick={() => submitVocabularyHomework(h.id)}
