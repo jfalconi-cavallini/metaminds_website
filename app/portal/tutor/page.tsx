@@ -2260,26 +2260,29 @@ export default function TutorPortal() {
 
       {/* ── SCHEDULE ── */}
       {tab === "schedule" && (
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Schedule</h1>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Schedule</p>
+              <h1 className="text-2xl font-bold text-gray-900">Weekly Calendar</h1>
+            </div>
             {/* Mode toggle */}
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm shadow-sm">
+            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm shadow-sm bg-white">
               <button
                 onClick={() => { setCalendarMode("schedule"); setSelectedSlot(null); }}
-                className={`px-4 py-2 font-medium transition-colors ${calendarMode === "schedule" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
-                📅 Schedule
+                className={`px-4 py-2 font-medium transition-colors ${calendarMode === "schedule" ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                Schedule
               </button>
               <button
                 onClick={() => { setCalendarMode("block"); setSelectedSlot(null); }}
-                className={`px-4 py-2 font-medium transition-colors border-l border-gray-200 ${calendarMode === "block" ? "bg-orange-500 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
-                🚫 Block Time
+                className={`px-4 py-2 font-medium transition-colors border-l border-gray-200 ${calendarMode === "block" ? "bg-orange-500 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
+                Block Time
               </button>
             </div>
           </div>
 
           {schedSuccess && (
-            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">Session scheduled!</div>
+            <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-2xl px-4 py-3 text-sm">Session scheduled!</div>
           )}
 
           <WeeklyCalendar
@@ -2337,13 +2340,14 @@ export default function TutorPortal() {
           )}
 
           {/* Availability editor */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="font-semibold text-gray-900">My Weekly Availability</h3>
-                <p className="text-xs text-gray-400 mt-0.5">Check the days you work, set your hours, then Save.</p>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Availability</p>
+                <h3 className="font-semibold text-gray-900">My Weekly Hours</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Toggle days on, set your hours, then Save.</p>
               </div>
-              {availSaved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
+              {availSaved && <span className="text-xs text-emerald-600 font-semibold">Saved!</span>}
             </div>
 
             <div className="divide-y divide-gray-100 mb-5">
@@ -2439,23 +2443,23 @@ export default function TutorPortal() {
             </div>
 
             <button onClick={saveAvailability} disabled={availSaving}
-              className="px-5 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+              className="px-5 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
               {availSaving ? "Saving…" : "Save Availability"}
             </button>
           </div>
 
           {/* Blocked dates */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 mt-6">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="mb-4">
-              <h3 className="font-semibold text-gray-900">Block Off Dates</h3>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Blocked Dates</p>
+              <h3 className="font-semibold text-gray-900">Days Off</h3>
               <p className="text-xs text-gray-400 mt-0.5">Specific dates when you&apos;re unavailable — students cannot book on these days</p>
             </div>
 
-            {/* Existing blocked dates */}
             {blockedDates.length > 0 && (
               <div className="mb-4 flex flex-wrap gap-2">
                 {blockedDates.map((b) => (
-                  <span key={b.id} className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-lg px-3 py-1.5 text-sm text-orange-700">
+                  <span key={b.id} className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 rounded-xl px-3 py-1.5 text-sm text-orange-700">
                     <span>{b.blockedDate}</span>
                     {b.reason && <span className="text-orange-400 text-xs">· {b.reason}</span>}
                     <button onClick={() => deleteBlockDate(b.id)} className="text-orange-400 hover:text-orange-700 ml-1 font-bold leading-none">×</button>
@@ -2465,21 +2469,20 @@ export default function TutorPortal() {
             )}
             {blockedDates.length === 0 && <p className="text-xs text-gray-400 mb-4">No dates blocked.</p>}
 
-            {/* Add new blocked date */}
             <div className="flex flex-wrap gap-2 items-end">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Date</label>
                 <input type="date" value={blockDateInput} onChange={(e) => setBlockDateInput(e.target.value)}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  className="rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="flex-1 min-w-40">
                 <label className="block text-xs text-gray-500 mb-1">Reason (optional)</label>
                 <input value={blockReason} onChange={(e) => setBlockReason(e.target.value)}
                   placeholder="e.g. Holiday, sick day…"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <button onClick={addBlockDate} disabled={!blockDateInput || blockSaving}
-                className="px-3 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-40">
+                className="px-4 py-2 bg-orange-500 text-white rounded-xl text-sm font-medium hover:bg-orange-600 disabled:opacity-40">
                 {blockSaving ? "…" : "Block Date"}
               </button>
             </div>
@@ -2490,26 +2493,32 @@ export default function TutorPortal() {
 
       {/* ── SETTINGS ── */}
       {tab === "settings" && (
-        <div className="max-w-lg space-y-6">
-          <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <div className="max-w-lg space-y-5">
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Settings</p>
+            <h1 className="text-2xl font-bold text-gray-900">My Preferences</h1>
+          </div>
 
           {/* Zoom */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900">Zoom Settings</h3>
-              {zoomLinkSaved && <span className="text-xs text-emerald-600 font-medium">Saved!</span>}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Meeting</p>
+                <h3 className="font-semibold text-gray-900">Zoom Settings</h3>
+              </div>
+              {zoomLinkSaved && <span className="text-xs text-emerald-600 font-semibold">Saved!</span>}
             </div>
-            <p className="text-xs text-gray-400 mb-4">
+            <p className="text-xs text-gray-400 mb-4 mt-1">
               Set your personal meeting link and ID once — students can click to join or type the ID directly into Zoom.
             </p>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Join Link</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Join Link</label>
             <input
               value={zoomLinkVal}
               onChange={(e) => setZoomLinkVal(e.target.value)}
               placeholder="https://zoom.us/j/123456789"
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1">Meeting ID</label>
+            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Meeting ID</label>
             <input
               value={meetingIdVal}
               onChange={(e) => setMeetingIdVal(e.target.value)}
@@ -2517,31 +2526,34 @@ export default function TutorPortal() {
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button onClick={savePersonalZoomLink} disabled={zoomLinkSaving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
               {zoomLinkSaving ? "Saving…" : "Save"}
             </button>
           </div>
 
           {/* Booking lead time */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
             <div className="flex items-center justify-between mb-1">
-              <h3 className="font-semibold text-gray-900">Student Booking Window</h3>
-              {leadSaved && <span className="text-xs text-green-600 font-medium">Saved!</span>}
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Booking</p>
+                <h3 className="font-semibold text-gray-900">Student Booking Window</h3>
+              </div>
+              {leadSaved && <span className="text-xs text-emerald-600 font-semibold">Saved!</span>}
             </div>
-            <p className="text-xs text-gray-400 mb-4">
-              Students cannot book sessions within this many hours of the start time.
-              Currently saved: <span className="font-semibold text-gray-700">{tutor.bookingLeadHours} hours</span>.
+            <p className="text-xs text-gray-400 mb-4 mt-1">
+              Students cannot book within this many hours of the start time.
+              Currently: <span className="font-semibold text-gray-700">{tutor.bookingLeadHours} hours</span>.
             </p>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm w-fit mb-4">
+            <div className="flex rounded-xl border border-gray-200 overflow-hidden text-sm w-fit mb-4 bg-white">
               {([24, 48] as const).map((h, i) => (
                 <button key={h} type="button" onClick={() => setLeadHours(h)}
-                  className={`px-5 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${leadHours === h ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                  className={`px-5 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${leadHours === h ? "bg-blue-600 text-white" : "text-gray-600 hover:bg-gray-50"}`}>
                   {h} hours
                 </button>
               ))}
             </div>
             {leadError && <p className="text-xs text-red-500 mb-2">{leadError}</p>}
-            <button onClick={saveLeadTime} disabled={leadSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+            <button onClick={saveLeadTime} disabled={leadSaving} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
               {leadSaving ? "Saving…" : "Save"}
             </button>
           </div>
