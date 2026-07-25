@@ -52,7 +52,7 @@ import type {
   StudentPlanFull, Course, CourseCatalogFull, SkillBaseline, SkillNode,
   VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult,
 } from "@/lib/portal/types";
-import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload, Search, Trash2, BookOpen, Plus, X } from "lucide-react";
+import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload, Search, Trash2, BookOpen, Plus, X, Users, CalendarDays, Clock, Bell, AlertCircle, Video, ChevronDown } from "lucide-react";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -979,182 +979,195 @@ export default function TutorPortal() {
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
         const todaySessions  = upcoming.filter((s) => s.date === todayIso).sort((a, b) => timeTo24h(a.time).localeCompare(timeTo24h(b.time)));
-        const futureSessions = upcoming.filter((s) => s.date > todayIso);
+        const futureSessions = upcoming.filter((s) => s.date > todayIso).slice(0, 6);
         const hwNeedsGrading = homework.filter((h) => h.status === "submitted");
-        const weekAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const weekAgoIso     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const thisMonthPfx   = new Date().toISOString().slice(0, 7);
+        const sessThisMonth  = localSessions.filter((s) => s.date.startsWith(thisMonthPfx)).length;
         const studentsNeedingUpdate = myStudents.filter((st) => {
-          const pastSessions = localSessions.filter((s) =>
-            s.studentId === st.id && (s.status === "completed" || s.date < todayIso)
-          );
-          if (pastSessions.length === 0) return false;
-          const lastUpdate = parentUpdates
-            .filter((u) => u.studentId === st.id)
-            .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-          const lastUpdateDate = lastUpdate?.createdAt.slice(0, 10) ?? "0000-00-00";
-          return pastSessions.some((s) => s.date >= weekAgoIso && s.date > lastUpdateDate);
+          const past = localSessions.filter((s) => s.studentId === st.id && (s.status === "completed" || s.date < todayIso));
+          if (past.length === 0) return false;
+          const lastUpd = parentUpdates.filter((u) => u.studentId === st.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+          const lastUpdDate = lastUpd?.createdAt.slice(0, 10) ?? "0000-00-00";
+          return past.some((s) => s.date >= weekAgoIso && s.date > lastUpdDate);
         });
-        const hasActionItems = hwNeedsGrading.length > 0 || studentsNeedingUpdate.length > 0;
+        const AVATAR_COLORS = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-orange-500"];
+        const avatarColor = (sid: number) => { const i = myStudents.findIndex((s) => s.id === sid); return AVATAR_COLORS[i % AVATAR_COLORS.length] ?? "bg-gray-400"; };
 
         return (
-          <div>
+          <div className="space-y-6">
+            {/* Zoom warning */}
             {!tutor.zoomLink && (
-              <div className="flex items-start gap-3 mb-6 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
-                <span className="text-amber-500 text-lg leading-none mt-0.5">⚠</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-amber-800">Your Zoom link isn&apos;t set</p>
-                  <p className="text-xs text-amber-600 mt-0.5">Students won&apos;t have a link to join your sessions. Ask your admin to add your personal Zoom room link to your tutor profile.</p>
+              <div className="flex items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
+                <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-amber-800">Zoom link not set</p>
+                  <p className="text-xs text-amber-600 mt-0.5">Students won&apos;t have a link to join. Ask admin to add your Zoom room link.</p>
                 </div>
               </div>
             )}
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Welcome, {user?.fullName ?? tutor.name}</h1>
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <StatCard label="My Students"       value={myStudents.length} />
-              <StatCard label="Upcoming Sessions" value={upcoming.length}   />
-              <StatCard label="Notes Written"     value={sessionNotes.length} />
+
+            {/* Welcome + stat cards */}
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Dashboard</p>
+              <h1 className="text-2xl font-bold text-gray-900 mb-4">
+                Welcome, {(user?.fullName ?? tutor.name).split(" ")[0]}
+              </h1>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {([
+                  { label: "My Students",     value: myStudents.length, Icon: Users,       iconBg: "bg-blue-50",    iconColor: "text-blue-500"   },
+                  { label: "Sessions / Month", value: sessThisMonth,     Icon: CalendarDays, iconBg: "bg-violet-50",  iconColor: "text-violet-500" },
+                  { label: "Notes Written",   value: sessionNotes.filter(n => n.topic !== "_resource_").length, Icon: FileText, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
+                  { label: "To Grade",        value: hwNeedsGrading.length, Icon: CheckCircle, iconBg: hwNeedsGrading.length > 0 ? "bg-amber-50" : "bg-gray-50", iconColor: hwNeedsGrading.length > 0 ? "text-amber-500" : "text-gray-400" },
+                ] as const).map(card => (
+                  <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                      <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                    </div>
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                      <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Today's Agenda */}
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Today&apos;s Agenda</h2>
-            {todaySessions.length === 0 ? (
-              <div className="bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 text-sm text-gray-500 mb-8">
-                No sessions today.
-              </div>
-            ) : (
-              <div className="space-y-3 mb-8">
-                {todaySessions.map((s) => {
-                  const st = getStudent(s.studentId);
-                  const studentHw = homework.filter((h) => h.studentId === s.studentId && h.status === "submitted");
-                  const lastNote = sessionNotes.filter((n) => n.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-                  const lastUpdate = parentUpdates.filter((u) => u.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
-                  const updateDays = lastUpdate ? Math.floor((Date.now() - new Date(lastUpdate.createdAt).getTime()) / (1000 * 60 * 60 * 24)) : null;
-                  const weekAgoIso2 = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-                  const pastSessionsForStudent = localSessions.filter((ps) =>
-                    ps.studentId === s.studentId && (ps.status === "completed" || ps.date < todayIso)
-                  );
-                  const lastUpdateDate2 = lastUpdate?.createdAt.slice(0, 10) ?? "0000-00-00";
-                  const updateOverdue = pastSessionsForStudent.length > 0 &&
-                    pastSessionsForStudent.some((ps) => ps.date >= weekAgoIso2 && ps.date > lastUpdateDate2);
-
-                  return (
-                    <div key={s.id} className="bg-white rounded-xl border-2 border-blue-200 p-5 cursor-pointer hover:border-blue-400 transition-colors"
-                      onClick={(e) => {
-                        if ((e.target as HTMLElement).closest("button,a,input")) return;
-                        setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
-                        setSessionDetail(s);
-                      }}>
-                      {/* Header */}
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="font-bold text-gray-900 text-base">{st?.name ?? "Student"}</p>
-                          <p className="text-sm text-gray-500">{s.subject} · {s.durationHours} hr · {s.time}</p>
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Today&apos;s Agenda</p>
+              {todaySessions.length === 0 ? (
+                <div className="bg-white border border-gray-100 rounded-2xl px-5 py-8 text-center shadow-sm">
+                  <CalendarDays className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-400">No sessions today</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {todaySessions.map((s) => {
+                    const st = getStudent(s.studentId);
+                    const studentHw  = homework.filter((h) => h.studentId === s.studentId && h.status === "submitted");
+                    const lastNote   = sessionNotes.filter((n) => n.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+                    const lastUpd    = parentUpdates.filter((u) => u.studentId === s.studentId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+                    const lastUpdDate = lastUpd?.createdAt.slice(0, 10) ?? "0000-00-00";
+                    const pastSt     = localSessions.filter((ps) => ps.studentId === s.studentId && (ps.status === "completed" || ps.date < todayIso));
+                    const updateOverdue = pastSt.length > 0 && pastSt.some((ps) => ps.date >= weekAgoIso && ps.date > lastUpdDate);
+                    return (
+                      <div key={s.id}
+                        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest("button,a,input")) return;
+                          setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+                          setSessionDetail(s);
+                        }}>
+                        <div className="flex items-start gap-4">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0 ${avatarColor(s.studentId)}`}>
+                            {st?.name[0] ?? "?"}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p className="font-bold text-gray-900 text-base">{st?.name ?? "Student"}</p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${s.sessionType === "in-person" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
+                                  {s.sessionType === "in-person" ? "In Person" : "Online"}
+                                </span>
+                                <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id}
+                                  className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
+                                  {cancellingId === s.id ? "…" : "Cancel"}
+                                </button>
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-500 mb-3">{s.subject} · {s.time} · {s.durationHours} hr</p>
+                            <div className="flex flex-wrap gap-2">
+                              {s.zoomLink ? (
+                                <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-700 transition-colors">
+                                  <Video className="w-3 h-3" />Join Zoom
+                                </a>
+                              ) : (
+                                <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }}
+                                  className="inline-flex items-center gap-1.5 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-red-100">
+                                  ⚠ Add Zoom
+                                </button>
+                              )}
+                              {studentHw.length > 0 ? (
+                                <button onClick={(e) => { e.stopPropagation(); setTab("homework"); }}
+                                  className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-amber-100">
+                                  ⚠ {studentHw.length} to grade
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-xl text-xs font-medium">
+                                  ✓ Hw up to date
+                                </span>
+                              )}
+                              {lastNote ? (
+                                <span className="inline-flex items-center gap-1.5 bg-gray-50 text-gray-600 border border-gray-100 px-3 py-1.5 rounded-xl text-xs">
+                                  ✓ Last note: {formatDate(lastNote.createdAt.slice(0, 10))}
+                                </span>
+                              ) : (
+                                <button onClick={(e) => { e.stopPropagation(); setTab("notes"); }}
+                                  className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-amber-100">
+                                  ⚠ No notes yet
+                                </button>
+                              )}
+                              {updateOverdue ? (
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.studentId); setStudentPanelTab("update"); setTab("students"); }}
+                                  className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-orange-100">
+                                  ⚠ Parent update needed
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-100 px-3 py-1.5 rounded-xl text-xs font-medium">
+                                  ✓ Parent updated
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge status={s.sessionType} />
-                          <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id}
-                            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
-                            {cancellingId === s.id ? "…" : "Cancel"}
-                          </button>
-                        </div>
+                        {zoomEditId === s.id && (
+                          <div className="mt-4 flex items-center gap-2 pt-4 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                            <input value={zoomEditVal} onChange={(e) => setZoomEditVal(e.target.value)} placeholder="https://zoom.us/j/…"
+                              className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs flex-1 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <button onClick={() => saveZoomLink(s.id)} disabled={zoomSaving} className="text-xs text-blue-600 font-semibold px-3 py-1.5 bg-blue-50 rounded-xl">Save</button>
+                            <button onClick={() => setZoomEditId(null)} className="text-xs text-gray-400 hover:text-gray-600">✕</button>
+                          </div>
+                        )}
                       </div>
-
-                      {/* Checklist row */}
-                      <div className="flex flex-wrap gap-3 text-xs">
-                        {/* Zoom */}
-                        {s.zoomLink ? (
-                          <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1.5 rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                            Join Zoom →
-                          </a>
-                        ) : (
-                          <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }}
-                            className="flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg font-medium hover:bg-red-100">
-                            ⚠ Add Zoom link
-                          </button>
-                        )}
-
-                        {/* Homework to grade */}
-                        {studentHw.length > 0 ? (
-                          <button onClick={(e) => { e.stopPropagation(); setTab("homework"); }}
-                            className="flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg font-medium hover:bg-amber-100">
-                            ⚠ {studentHw.length} hw to grade
-                          </button>
-                        ) : (
-                          <span className="flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-medium">
-                            ✓ Homework up to date
-                          </span>
-                        )}
-
-                        {/* Last note */}
-                        {lastNote ? (
-                          <span className="flex items-center gap-1 bg-gray-50 text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg">
-                            ✓ Note: {lastNote.topic} ({formatDate(lastNote.createdAt.slice(0, 10))})
-                          </span>
-                        ) : (
-                          <button onClick={(e) => { e.stopPropagation(); setTab("notes"); }}
-                            className="flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg font-medium hover:bg-amber-100">
-                            ⚠ No notes yet
-                          </button>
-                        )}
-
-                        {/* Parent update */}
-                        {updateOverdue ? (
-                          <button onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedStudentId(s.studentId);
-                            setStudentPanelTab("update");
-                            setTab("students");
-                          }} className="flex items-center gap-1 bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-lg font-medium hover:bg-orange-100">
-                            ⚠ Parent update needed
-                          </button>
-                        ) : (
-                          <span className="flex items-center gap-1 bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg">
-                            ✓ Parent updated {updateDays}d ago
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Inline zoom editor */}
-                      {zoomEditId === s.id && (
-                        <div className="mt-3 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <input value={zoomEditVal} onChange={(e) => setZoomEditVal(e.target.value)} placeholder="https://zoom.us/j/..."
-                            className="rounded border border-gray-300 px-2 py-1 text-xs flex-1" />
-                          <button onClick={() => saveZoomLink(s.id)} disabled={zoomSaving} className="text-xs text-blue-600 font-medium">Save</button>
-                          <button onClick={() => setZoomEditId(null)} className="text-xs text-gray-400">✕</button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
             {/* Action Items */}
-            {hasActionItems && (
-              <div className="mb-8">
-                <h2 className="text-lg font-semibold text-gray-900 mb-3">Action Items</h2>
+            {(hwNeedsGrading.length > 0 || studentsNeedingUpdate.length > 0) && (
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Action Items</p>
                 <div className="space-y-2">
                   {hwNeedsGrading.length > 0 && (
                     <button onClick={() => setTab("homework")}
-                      className="w-full flex items-start gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5 text-left hover:bg-amber-100 transition-colors">
-                      <span className="text-xl shrink-0">📋</span>
+                      className="w-full flex items-center gap-4 bg-white border border-amber-200 rounded-2xl px-5 py-4 text-left hover:border-amber-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+                        <CheckCircle className="w-4 h-4 text-amber-500" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-amber-800 text-sm">{hwNeedsGrading.length} homework submission{hwNeedsGrading.length > 1 ? "s" : ""} need grading</p>
-                        <p className="text-xs text-amber-600 mt-0.5">
+                        <p className="font-semibold text-gray-900 text-sm">{hwNeedsGrading.length} submission{hwNeedsGrading.length > 1 ? "s" : ""} waiting to be graded</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
                           {hwNeedsGrading.map((h) => getStudent(h.studentId)?.name ?? "?").filter((v, i, a) => a.indexOf(v) === i).join(", ")}
                         </p>
                       </div>
-                      <span className="text-amber-600 text-sm font-medium shrink-0">Grade →</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
                   {studentsNeedingUpdate.length > 0 && (
                     <button onClick={() => { setTab("students"); setStudentPanelTab("update"); }}
-                      className="w-full flex items-start gap-4 bg-orange-50 border border-orange-200 rounded-xl px-4 py-3.5 text-left hover:bg-orange-100 transition-colors">
-                      <span className="text-xl shrink-0">📣</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-orange-800 text-sm">{studentsNeedingUpdate.length} student{studentsNeedingUpdate.length > 1 ? "s" : ""} need a parent update this week</p>
-                        <p className="text-xs text-orange-600 mt-0.5">{studentsNeedingUpdate.map((s) => s.name).join(", ")}</p>
+                      className="w-full flex items-center gap-4 bg-white border border-orange-200 rounded-2xl px-5 py-4 text-left hover:border-orange-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center shrink-0">
+                        <Bell className="w-4 h-4 text-orange-500" />
                       </div>
-                      <span className="text-orange-600 text-sm font-medium shrink-0">Send →</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">{studentsNeedingUpdate.length} student{studentsNeedingUpdate.length > 1 ? "s" : ""} need a parent update</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{studentsNeedingUpdate.map((s) => s.name).join(", ")}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
                 </div>
@@ -1162,46 +1175,87 @@ export default function TutorPortal() {
             )}
 
             {/* Coming Up */}
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Coming Up</h2>
-            <div className="space-y-2">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-3">Coming Up</p>
               {futureSessions.length === 0 ? (
-                <p className="text-sm text-gray-400">No upcoming sessions scheduled.</p>
-              ) : futureSessions.map((s) => {
-                const st = getStudent(s.studentId);
-                return (
-                  <div key={s.id} className="bg-white rounded-xl border border-gray-200 p-4 flex items-center justify-between cursor-pointer hover:border-blue-300 transition-colors"
-                    onClick={(e) => {
-                      if ((e.target as HTMLElement).closest("button,a,input")) return;
-                      setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
-                      setSessionDetail(s);
-                    }}>
-                    <div>
-                      <p className="font-semibold text-gray-900 text-sm">{st?.name ?? "Student"}</p>
-                      <p className="text-xs text-gray-500">{s.subject} · {formatDate(s.date)} at {s.time} · {s.durationHours} hr</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge status={s.sessionType} />
-                      {s.zoomLink
-                        ? <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 underline">Zoom</a>
-                        : <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }} className="text-xs text-gray-400 hover:text-blue-600">+ Zoom</button>}
-                      <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
-                        {cancellingId === s.id ? "…" : "Cancel"}
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
+                <div className="bg-white border border-gray-100 rounded-2xl px-5 py-8 text-center shadow-sm">
+                  <p className="text-sm text-gray-400">No upcoming sessions scheduled.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {futureSessions.map((s) => {
+                    const st = getStudent(s.studentId);
+                    return (
+                      <div key={s.id}
+                        className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3.5 flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow"
+                        onClick={(e) => {
+                          if ((e.target as HTMLElement).closest("button,a,input")) return;
+                          setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+                          setSessionDetail(s);
+                        }}>
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-bold shrink-0 ${avatarColor(s.studentId)}`}>
+                          {st?.name[0] ?? "?"}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm">{st?.name ?? "Student"}</p>
+                          <p className="text-xs text-gray-500">{s.subject} · {formatDate(s.date)} at {s.time}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${s.sessionType === "in-person" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
+                            {s.sessionType === "in-person" ? "In Person" : "Online"}
+                          </span>
+                          {s.zoomLink
+                            ? <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 font-medium hover:underline">Zoom →</a>
+                            : <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }} className="text-xs text-gray-400 hover:text-blue-600 font-medium">+ Zoom</button>}
+                          <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
+                            {cancellingId === s.id ? "…" : "Cancel"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );
       })()}
 
       {/* ── MY STUDENTS ── */}
-      {tab === "students" && (
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-6">My Students</h1>
+      {tab === "students" && (() => {
+        const AVATAR_COLORS_ST = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-orange-500"];
+        const totalPendingHw  = homework.filter((h) => h.status === "submitted").length;
+        const totalUpcoming   = localSessions.filter((s) => s.status === "upcoming" && s.date >= todayIso).length;
+        const totalHrsRemain  = balances.reduce((sum, b) => sum + (myStudents.some(ms => ms.id === b.studentId) ? b.remaining : 0), 0);
+        return (
+        <div className="space-y-5">
+          {/* Top stats */}
+          <div>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">My Students</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">{myStudents.length} Student{myStudents.length !== 1 ? "s" : ""}</h1>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {([
+                { label: "Total Students",   value: myStudents.length,  Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"   },
+                { label: "Upcoming Sessions", value: totalUpcoming,      Icon: CalendarDays, iconBg: "bg-violet-50",  iconColor: "text-violet-500" },
+                { label: "To Grade",         value: totalPendingHw,     Icon: CheckCircle,  iconBg: totalPendingHw > 0 ? "bg-amber-50" : "bg-gray-50", iconColor: totalPendingHw > 0 ? "text-amber-500" : "text-gray-400" },
+                { label: "Hours Remaining",  value: `${totalHrsRemain}h`, Icon: Clock,       iconBg: totalHrsRemain <= 4 ? "bg-red-50" : "bg-emerald-50", iconColor: totalHrsRemain <= 4 ? "text-red-500" : "text-emerald-500" },
+              ] as const).map(card => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Student list */}
           <div className="space-y-3">
-            {myStudents.map((s) => {
+            {myStudents.map((s, sIdx) => {
               const bal = balances.find((b) => b.studentId === s.id);
               const isOpen = selectedStudentId === s.id;
               const sHw = homework
@@ -1215,12 +1269,14 @@ export default function TutorPortal() {
                 .filter((sess) => sess.studentId === s.id && sess.status === "upcoming")
                 .sort((a, b) => a.date.localeCompare(b.date));
               const sUpdates = parentUpdates.filter((u) => u.studentId === s.id);
+              const submittedHwCount = sHw.filter(h => h.status === "submitted").length;
+              const avatarBg = AVATAR_COLORS_ST[sIdx % AVATAR_COLORS_ST.length] ?? "bg-gray-400";
 
               return (
-                <div key={s.id} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                <div key={s.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                   {/* Card header */}
                   <div
-                    className="p-5 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="px-5 py-4 flex items-center gap-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => {
                       if (isOpen) {
                         setSelectedStudentId(null);
@@ -1236,21 +1292,37 @@ export default function TutorPortal() {
                       }
                     }}
                   >
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 text-lg">{s.name}</p>
-                      <p className="text-sm text-gray-500">{s.grade} Grade · {s.subjects.join(", ")}</p>
+                    {/* Avatar */}
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold shrink-0 ${avatarBg}`}>
+                      {s.name[0]}
                     </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={`text-sm font-medium px-3 py-1 rounded-full ${(bal?.remaining ?? 0) <= 2 ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
+                    {/* Name + meta */}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">{s.name}</p>
+                      <p className="text-xs text-gray-500">{s.grade} Grade · {s.subjects.join(", ")}</p>
+                    </div>
+                    {/* Chips + actions */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${(bal?.remaining ?? 0) <= 2 ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
                         {bal?.remaining ?? 0} hrs
                       </span>
+                      {submittedHwCount > 0 && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
+                          {submittedHwCount} to grade
+                        </span>
+                      )}
+                      {sSess.length > 0 && (
+                        <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-600">
+                          {sSess.length} upcoming
+                        </span>
+                      )}
                       <button
                         onClick={(e) => { e.stopPropagation(); setProfileStudent(s); setPlanUploadErr(""); setPlanUploaded(false); }}
-                        className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-lg px-2.5 py-1.5"
+                        className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-xl px-2.5 py-1.5 font-medium"
                       >
                         Profile
                       </button>
-                      <span className="text-gray-400 text-sm select-none">{isOpen ? "▲" : "▼"}</span>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                     </div>
                   </div>
 
@@ -2183,7 +2255,8 @@ export default function TutorPortal() {
             {myStudents.length === 0 && <p className="text-sm text-gray-500">No students assigned yet.</p>}
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* ── SCHEDULE ── */}
       {tab === "schedule" && (
@@ -2502,8 +2575,11 @@ export default function TutorPortal() {
         return (
           <div className="flex flex-col h-full min-h-0">
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 shrink-0">
-              <h1 className="text-base font-bold text-gray-900">Session Notes</h1>
+            <div className="flex items-center justify-between px-5 py-3.5 bg-white border-b border-gray-100 shrink-0">
+              <div>
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Session Notes</p>
+                <p className="text-sm font-bold text-gray-900">{allNotes.length} note{allNotes.length !== 1 ? "s" : ""}</p>
+              </div>
               <button
                 onClick={() => { setShowNoteForm(true); setSelectedNoteId(null); setNoteEditId(null); setNoteTopic(""); setNoteText(""); setNoteError(""); }}
                 className="px-3 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-semibold hover:bg-blue-700"
