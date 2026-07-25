@@ -66,9 +66,6 @@ function hoursUntilSession(session: Session): number {
 
 
 export default function StudentPortal() {
-  if (typeof window !== "undefined") {
-    console.log("[preview] STUDENT: component rendering, search=" + window.location.search);
-  }
   const { user, authLoaded } = useAuth();
   const ctx = usePortalViewerContext(user, authLoaded);
   const [tab, setTab] = useState("overview");

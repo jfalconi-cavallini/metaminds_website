@@ -53,47 +53,30 @@ export function usePortalViewerContext(
   const validationState = useRef<"idle" | "validating" | "done">("idle");
 
   useEffect(() => {
-    if (!authLoaded) {
-      console.log("[preview] step1: auth not loaded yet, waiting");
-      return;
-    }
+    if (!authLoaded) return;
 
     if (!user) {
-      console.log("[preview] step2: authLoaded=true but user=null — checking session");
       supabase.auth.getSession().then(({ data: { session } }) => {
-        if (!session) {
-          console.log("[preview] step2a: no session found → redirect /login");
-          router.push("/login");
-        } else {
-          console.log("[preview] step2b: session exists but user not set yet — waiting for useAuth");
-        }
+        if (!session) router.push("/login");
       });
       return;
     }
-
-    console.log(`[preview] step3: user loaded, role=${user.role}, validationState=${validationState.current}`);
 
     if (user.role === "admin") {
       // If validation already started or completed, do not re-enter the flow.
       // onAuthStateChange re-fires this effect with a new `user` object even
       // though the admin hasn't changed — we must not redirect in that case.
-      if (validationState.current !== "idle") {
-        console.log(`[preview] step4: validation already ${validationState.current}, skipping re-run`);
-        return;
-      }
+      if (validationState.current !== "idle") return;
 
       const params = new URLSearchParams(window.location.search);
       const token  = params.get("preview");
-      console.log(`[preview] step5: token in URL = ${token ? token.slice(0, 8) + "…" : "null"}`);
 
       if (!token) {
-        console.log("[preview] step5a: no token → redirect /portal/admin");
         router.push("/portal/admin");
         return;
       }
 
       validationState.current = "validating";
-      console.log("[preview] step6: starting server-side token validation");
 
       // Remove token from URL now (before async work) so back-navigation is clean.
       // We've already captured it in `token` above.
@@ -102,17 +85,13 @@ export function usePortalViewerContext(
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
-          console.log(`[preview] step7: session for validate call present=${!!session}`);
 
           const res = await fetch(
             `/api/admin/validate-preview?token=${encodeURIComponent(token)}`,
             { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } },
           );
-          console.log(`[preview] step8: validate-preview response status=${res.status}`);
 
           if (!res.ok) {
-            const body = await res.json().catch(() => ({})) as { error?: string };
-            console.log(`[preview] step8a: validation failed: ${body.error ?? "unknown"} → redirect /portal/admin`);
             validationState.current = "idle";
             router.push("/portal/admin");
             return;
@@ -124,7 +103,6 @@ export function usePortalViewerContext(
             previewId: number;
             viewAs: "student" | "parent";
           };
-          console.log(`[preview] step9: validation OK — studentId=${data.studentId} viewAs=${data.viewAs}`);
 
           setPreviewStudentId(data.studentId);
           setPreviewStudentName(data.studentName);
@@ -132,9 +110,7 @@ export function usePortalViewerContext(
           setPreviewViewAs(data.viewAs ?? "student");
           validationState.current = "done";
           setPreviewReady(true);
-          console.log("[preview] step10: previewReady=true, preview is live");
-        } catch (err) {
-          console.error("[preview] step8b: unexpected error during validation:", err);
+        } catch {
           validationState.current = "idle";
           router.push("/portal/admin");
         }
@@ -144,12 +120,10 @@ export function usePortalViewerContext(
 
     // Reject any other non-student/parent roles
     if ((user.role !== "student" && user.role !== "parent") || !user.linkedId) {
-      console.log(`[preview] step11: unexpected role=${user.role} linkedId=${user.linkedId} → redirect /login`);
       router.push("/login");
       return;
     }
 
-    console.log(`[preview] step12: normal ${user.role} flow, setting previewReady`);
     setPreviewReady(true);
   }, [authLoaded, user, router]);
 
