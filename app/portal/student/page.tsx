@@ -3210,8 +3210,9 @@ export default function StudentPortal() {
         const studyMinutesTotal = studyLog.reduce((sum, e) => sum + e.minutes, 0);
         const studyHours = +(studyMinutesTotal / 60).toFixed(1);
 
-        // Practice test score progression
-        const latestTest     = practiceTests.length > 0 ? practiceTests[practiceTests.length - 1] : null;
+        // Practice test score progression — only composite scores count for the journey
+        const testsWithScore = practiceTests.filter(t => t.overallScore != null);
+        const latestTest     = testsWithScore.length > 0 ? testsWithScore[testsWithScore.length - 1] : null;
         const latestScore    = latestTest?.overallScore ?? null;
 
         // Score-based milestones (4 checkpoints between start and goal)
@@ -3391,9 +3392,9 @@ export default function StudentPortal() {
                         <span className="text-[10px] text-gray-400">goal</span>
                       </div>
                     </div>
-                    {/* Practice test dots on the bar */}
-                    {practiceTests.length > 1 && practiceTests.slice(0, -1).map((tr) => {
-                      const tPct = Math.max(0, Math.min(100, ((tr.overallScore - MIN) / SPAN) * 100));
+                    {/* Practice test dots on the bar — only for composite scores */}
+                    {testsWithScore.length > 1 && testsWithScore.slice(0, -1).map((tr) => {
+                      const tPct = Math.max(0, Math.min(100, (((tr.overallScore ?? 0) - MIN) / SPAN) * 100));
                       return (
                         <div key={tr.id} className="absolute" style={{ left: `${tPct}%`, top: "3px", transform: "translateX(-50%)" }}>
                           <div className="w-2 h-2 rounded-full bg-emerald-300 border border-white" title={`${tr.overallScore} — ${tr.testDate}`} />
@@ -3440,9 +3441,12 @@ export default function StudentPortal() {
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Practice Test History</p>
                 <div className="space-y-2">
                   {practiceTests.map((tr, i) => {
-                    const prev      = i > 0 ? practiceTests[i - 1].overallScore : (startScore ?? null);
-                    const diff      = prev !== null ? tr.overallScore - prev : null;
-                    const isLatest  = i === practiceTests.length - 1;
+                    // Delta only makes sense when both this and the prev test have an overall score
+                    const prevOverall = i > 0
+                      ? ([...practiceTests].slice(0, i).reverse().find(t => t.overallScore != null)?.overallScore ?? startScore)
+                      : startScore;
+                    const diff     = (tr.overallScore != null && prevOverall != null) ? tr.overallScore - prevOverall : null;
+                    const isLatest = i === practiceTests.length - 1;
                     return (
                       <div key={tr.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${isLatest ? "border-emerald-200 bg-emerald-50" : "border-gray-100 bg-gray-50"}`}>
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isLatest ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
@@ -3450,8 +3454,11 @@ export default function StudentPortal() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className={`text-base font-bold ${isLatest ? "text-emerald-700" : "text-gray-800"}`}>{tr.overallScore}</span>
-                            {tr.rwScore   && <span className="text-xs text-violet-600 bg-violet-100 px-2 py-0.5 rounded font-semibold">R&W {tr.rwScore}</span>}
+                            {tr.overallScore != null
+                              ? <span className={`text-base font-bold ${isLatest ? "text-emerald-700" : "text-gray-800"}`}>{tr.overallScore}</span>
+                              : <span className="text-xs text-gray-400 italic">Section only</span>
+                            }
+                            {tr.rwScore   && <span className="text-xs text-violet-600 bg-violet-100 px-2 py-0.5 rounded font-semibold">R&amp;W {tr.rwScore}</span>}
                             {tr.mathScore && <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded font-semibold">Math {tr.mathScore}</span>}
                             {diff !== null && diff !== 0 && (
                               <span className={`text-xs font-bold ${diff > 0 ? "text-emerald-600" : "text-red-500"}`}>
@@ -3462,10 +3469,10 @@ export default function StudentPortal() {
                           </div>
                           <p className="text-[10px] text-gray-400 mt-0.5">{tr.testDate}{tr.tutorNotes ? ` · ${tr.tutorNotes}` : ""}</p>
                         </div>
-                        {goalScore && (
+                        {goalScore && tr.overallScore != null && (
                           <div className="text-right shrink-0">
                             <p className={`text-xs font-semibold ${tr.overallScore >= goalScore ? "text-emerald-600" : "text-gray-400"}`}>
-                              {tr.overallScore >= goalScore ? "✓ Goal reached" : `${goalScore - tr.overallScore} to goal`}
+                              {tr.overallScore >= goalScore ? "✓ Goal" : `${goalScore - tr.overallScore} to go`}
                             </p>
                           </div>
                         )}

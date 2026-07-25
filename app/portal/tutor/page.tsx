@@ -1623,7 +1623,7 @@ export default function TutorPortal() {
                                               className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                           </div>
                                           <div>
-                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Overall Score <span className="text-red-400">*</span></label>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Overall Score <span className="font-normal normal-case">(optional)</span></label>
                                             <input type="number" min="400" max="1600" step="10" placeholder="1200"
                                               value={panelTestOverall} onChange={(e) => setPanelTestOverall(e.target.value)}
                                               className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -1648,10 +1648,12 @@ export default function TutorPortal() {
                                             className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                         </div>
                                         <button
-                                          disabled={panelTestSaving || !panelTestDate || !panelTestOverall}
+                                          disabled={panelTestSaving || !panelTestDate || (!panelTestOverall && !panelTestRW && !panelTestMath)}
                                           onClick={async () => {
-                                            const overall = parseInt(panelTestOverall);
-                                            if (!panelTestDate || isNaN(overall)) return;
+                                            if (!panelTestDate) return;
+                                            const overall  = panelTestOverall ? parseInt(panelTestOverall)  : undefined;
+                                            const rwScore  = panelTestRW      ? parseInt(panelTestRW)       : undefined;
+                                            const mathScore= panelTestMath    ? parseInt(panelTestMath)     : undefined;
                                             setPanelTestSaving(true);
                                             try {
                                               const result = await insertPracticeTestResult({
@@ -1659,15 +1661,17 @@ export default function TutorPortal() {
                                                 planId:       panelPlanFull.id,
                                                 testDate:     panelTestDate,
                                                 overallScore: overall,
-                                                rwScore:      panelTestRW   ? parseInt(panelTestRW)   : undefined,
-                                                mathScore:    panelTestMath ? parseInt(panelTestMath) : undefined,
+                                                rwScore,
+                                                mathScore,
                                                 tutorNotes:   panelTestNotes || undefined,
                                               });
                                               setPanelTestResults(prev => [...prev, result].sort((a, b) => a.testDate.localeCompare(b.testDate)));
-                                              // Update currentScore on plan so student sees latest score
-                                              await updateStudentPlan(panelPlanFull.id, { currentScore: overall });
-                                              const updated = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
-                                              setPanelPlanFull(updated);
+                                              // Only update plan currentScore when we have a real composite score
+                                              if (overall) {
+                                                await updateStudentPlan(panelPlanFull.id, { currentScore: overall });
+                                                const updated = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
+                                                setPanelPlanFull(updated);
+                                              }
                                               setPanelShowLogTest(false);
                                               setPanelTestDate(""); setPanelTestOverall(""); setPanelTestRW(""); setPanelTestMath(""); setPanelTestNotes("");
                                             } catch (err) {
@@ -1693,10 +1697,14 @@ export default function TutorPortal() {
                                           <div key={tr.id} className="flex items-center gap-3 px-4 py-2.5">
                                             <div className="flex-1 min-w-0">
                                               <div className="flex items-center gap-2 flex-wrap">
-                                                <span className="text-xs font-bold text-gray-900">{tr.overallScore}</span>
+                                                {tr.overallScore != null
+                                                  ? <span className="text-xs font-bold text-gray-900">{tr.overallScore}</span>
+                                                  : <span className="text-[10px] text-gray-400 italic">section only</span>
+                                                }
                                                 {tr.rwScore   && <span className="text-[10px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded font-semibold">R&amp;W {tr.rwScore}</span>}
                                                 {tr.mathScore && <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-semibold">Math {tr.mathScore}</span>}
                                                 {(() => {
+                                                  if (tr.overallScore == null) return null;
                                                   const start = panelPlanFull.startingScore ?? panelPlanFull.currentScore;
                                                   if (!start) return null;
                                                   const diff = tr.overallScore - start;

@@ -445,15 +445,15 @@ export interface VocabularySubmissionEntry {
 // ── Practice Test Results ─────────────────────────────────────────────────────
 
 export interface PracticeTestResult {
-  id:           number;
-  studentId:    number;
-  planId:       number | null;
-  testDate:     string;          // ISO date "2026-07-23"
-  overallScore: number;          // 400–1600 (SAT)
-  rwScore?:     number;          // 200–800
-  mathScore?:   number;          // 200–800
-  tutorNotes?:  string;
-  createdAt:    string;
+  id:            number;
+  studentId:     number;
+  planId:        number | null;
+  testDate:      string;          // ISO date "2026-07-23"
+  overallScore:  number | null;   // 400–1600; null = section-only test
+  rwScore?:      number;          // 200–800
+  mathScore?:    number;          // 200–800
+  tutorNotes?:   string;
+  createdAt:     string;
 }
 
 /** Lightweight summary used in the student "Assignments by Skill" view. */

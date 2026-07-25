@@ -2224,7 +2224,7 @@ function rowToPracticeTestResult(r: any): PracticeTestResult {
     studentId:    r.student_id,
     planId:       r.plan_id       ?? null,
     testDate:     r.test_date,
-    overallScore: r.overall_score,
+    overallScore: r.overall_score ?? null,
     rwScore:      r.rw_score      ?? undefined,
     mathScore:    r.math_score    ?? undefined,
     tutorNotes:   r.tutor_notes   ?? undefined,
@@ -2243,13 +2243,13 @@ export async function fetchPracticeTestResults(studentId: number): Promise<Pract
 }
 
 export async function insertPracticeTestResult(payload: {
-  studentId:    number;
-  planId?:      number;
-  testDate:     string;
-  overallScore: number;
-  rwScore?:     number;
-  mathScore?:   number;
-  tutorNotes?:  string;
+  studentId:     number;
+  planId?:       number;
+  testDate:      string;
+  overallScore?: number;   // optional — section-only tests may omit this
+  rwScore?:      number;
+  mathScore?:    number;
+  tutorNotes?:   string;
 }): Promise<PracticeTestResult> {
   const { data, error } = await supabase
     .from("practice_test_results")
@@ -2257,7 +2257,7 @@ export async function insertPracticeTestResult(payload: {
       student_id:    payload.studentId,
       plan_id:       payload.planId       ?? null,
       test_date:     payload.testDate,
-      overall_score: payload.overallScore,
+      overall_score: payload.overallScore ?? null,
       rw_score:      payload.rwScore      ?? null,
       math_score:    payload.mathScore    ?? null,
       tutor_notes:   payload.tutorNotes   ?? null,
