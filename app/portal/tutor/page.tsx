@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -33,6 +33,11 @@ import {
   deleteStudentPlan, updatePlanSectionBars, updatePlanSkillBaseline,
   fetchSkillNodes, fetchNoteSkills, setNoteSkillLinks,
   setHomeworkSkillLinks,
+  upsertVocabularyConfig,
+  fetchVocabularyConfig, fetchVocabularySubmissions,
+  updateVocabularyEntry,
+  fetchPracticeTestResults, insertPracticeTestResult, deletePracticeTestResult,
+  updateStudentPlan,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
@@ -44,8 +49,9 @@ import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
   StudentPlanFull, Course, CourseCatalogFull, SkillBaseline, SkillNode,
+  VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult,
 } from "@/lib/portal/types";
-import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload } from "lucide-react";
+import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload, Search, Trash2, BookOpen, Plus, X } from "lucide-react";
 
 function ProfileRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -223,6 +229,15 @@ export default function TutorPortal() {
   const [hwInstructions, setHwInstructions] = useState("");
   const [hwSkillIds,     setHwSkillIds]     = useState<number[]>([]);
 
+  // Vocabulary assignment creation
+  const [hwVocabWords, setHwVocabWords] = useState<{ word: string; hint: string }[]>([{ word: "", hint: "" }]);
+
+  // Tutor review of vocabulary submissions (keyed by homework id)
+  const [vocabReviewData,      setVocabReviewData]      = useState<Record<number, { config: VocabularyAssignmentConfig; entries: VocabularySubmissionEntry[] }>>({});
+  const [vocabReviewLoading,   setVocabReviewLoading]   = useState<Record<number, boolean>>({});
+  const [vocabFeedbackInputs,  setVocabFeedbackInputs]  = useState<Record<number, Record<number, string>>>({});   // hwId → entryId → feedback text
+  const [vocabReviewSaving,    setVocabReviewSaving]    = useState<Record<number, boolean>>({});
+
   // ── HOMEWORK FEEDBACK ────────────────────────────────────────────
   const [hwFeedbackId,     setHwFeedbackId]     = useState<number | null>(null);
   const [hwFeedbackText,   setHwFeedbackText]   = useState("");
@@ -296,9 +311,22 @@ export default function TutorPortal() {
   const [panelBaselineExpCats,    setPanelBaselineExpCats]    = useState<Set<number>>(new Set());
   const [panelSavingBaseline,     setPanelSavingBaseline]     = useState(false);
   const [panelPlanView,           setPanelPlanView]           = useState<"lessons" | "roadmap">("lessons");
+  const [panelTestResults,        setPanelTestResults]        = useState<PracticeTestResult[]>([]);
+  const [panelShowLogTest,        setPanelShowLogTest]        = useState(false);
+  const [panelTestDate,           setPanelTestDate]           = useState("");
+  const [panelTestOverall,        setPanelTestOverall]        = useState("");
+  const [panelTestRW,             setPanelTestRW]             = useState("");
+  const [panelTestMath,           setPanelTestMath]           = useState("");
+  const [panelTestNotes,          setPanelTestNotes]          = useState("");
+  const [panelTestSaving,         setPanelTestSaving]         = useState(false);
+  const [panelTestDeletingId,     setPanelTestDeletingId]     = useState<number | null>(null);
   const [selectedStudyLog,    setSelectedStudyLog]    = useState<StudyLog[]>([]);
   const [studyLogLoading,     setStudyLogLoading]     = useState(false);
   const [hwDeletingId,        setHwDeletingId]        = useState<number | null>(null);
+  const [hwTabFilter,         setHwTabFilter]         = useState<"review" | "pending" | "graded" | "all">("review");
+  const [hwSearchQuery,       setHwSearchQuery]       = useState("");
+  const [hwFilterStudent,     setHwFilterStudent]     = useState("");
+  const [hwReviewId,          setHwReviewId]          = useState<number | null>(null);
   const [panelHwShowForm,     setPanelHwShowForm]     = useState(false);
   const [panelHwTask,         setPanelHwTask]         = useState("");
   const [panelHwDue,          setPanelHwDue]          = useState("");
@@ -374,12 +402,14 @@ export default function TutorPortal() {
         setPanelCourses(courses);
         const activePlan = plans.find(p => p.status === "active") ?? plans[0] ?? null;
         if (activePlan) {
-          const [full, catalog] = await Promise.all([
+          const [full, catalog, testResults] = await Promise.all([
             fetchStudentPlanFull(selectedStudentId, activePlan.courseId),
             fetchFullCatalog(activePlan.courseId),
+            fetchPracticeTestResults(selectedStudentId),
           ]);
           setPanelPlanFull(full);
           setPanelCatalog(catalog);
+          setPanelTestResults(testResults);
         } else if (courses.length > 0) {
           setPanelNewCourseId(courses[0].id);
           setPanelNewTitle(`${courses[0].title} — Learning Plan`);
@@ -634,12 +664,21 @@ export default function TutorPortal() {
         setHwUploading(false);
       }
 
+      if (hwType === "sat_vocabulary") {
+        const validWords = hwVocabWords.filter((w) => w.word.trim());
+        if (validWords.length === 0) { setHwError("Add at least one vocabulary word."); return; }
+        await upsertVocabularyConfig(hw.id, validWords.map((w) => ({
+          word:           w.word.trim(),
+          hintDefinition: w.hint.trim() || undefined,
+        })));
+      }
       if (hwSkillIds.length > 0) {
         await setHomeworkSkillLinks(hw.id, hwSkillIds, Number(hwStudentId), tutorId);
       }
       setHomework((prev) => [hw, ...prev]);
       setHwTask(""); setHwDue(""); setHwKamiLink(""); setHwFile(null);
       setHwEstMins(""); setHwType(""); setHwInstructions(""); setHwSkillIds([]);
+      setHwVocabWords([{ word: "", hint: "" }]);
       setHwSuccess(true); setTimeout(() => setHwSuccess(false), 4000);
     } catch { setHwError("Failed to assign homework."); }
     finally { setHwSaving(false); setHwUploading(false); }
@@ -690,6 +729,43 @@ export default function TutorPortal() {
       const updated = await markHomeworkComplete(hwId);
       setHomework((prev) => prev.map((h) => h.id === hwId ? updated : h));
     } catch { /* silent */ }
+  }
+
+  async function loadVocabReview(hwId: number) {
+    if (vocabReviewData[hwId] || vocabReviewLoading[hwId]) return;
+    setVocabReviewLoading((prev) => ({ ...prev, [hwId]: true }));
+    try {
+      const [config, entries] = await Promise.all([
+        fetchVocabularyConfig(hwId),
+        fetchVocabularySubmissions(hwId),
+      ]);
+      if (config) {
+        setVocabReviewData((prev) => ({ ...prev, [hwId]: { config, entries } }));
+        const feedbackMap: Record<number, string> = {};
+        entries.forEach((e) => { feedbackMap[e.id] = e.tutorFeedback ?? ""; });
+        setVocabFeedbackInputs((prev) => ({ ...prev, [hwId]: feedbackMap }));
+      }
+    } catch { /* silent */ } finally {
+      setVocabReviewLoading((prev) => ({ ...prev, [hwId]: false }));
+    }
+  }
+
+  async function saveVocabEntryReview(hwId: number, entryId: number, status: "correct" | "needs_revision") {
+    const feedback = vocabFeedbackInputs[hwId]?.[entryId] ?? "";
+    setVocabReviewSaving((prev) => ({ ...prev, [entryId]: true }));
+    try {
+      const updated = await updateVocabularyEntry(entryId, { tutorStatus: status, tutorFeedback: feedback || undefined });
+      setVocabReviewData((prev) => {
+        const cur = prev[hwId];
+        if (!cur) return prev;
+        return {
+          ...prev,
+          [hwId]: { ...cur, entries: cur.entries.map((e) => e.id === entryId ? updated : e) },
+        };
+      });
+    } catch { /* silent */ } finally {
+      setVocabReviewSaving((prev) => ({ ...prev, [entryId]: false }));
+    }
   }
 
   async function submitPanelHomework(studentId: number) {
@@ -1469,20 +1545,145 @@ export default function TutorPortal() {
                                         {panelDeletingPlan ? "Deleting…" : "Delete plan"}
                                       </button>
                                     </div>
-                                    {(panelPlanFull.currentScore || panelPlanFull.targetScore) && (
-                                      <p className="text-xs text-gray-500">
-                                        Score: {panelPlanFull.currentScore ?? "—"} → {panelPlanFull.targetScore ?? "—"}
-                                      </p>
-                                    )}
-                                    {panelPlanFull.targetDate && (
-                                      <p className="text-xs text-gray-400">Target date: {formatDate(panelPlanFull.targetDate)}</p>
-                                    )}
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 flex-wrap">
+                                      {panelPlanFull.startingScore && <span>Start: <strong>{panelPlanFull.startingScore}</strong></span>}
+                                      {panelPlanFull.targetScore   && <span>Goal: <strong className="text-blue-600">{panelPlanFull.targetScore}</strong></span>}
+                                      {panelPlanFull.targetDate    && <span>Target: {formatDate(panelPlanFull.targetDate)}</span>}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                       <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                                         <div className="h-1.5 rounded-full bg-blue-500 transition-all" style={{ width: `${pctL}%` }} />
                                       </div>
                                       <span className="text-xs text-gray-500 shrink-0">{doneL}/{totalL}</span>
                                     </div>
+                                  </div>
+
+                                  {/* ── Practice Test Results ── */}
+                                  <div className="border border-gray-100 rounded-xl overflow-hidden">
+                                    <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50">
+                                      <span className="text-xs font-bold text-gray-600 uppercase tracking-wide">Practice Tests</span>
+                                      <button
+                                        onClick={() => { setPanelShowLogTest(v => !v); setPanelTestDate(""); setPanelTestOverall(""); setPanelTestRW(""); setPanelTestMath(""); setPanelTestNotes(""); }}
+                                        className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                                      >
+                                        {panelShowLogTest ? "Cancel" : "+ Log Test"}
+                                      </button>
+                                    </div>
+
+                                    {panelShowLogTest && (
+                                      <div className="p-3 border-t border-gray-100 space-y-2.5 bg-white">
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Test Date <span className="text-red-400">*</span></label>
+                                            <input type="date" value={panelTestDate} onChange={(e) => setPanelTestDate(e.target.value)}
+                                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Overall Score <span className="text-red-400">*</span></label>
+                                            <input type="number" min="400" max="1600" step="10" placeholder="1200"
+                                              value={panelTestOverall} onChange={(e) => setPanelTestOverall(e.target.value)}
+                                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">R&amp;W Score</label>
+                                            <input type="number" min="200" max="800" step="10" placeholder="600"
+                                              value={panelTestRW} onChange={(e) => setPanelTestRW(e.target.value)}
+                                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                          </div>
+                                          <div>
+                                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Math Score</label>
+                                            <input type="number" min="200" max="800" step="10" placeholder="600"
+                                              value={panelTestMath} onChange={(e) => setPanelTestMath(e.target.value)}
+                                              className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                          </div>
+                                        </div>
+                                        <div>
+                                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Notes</label>
+                                          <input type="text" placeholder="e.g. Khan Academy Practice Test 2"
+                                            value={panelTestNotes} onChange={(e) => setPanelTestNotes(e.target.value)}
+                                            className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                        </div>
+                                        <button
+                                          disabled={panelTestSaving || !panelTestDate || !panelTestOverall}
+                                          onClick={async () => {
+                                            const overall = parseInt(panelTestOverall);
+                                            if (!panelTestDate || isNaN(overall)) return;
+                                            setPanelTestSaving(true);
+                                            try {
+                                              const result = await insertPracticeTestResult({
+                                                studentId:    panelPlanFull.studentId,
+                                                planId:       panelPlanFull.id,
+                                                testDate:     panelTestDate,
+                                                overallScore: overall,
+                                                rwScore:      panelTestRW   ? parseInt(panelTestRW)   : undefined,
+                                                mathScore:    panelTestMath ? parseInt(panelTestMath) : undefined,
+                                                tutorNotes:   panelTestNotes || undefined,
+                                              });
+                                              setPanelTestResults(prev => [...prev, result].sort((a, b) => a.testDate.localeCompare(b.testDate)));
+                                              // Update currentScore on plan so student sees latest score
+                                              await updateStudentPlan(panelPlanFull.id, { currentScore: overall });
+                                              const updated = await fetchStudentPlanFull(panelPlanFull.studentId, panelPlanFull.courseId);
+                                              setPanelPlanFull(updated);
+                                              setPanelShowLogTest(false);
+                                              setPanelTestDate(""); setPanelTestOverall(""); setPanelTestRW(""); setPanelTestMath(""); setPanelTestNotes("");
+                                            } catch (err) {
+                                              setPanelPlanError(err instanceof Error ? err.message : "Failed to save test");
+                                            } finally {
+                                              setPanelTestSaving(false);
+                                            }
+                                          }}
+                                          className="w-full py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold hover:bg-blue-700 disabled:opacity-40 transition-colors"
+                                        >
+                                          {panelTestSaving ? "Saving…" : "Save Test Result"}
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {panelTestResults.length === 0 && !panelShowLogTest && (
+                                      <p className="px-4 py-3 text-xs text-gray-400 border-t border-gray-100">No practice tests logged yet.</p>
+                                    )}
+
+                                    {panelTestResults.length > 0 && (
+                                      <div className="divide-y divide-gray-100 border-t border-gray-100">
+                                        {panelTestResults.map((tr) => (
+                                          <div key={tr.id} className="flex items-center gap-3 px-4 py-2.5">
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className="text-xs font-bold text-gray-900">{tr.overallScore}</span>
+                                                {tr.rwScore   && <span className="text-[10px] text-violet-600 bg-violet-50 px-1.5 py-0.5 rounded font-semibold">R&amp;W {tr.rwScore}</span>}
+                                                {tr.mathScore && <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-semibold">Math {tr.mathScore}</span>}
+                                                {(() => {
+                                                  const start = panelPlanFull.startingScore ?? panelPlanFull.currentScore;
+                                                  if (!start) return null;
+                                                  const diff = tr.overallScore - start;
+                                                  if (diff === 0) return null;
+                                                  return <span className={`text-[10px] font-bold ${diff > 0 ? "text-emerald-600" : "text-red-500"}`}>{diff > 0 ? "+" : ""}{diff}</span>;
+                                                })()}
+                                              </div>
+                                              <p className="text-[10px] text-gray-400 mt-0.5">{formatDate(tr.testDate)}{tr.tutorNotes ? ` · ${tr.tutorNotes}` : ""}</p>
+                                            </div>
+                                            <button
+                                              onClick={async () => {
+                                                if (!confirm("Delete this practice test result?")) return;
+                                                setPanelTestDeletingId(tr.id);
+                                                try {
+                                                  await deletePracticeTestResult(tr.id);
+                                                  setPanelTestResults(prev => prev.filter(r => r.id !== tr.id));
+                                                } catch (err) {
+                                                  setPanelPlanError(err instanceof Error ? err.message : "Delete failed");
+                                                } finally {
+                                                  setPanelTestDeletingId(null);
+                                                }
+                                              }}
+                                              disabled={panelTestDeletingId === tr.id}
+                                              className="p-1 text-gray-300 hover:text-red-400 transition-colors disabled:opacity-40 shrink-0"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
 
                                   {/* Skill Proficiency Editor (0–6) */}
@@ -2562,324 +2763,546 @@ export default function TutorPortal() {
 
       {/* ── HOMEWORK ── */}
       {tab === "homework" && (() => {
-        const today = new Date().toISOString().slice(0, 10);
-        const hwSubmitted  = homework.filter((h) => h.status === "submitted");
-        const hwPending    = homework.filter((h) => h.status === "pending");
-        const hwCompleted  = homework.filter((h) => h.status === "completed");
+        const today       = new Date().toISOString().slice(0, 10);
+        const weekAgo     = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+        const hwSubmitted = homework.filter((h) => h.status === "submitted");
+        const hwPending   = homework.filter((h) => h.status === "pending");
+        const hwCompleted = homework.filter((h) => h.status === "completed");
+        const hwOverdue   = hwPending.filter((h) => !!h.dueDate && h.dueDate < today);
+        const hwGradedThisWeek = hwCompleted.filter((h) => !!h.feedbackAt && h.feedbackAt.slice(0, 10) >= weekAgo);
 
-        const statusBar = (h: Homework) => {
-          const isOverdue = h.dueDate && h.dueDate < today && h.status === "pending";
-          if (isOverdue) return { dot: "bg-red-500",    label: "OVERDUE",   cls: "text-red-600 bg-red-50 border-red-200" };
-          if (h.status === "submitted")  return { dot: "bg-blue-500",   label: "SUBMITTED", cls: "text-blue-600 bg-blue-50 border-blue-200" };
-          if (h.status === "completed")  return { dot: "bg-green-500",  label: "GRADED",    cls: "text-green-600 bg-green-50 border-green-200" };
-          return { dot: "bg-yellow-400", label: "PENDING",   cls: "text-yellow-700 bg-yellow-50 border-yellow-200" };
+        // ── filter + search ──────────────────────────────────────────
+        const activeList =
+          hwTabFilter === "review"  ? hwSubmitted :
+          hwTabFilter === "pending" ? hwPending   :
+          hwTabFilter === "graded"  ? hwCompleted :
+          homework;
+
+        const visibleItems = activeList
+          .filter((h) => !hwFilterStudent || h.studentId === Number(hwFilterStudent))
+          .filter((h) => {
+            if (!hwSearchQuery.trim()) return true;
+            const q = hwSearchQuery.toLowerCase();
+            const st = getStudent(h.studentId);
+            return h.task.toLowerCase().includes(q) || (st?.name.toLowerCase().includes(q) ?? false);
+          })
+          .sort((a, b) => {
+            if (a.status === "submitted" && b.status !== "submitted") return -1;
+            if (b.status === "submitted" && a.status !== "submitted") return 1;
+            return (a.dueDate ?? "9999").localeCompare(b.dueDate ?? "9999");
+          });
+
+        const AVATAR_COLORS = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-orange-500"];
+        const avatarColor = (studentId: number) => {
+          const idx = myStudents.findIndex((s) => s.id === studentId);
+          return AVATAR_COLORS[idx % AVATAR_COLORS.length] ?? "bg-gray-400";
         };
 
-        const renderCard = (h: Homework) => {
-          const st = getStudent(h.studentId);
-          const sb = statusBar(h);
-          const isFeedbackOpen = hwFeedbackId === h.id;
-          return (
-            <div key={h.id} className={`bg-white rounded-xl border-2 p-5 ${h.status === "submitted" ? "border-blue-200" : h.status === "completed" ? "border-green-100" : "border-gray-100"}`}>
-              <div className="flex items-start justify-between gap-3 mb-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-0.5 rounded-full border ${sb.cls}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${sb.dot}`} />
-                      {sb.label}
-                    </span>
-                    {st && <span className="text-sm font-medium text-gray-700">{st.name}</span>}
-                  </div>
-                  <p className="font-semibold text-gray-900 text-base leading-snug">{h.task}</p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Assigned {formatDate(h.assignedDate)}
-                    {h.dueDate ? ` · Due ${formatDate(h.dueDate)}` : ""}
-                    {h.submittedAt ? ` · Submitted ${formatDate(h.submittedAt.slice(0, 10))}` : ""}
-                  </p>
-                  {(h.assignmentType || h.estimatedMinutes != null) && (
-                    <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {h.assignmentType && (
-                        <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
-                          {h.assignmentType.replace(/_/g, " ").replace(/^(.)/, (c) => c.toUpperCase())}
-                        </span>
-                      )}
-                      {h.estimatedMinutes != null && (
-                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
-                          Est. {h.estimatedMinutes} min
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  {h.status === "pending" && (
-                    <button onClick={() => completeHomework(h.id)}
-                      className="text-xs px-3 py-1.5 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-colors font-medium">
-                      Mark Done
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDeleteHomework(h.id)}
-                    disabled={hwDeletingId === h.id}
-                    className="text-xs px-2.5 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
-                    title="Delete assignment"
-                  >
-                    {hwDeletingId === h.id ? "…" : "Delete"}
-                  </button>
-                </div>
-              </div>
+        const reviewItem    = hwReviewId !== null ? (homework.find((h) => h.id === hwReviewId) ?? null) : null;
+        const reviewStudent = reviewItem ? getStudent(reviewItem.studentId) : null;
 
-              {/* Submitted file */}
-              {h.submissionUrl && h.submissionFilename && (
-                <div className="mb-3 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5">
-                  <span className="text-lg">📄</span>
-                  <span className="text-sm text-gray-700 font-medium flex-1 truncate">{h.submissionFilename}</span>
-                  <button onClick={() => openSubmission(h)} disabled={hwOpeningId === h.id}
-                    className="shrink-0 text-sm text-blue-600 hover:underline font-medium disabled:opacity-50">
-                    {hwOpeningId === h.id ? "Opening…" : "View →"}
-                  </button>
-                </div>
-              )}
-              {/* Kami link */}
-              {h.kamiLink && (
-                <div className="mb-3">
-                  <a href={h.kamiLink} target="_blank" rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-2 rounded-xl hover:bg-violet-100 transition-colors">
-                    ✏️ Open in Kami
-                  </a>
-                </div>
-              )}
-
-              {/* Student-reported study time */}
-              {h.studentTimeMinutes != null && (
-                <div className="mb-3 flex flex-wrap items-center gap-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2.5">
-                  <span className="text-xs text-amber-700 font-semibold">⏱ {h.studentTimeMinutes} min reported</span>
-                  {h.difficultyRating && (
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                      h.difficultyRating === "easy"       ? "bg-emerald-100 text-emerald-700"
-                      : h.difficultyRating === "difficult" ? "bg-red-100 text-red-700"
-                      : "bg-blue-100 text-blue-700"
-                    }`}>
-                      {h.difficultyRating.charAt(0).toUpperCase() + h.difficultyRating.slice(1)}
-                    </span>
-                  )}
-                  {h.studentNote && (
-                    <span className="text-xs text-gray-500 italic">&ldquo;{h.studentNote}&rdquo;</span>
-                  )}
-                </div>
-              )}
-
-              {/* Graded result — completed */}
-              {h.status === "completed" && (h.grade || h.feedback) && !isFeedbackOpen && (
-                <div className="mb-3 bg-green-50 border border-green-100 rounded-xl p-3 space-y-1.5">
-                  {h.grade && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-green-700 uppercase tracking-wide">Grade</span>
-                      <span className="text-sm font-bold text-green-800 bg-green-100 px-2.5 py-0.5 rounded-full">{h.grade}</span>
-                    </div>
-                  )}
-                  {h.feedback && (
-                    <div>
-                      <p className="text-xs font-semibold text-green-700 mb-0.5">Comments</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{h.feedback}</p>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => { setHwFeedbackId(h.id); setHwGradeText(h.grade ?? ""); setHwFeedbackText(h.feedback ?? ""); }}
-                    className="text-xs text-green-700 hover:underline font-medium pt-0.5">
-                    Edit Grade & Comments
-                  </button>
-                </div>
-              )}
-
-              {/* Grade & feedback form — submitted or editing completed */}
-              {(h.status === "submitted" || (h.status === "completed" && isFeedbackOpen)) && (
-                <div className="mt-2">
-                  {!isFeedbackOpen ? (
-                    <button
-                      onClick={() => { setHwFeedbackId(h.id); setHwGradeText(h.grade ?? ""); setHwFeedbackText(h.feedback ?? ""); }}
-                      className="text-xs text-blue-600 hover:underline font-semibold">
-                      + Grade This Assignment
-                    </button>
-                  ) : (
-                    <div className="bg-gray-50 border border-gray-200 rounded-xl p-3 space-y-3">
-                      <div>
-                        <label className="text-xs font-semibold text-gray-600 block mb-1">Grade <span className="text-gray-400 font-normal">(optional — e.g. A+, 95%, 9/10)</span></label>
-                        <input
-                          type="text"
-                          value={hwGradeText}
-                          onChange={(e) => setHwGradeText(e.target.value)}
-                          placeholder="A+, 95%, 9/10, ✓…"
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-gray-600 block mb-1">Comments <span className="text-red-400">*</span></label>
-                        <textarea
-                          value={hwFeedbackText}
-                          onChange={(e) => setHwFeedbackText(e.target.value)}
-                          placeholder="Great work! Pay attention to problem 3 next time…"
-                          rows={3}
-                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button onClick={() => saveFeedback(h.id)} disabled={hwFeedbackSaving || !hwFeedbackText.trim()}
-                          className="px-4 py-1.5 bg-green-600 text-white rounded-lg text-xs font-semibold hover:bg-green-700 disabled:opacity-40">
-                          {hwFeedbackSaving ? "Saving…" : "Submit Grade"}
-                        </button>
-                        <button onClick={() => { setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
-                          className="px-3 py-1.5 text-gray-500 text-xs hover:text-gray-700">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
+        const mkStatusBadge = (h: Homework) => {
+          const isOv = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+          if (h.status === "submitted") return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />Needs Review</span>;
+          if (h.status === "completed") return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />Graded</span>;
+          if (isOv) return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />Overdue</span>;
+          return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />Pending</span>;
         };
+
 
         return (
-          <div>
-            <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Homework</h1>
-
-              <button onClick={() => setHwShowForm((v) => !v)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 flex items-center gap-1.5">
-                {hwShowForm ? "✕ Cancel" : "+ New Assignment"}
+          <>
+            {/* ── Page header ── */}
+            <div className="flex items-start justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">Homework</h1>
+                <p className="text-sm text-gray-400 mt-1">Assign, review, and track student work.</p>
+              </div>
+              <button
+                onClick={() => { setHwShowForm(true); }}
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> New Assignment
               </button>
             </div>
 
-            {/* Add Assignment form */}
-            {hwShowForm && (
-              <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-                <h3 className="font-semibold text-gray-900 mb-4">New Assignment</h3>
-                <div className="space-y-3">
-                  <select value={hwStudentId} onChange={(e) => setHwStudentId(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="">Select student…</option>
+            {/* ── Summary stat cards ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+              {([
+                { key: "review",  value: hwSubmitted.length,     label: "Needs Review",     valCls: "text-blue-600",    borderCls: hwTabFilter === "review"  ? "border-blue-400 ring-2 ring-blue-100"    : "border-gray-100 hover:border-gray-300" },
+                { key: "pending", value: hwPending.length,       label: "Pending",           valCls: "text-amber-600",   borderCls: hwTabFilter === "pending" ? "border-amber-400 ring-2 ring-amber-50"   : "border-gray-100 hover:border-gray-300" },
+                { key: "graded",  value: hwGradedThisWeek.length, label: "Graded This Week", valCls: "text-emerald-600", borderCls: hwTabFilter === "graded"  ? "border-emerald-500 ring-2 ring-emerald-50" : "border-gray-100 hover:border-gray-300" },
+                { key: "pending", value: hwOverdue.length,       label: "Overdue",           valCls: hwOverdue.length > 0 ? "text-red-600" : "text-gray-300", borderCls: hwOverdue.length > 0 ? "border-red-200 hover:border-red-300" : "border-gray-100 hover:border-gray-300" },
+              ] as const).map(({ key, value, label, valCls, borderCls }) => (
+                <button key={label} onClick={() => setHwTabFilter(key)}
+                  className={`text-left bg-white border rounded-xl p-4 transition-all ${borderCls}`}>
+                  <p className={`text-2xl font-bold ${valCls}`}>{value}</p>
+                  <p className="text-xs font-semibold text-gray-500 mt-1">{label}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Filter tabs + search ── */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+              <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 shrink-0">
+                {([
+                  { key: "review",  label: hwSubmitted.length > 0 ? `Review (${hwSubmitted.length})` : "Review" },
+                  { key: "pending", label: "Pending" },
+                  { key: "graded",  label: "Graded" },
+                  { key: "all",     label: "All" },
+                ] as const).map(({ key, label }) => (
+                  <button key={key} onClick={() => setHwTabFilter(key)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                      hwTabFilter === key ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    }`}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 flex-1">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                  <input
+                    value={hwSearchQuery}
+                    onChange={(e) => setHwSearchQuery(e.target.value)}
+                    placeholder="Search assignments…"
+                    className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                {myStudents.length > 1 && (
+                  <select value={hwFilterStudent} onChange={(e) => setHwFilterStudent(e.target.value)}
+                    className="text-sm border border-gray-200 rounded-xl px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-600">
+                    <option value="">All students</option>
                     {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <textarea value={hwTask} onChange={(e) => setHwTask(e.target.value)}
-                    placeholder="Describe the assignment (e.g. Complete problems 1–20 from Chapter 4)"
-                    rows={3}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                )}
+              </div>
+            </div>
+
+            {/* ── Assignment list ── */}
+            {visibleItems.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="w-14 h-14 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <BookOpen className="w-7 h-7 text-gray-300" />
+                </div>
+                <p className="text-sm font-semibold text-gray-500">
+                  {hwTabFilter === "review"  ? "Nothing waiting for review — all caught up!"
+                  : hwTabFilter === "pending" ? "No pending assignments."
+                  : hwTabFilter === "graded"  ? "No graded assignments yet."
+                  : "No assignments yet."}
+                </p>
+                {(hwTabFilter === "all" || homework.length === 0) && (
+                  <p className="text-xs text-gray-400 mt-1">Click &quot;+ New Assignment&quot; to get started.</p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {visibleItems.map((h) => {
+                  const st = getStudent(h.studentId);
+                  const isOverdue = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+                  return (
+                    <div
+                      key={h.id}
+                      onClick={() => { setHwReviewId(h.id); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
+                      className={`bg-white border rounded-xl px-4 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
+                        h.status === "submitted" ? "border-blue-200 hover:border-blue-300"
+                        : isOverdue              ? "border-red-200 hover:border-red-300"
+                        : "border-gray-100 hover:border-gray-200"
+                      }`}
+                    >
+                      {/* Student avatar */}
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0 ${avatarColor(h.studentId)}`}>
+                        {st?.name[0] ?? "?"}
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{h.task}</p>
+                        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <span className="text-xs text-gray-400">{st?.name}</span>
+                          {h.dueDate && (
+                            <span className={`text-xs ${isOverdue ? "text-red-500 font-medium" : "text-gray-400"}`}>
+                              · Due {formatDate(h.dueDate)}
+                            </span>
+                          )}
+                          {h.submittedAt && (
+                            <span className="text-xs text-gray-400">· Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>
+                          )}
+                          {h.assignmentType && (
+                            <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {h.assignmentType === "sat_vocabulary" ? "Vocabulary" : h.assignmentType.replace(/_/g, " ")}
+                            </span>
+                          )}
+                          {h.estimatedMinutes != null && h.studentTimeMinutes != null && (
+                            <span className="text-[10px] text-blue-500 font-medium">
+                              {h.studentTimeMinutes}m&thinsp;/&thinsp;{h.estimatedMinutes}m est.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status + delete */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {mkStatusBadge(h)}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleDeleteHomework(h.id); }}
+                          disabled={hwDeletingId === h.id}
+                          title="Delete assignment"
+                          className="p-1.5 text-gray-300 hover:text-red-400 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {hwDeletingId === h.id ? <span className="text-xs text-gray-400">…</span> : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── New Assignment Modal ── */}
+            {hwShowForm && (
+              <Modal title="New Assignment" onClose={() => { setHwShowForm(false); setHwSuccess(false); setHwError(""); }} size="xl">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Student</label>
+                    <select value={hwStudentId} onChange={(e) => setHwStudentId(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">Select student…</option>
+                      {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Assignment</label>
+                    <textarea value={hwTask} onChange={(e) => setHwTask(e.target.value)}
+                      placeholder="e.g. Complete problems 1–20 from Chapter 4"
+                      rows={3}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Assignment type (optional)</label>
-                      <select value={hwType} onChange={(e) => setHwType(e.target.value)}
-                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Type <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                      <select value={hwType} onChange={(e) => { setHwType(e.target.value); if (e.target.value !== "sat_vocabulary") setHwVocabWords([{ word: "", hint: "" }]); }}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Select type…</option>
                         <option value="problems">Problems</option>
                         <option value="reading">Reading</option>
                         <option value="practice_test">Practice Test</option>
                         <option value="review">Review</option>
                         <option value="essay">Essay</option>
+                        <option value="sat_vocabulary">SAT Vocabulary</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1">Estimated time (optional)</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Est. Time <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                       <div className="flex items-center gap-2">
                         <input type="number" min="1" max="600" placeholder="30"
                           value={hwEstMins} onChange={(e) => setHwEstMins(e.target.value)}
-                          className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        <span className="text-xs text-gray-500">min</span>
+                          className="w-20 rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        <span className="text-sm text-gray-400">min</span>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Instructions (optional)</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Instructions <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                     <textarea value={hwInstructions} onChange={(e) => setHwInstructions(e.target.value)}
-                      placeholder="Any specific instructions or steps for the student…"
+                      placeholder="Specific steps or guidance for the student…"
                       rows={2}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
+                  {/* Vocabulary word list */}
+                  {hwType === "sat_vocabulary" && (
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Vocabulary Words <span className="text-red-400">*</span></label>
+                      <div className="space-y-2">
+                        {hwVocabWords.map((w, i) => (
+                          <div key={i} className="flex gap-2 items-start">
+                            <div className="flex-1 grid grid-cols-2 gap-2">
+                              <input value={w.word}
+                                onChange={(e) => setHwVocabWords((prev) => prev.map((x, j) => j === i ? { ...x, word: e.target.value } : x))}
+                                placeholder={`Word ${i + 1}`}
+                                className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                              <input value={w.hint}
+                                onChange={(e) => setHwVocabWords((prev) => prev.map((x, j) => j === i ? { ...x, hint: e.target.value } : x))}
+                                placeholder="Hint (optional)"
+                                className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            </div>
+                            {hwVocabWords.length > 1 && (
+                              <button onClick={() => setHwVocabWords((prev) => prev.filter((_, j) => j !== i))}
+                                className="p-2.5 text-gray-400 hover:text-red-500 transition-colors shrink-0">
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => setHwVocabWords((prev) => [...prev, { word: "", hint: "" }])}
+                        className="mt-2 text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 transition-colors">
+                        <Plus className="w-3.5 h-3.5" /> Add Word
+                      </button>
+                    </div>
+                  )}
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Due date (optional)</label>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Due Date <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                     <input type="date" value={hwDue} onChange={(e) => setHwDue(e.target.value)}
-                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">PDF Attachment (optional)</label>
-                    <input type="file" accept=".pdf,application/pdf"
-                      onChange={(e) => setHwFile(e.target.files?.[0] ?? null)}
-                      className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-                    {hwFile && <p className="text-xs text-gray-400 mt-1">{hwFile.name}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Kami Link (optional)</label>
-                    <input value={hwKamiLink} onChange={(e) => setHwKamiLink(e.target.value)}
-                      placeholder="https://app.kami.com/..."
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                  </div>
+                  {hwType !== "sat_vocabulary" && (<>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">PDF Attachment <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                      <input type="file" accept=".pdf,application/pdf"
+                        onChange={(e) => setHwFile(e.target.files?.[0] ?? null)}
+                        className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+                      {hwFile && <p className="text-xs text-gray-400 mt-1">{hwFile.name}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Kami Link <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                      <input value={hwKamiLink} onChange={(e) => setHwKamiLink(e.target.value)}
+                        placeholder="https://app.kami.com/..."
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </>)}
                   {allSkillNodes.length > 0 && (
                     <div>
-                      <label className="block text-xs text-gray-500 mb-1.5">Skills Practiced (optional)</label>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Skills Practiced <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                       <SkillPicker nodes={allSkillNodes} value={hwSkillIds} onChange={setHwSkillIds} />
                     </div>
                   )}
-                  {hwSuccess && <p className="text-xs text-green-600 font-medium">✓ Assignment assigned!</p>}
-                  {hwError && <p className="text-xs text-red-500">{hwError}</p>}
-                  <button onClick={submitHomework} disabled={hwSaving || hwUploading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
-                    {hwUploading ? "Uploading PDF…" : hwSaving ? "Saving…" : "Assign"}
-                  </button>
+                  {hwSuccess && <p className="text-sm text-emerald-600 font-medium">✓ Assignment assigned!</p>}
+                  {hwError && <p className="text-sm text-red-500">{hwError}</p>}
+                  <div className="flex justify-end pt-2 border-t border-gray-100">
+                    <button onClick={submitHomework} disabled={hwSaving || hwUploading}
+                      className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors">
+                      {hwUploading ? "Uploading PDF…" : hwSaving ? "Saving…" : "Assign"}
+                    </button>
+                  </div>
                 </div>
-              </div>
+              </Modal>
             )}
 
-            {homework.length === 0 && (
-              <div className="text-center py-12 text-gray-400">
-                <p className="text-4xl mb-3">📋</p>
-                <p className="text-sm font-medium">No assignments yet.</p>
-                <p className="text-xs mt-1">Click &quot;+ New Assignment&quot; to get started.</p>
-              </div>
-            )}
+            {/* ── Review / Detail Modal ── */}
+            {hwReviewId !== null && reviewItem !== null && (() => {
+              const h  = reviewItem;
+              const st = reviewStudent;
+              const isFeedbackOpen   = hwFeedbackId === h.id;
+              const vocabReview      = h.assignmentType === "sat_vocabulary" ? vocabReviewData[h.id]    : undefined;
+              const vocabLoadingFlag = h.assignmentType === "sat_vocabulary" ? !!vocabReviewLoading[h.id] : false;
+              return (
+                <Modal
+                  title={h.task}
+                  subtitle={st?.name}
+                  onClose={() => { setHwReviewId(null); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
+                  size="xl"
+                >
+                  <div className="space-y-5">
+                    {/* Meta chips */}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg">Assigned {formatDate(h.assignedDate)}</span>
+                      {h.dueDate && (
+                        <span className={`px-2.5 py-1 rounded-lg ${h.dueDate < today && h.status === "pending" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
+                          Due {formatDate(h.dueDate)}
+                        </span>
+                      )}
+                      {h.submittedAt && <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>}
+                      {h.assignmentType && (
+                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg capitalize">
+                          {h.assignmentType === "sat_vocabulary" ? "Vocabulary" : h.assignmentType.replace(/_/g, " ")}
+                        </span>
+                      )}
+                    </div>
 
-            {/* Needs Review */}
-            {hwSubmitted.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Needs Review</span>
-                  <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">{hwSubmitted.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {hwSubmitted.map((h) => renderCard(h))}
-                </div>
-              </div>
-            )}
+                    {/* Instructions */}
+                    {h.instructions && (
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                        <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Instructions</p>
+                        <p className="text-sm text-amber-900 whitespace-pre-wrap">{h.instructions}</p>
+                      </div>
+                    )}
 
-            {/* Pending */}
-            {hwPending.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Pending</span>
-                  <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-0.5 rounded-full">{hwPending.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {hwPending.map((h) => renderCard(h))}
-                </div>
-              </div>
-            )}
+                    {/* Tutor-attached resources */}
+                    {(h.attachmentUrl || h.kamiLink) && (
+                      <div className="flex flex-wrap gap-2">
+                        {h.attachmentUrl && (
+                          <button onClick={() => openSubmission(h)} disabled={hwOpeningId === h.id}
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-100 disabled:opacity-50">
+                            <FileText className="w-3.5 h-3.5" />{h.attachmentFilename ?? "PDF Attachment"}
+                          </button>
+                        )}
+                        {h.kamiLink && (
+                          <a href={h.kamiLink} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-3 py-1.5 rounded-lg hover:bg-violet-100">
+                            ✏️ Open in Kami
+                          </a>
+                        )}
+                      </div>
+                    )}
 
-            {/* Completed */}
-            {hwCompleted.length > 0 && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Graded</span>
-                  <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-0.5 rounded-full">{hwCompleted.length}</span>
-                </div>
-                <div className="space-y-3">
-                  {hwCompleted.map((h) => renderCard(h))}
-                </div>
-              </div>
-            )}
-          </div>
+                    {/* Student submission file */}
+                    {h.submissionUrl && h.submissionFilename && (
+                      <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                        <FileText className="w-4 h-4 text-gray-400 shrink-0" />
+                        <span className="text-sm font-medium text-gray-700 flex-1 truncate">{h.submissionFilename}</span>
+                        <button onClick={() => openSubmission(h)} disabled={hwOpeningId === h.id}
+                          className="text-sm text-blue-600 font-semibold hover:text-blue-700 shrink-0 disabled:opacity-50">
+                          {hwOpeningId === h.id ? "Opening…" : "Open →"}
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Student-reported time + difficulty + note */}
+                    {(h.studentTimeMinutes != null || h.difficultyRating || h.studentNote) && (
+                      <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 space-y-2">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Student Report</p>
+                        <div className="flex flex-wrap items-center gap-3">
+                          {h.studentTimeMinutes != null && (
+                            <span className="text-sm text-gray-700">
+                              ⏱ <strong>{h.studentTimeMinutes} min</strong> reported
+                              {h.estimatedMinutes != null && <span className="text-gray-400 text-xs"> (est. {h.estimatedMinutes} min)</span>}
+                            </span>
+                          )}
+                          {h.difficultyRating && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              h.difficultyRating === "easy" ? "bg-emerald-100 text-emerald-700"
+                              : h.difficultyRating === "difficult" ? "bg-red-100 text-red-700"
+                              : "bg-blue-100 text-blue-700"
+                            }`}>{h.difficultyRating.charAt(0).toUpperCase() + h.difficultyRating.slice(1)}</span>
+                          )}
+                        </div>
+                        {h.studentNote && <p className="text-sm text-gray-600 italic">&ldquo;{h.studentNote}&rdquo;</p>}
+                      </div>
+                    )}
+
+                    {/* Vocabulary review */}
+                    {h.assignmentType === "sat_vocabulary" && (() => {
+                      if (!vocabReview && !vocabLoadingFlag) return (
+                        <button onClick={() => void loadVocabReview(h.id)}
+                          className="text-sm font-semibold text-violet-600 hover:text-violet-700 border border-violet-200 bg-violet-50 px-4 py-2.5 rounded-xl transition-colors">
+                          Load Vocabulary Submission
+                        </button>
+                      );
+                      if (vocabLoadingFlag) return <p className="text-sm text-gray-400">Loading vocabulary…</p>;
+                      if (!vocabReview) return null;
+                      return (
+                        <div className="space-y-3">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Vocabulary Submission</p>
+                          {vocabReview.config.words.map((word, i) => {
+                            const entry   = vocabReview.entries.find((e) => e.wordIndex === i);
+                            const fbInput = vocabFeedbackInputs[h.id]?.[entry?.id ?? -1] ?? "";
+                            const saving  = entry ? !!vocabReviewSaving[entry.id] : false;
+                            return (
+                              <div key={i} className={`bg-gray-50 border rounded-xl p-3 space-y-2 ${
+                                entry?.tutorStatus === "correct"        ? "border-emerald-300"
+                                : entry?.tutorStatus === "needs_revision" ? "border-amber-300"
+                                : "border-gray-200"
+                              }`}>
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <p className="font-semibold text-sm text-gray-900">{word.word}</p>
+                                  {entry && (
+                                    <div className="flex items-center gap-1.5">
+                                      <button onClick={() => void saveVocabEntryReview(h.id, entry.id, "correct")} disabled={saving}
+                                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${entry.tutorStatus === "correct" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"}`}>
+                                        ✓ Correct
+                                      </button>
+                                      <button onClick={() => void saveVocabEntryReview(h.id, entry.id, "needs_revision")} disabled={saving}
+                                        className={`text-xs font-semibold px-2.5 py-1 rounded-full border transition-colors disabled:opacity-50 ${entry.tutorStatus === "needs_revision" ? "bg-amber-500 text-white border-amber-500" : "bg-white text-amber-700 border-amber-200 hover:bg-amber-50"}`}>
+                                        Revise
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                                {entry ? (
+                                  <>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-0.5">Definition</p>
+                                        <p className="text-gray-700">{entry.definition}</p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-widest mb-0.5">Sentence</p>
+                                        <p className="text-gray-700">{entry.sentence}</p>
+                                      </div>
+                                    </div>
+                                    {entry.confidence && <p className="text-xs text-gray-400">Confidence: <span className="font-semibold">{entry.confidence}</span></p>}
+                                    <input
+                                      value={fbInput}
+                                      onChange={(e) => setVocabFeedbackInputs((prev) => ({ ...prev, [h.id]: { ...(prev[h.id] ?? {}), [entry.id]: e.target.value } }))}
+                                      placeholder="Optional feedback for this word…"
+                                      className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    />
+                                  </>
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic">Not yet submitted</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* Existing grade (completed, not editing) */}
+                    {h.status === "completed" && (h.grade || h.feedback) && !isFeedbackOpen && (
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-2">
+                        <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Grade &amp; Feedback</p>
+                        {h.grade && <span className="font-bold text-emerald-800 bg-emerald-100 inline-block px-3 py-0.5 rounded-full text-sm">{h.grade}</span>}
+                        {h.feedback && <p className="text-sm text-gray-700 whitespace-pre-wrap">{h.feedback}</p>}
+                        <button onClick={() => { setHwFeedbackId(h.id); setHwGradeText(h.grade ?? ""); setHwFeedbackText(h.feedback ?? ""); }}
+                          className="text-xs text-emerald-700 hover:underline font-medium">Edit →</button>
+                      </div>
+                    )}
+
+                    {/* Grade form */}
+                    {(h.status === "submitted" || (h.status === "completed" && isFeedbackOpen)) && (
+                      <div className="border-t border-gray-100 pt-4">
+                        {!isFeedbackOpen ? (
+                          <button onClick={() => { setHwFeedbackId(h.id); setHwGradeText(""); setHwFeedbackText(""); }}
+                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                            + Grade This Assignment
+                          </button>
+                        ) : (
+                          <div className="space-y-3">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grade &amp; Feedback</p>
+                            <input type="text" value={hwGradeText} onChange={(e) => setHwGradeText(e.target.value)}
+                              placeholder="Grade (A+, 95%, 9/10, ✓…)"
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <textarea value={hwFeedbackText} onChange={(e) => setHwFeedbackText(e.target.value)}
+                              placeholder="Write your feedback for the student…"
+                              rows={4}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => saveFeedback(h.id)} disabled={hwFeedbackSaving || !hwFeedbackText.trim()}
+                                className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40 transition-colors">
+                                {hwFeedbackSaving ? "Saving…" : "Submit Grade"}
+                              </button>
+                              <button onClick={() => { setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
+                                className="text-sm text-gray-400 hover:text-gray-600 transition-colors">Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Mark done (for pending) */}
+                    {h.status === "pending" && (
+                      <div className="border-t border-gray-100 pt-3 flex items-center gap-3">
+                        <button onClick={() => { completeHomework(h.id); setHwReviewId(null); }}
+                          className="text-xs font-semibold text-emerald-700 border border-emerald-200 bg-emerald-50 px-3 py-1.5 rounded-xl hover:bg-emerald-100 transition-colors">
+                          Mark Done
+                        </button>
+                        <button onClick={() => { handleDeleteHomework(h.id); setHwReviewId(null); }} disabled={hwDeletingId === h.id}
+                          className="text-xs text-red-400 hover:text-red-600 font-medium disabled:opacity-40 transition-colors">
+                          {hwDeletingId === h.id ? "Deleting…" : "Delete Assignment"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </Modal>
+              );
+            })()}
+          </>
         );
       })()}
+
 
       {/* ── COURSE LIBRARY ── */}
       {tab === "library" && <CourseLibrary />}

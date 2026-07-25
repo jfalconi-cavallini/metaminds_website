@@ -19,9 +19,12 @@ import {
   fetchStudyLog,
   fetchStudentPlans, fetchStudentPlanFull, fetchFullCatalog,
   fetchSkillNodes, fetchSkillLinkedNotes, fetchSkillLinkedHomework,
+  fetchVocabularyConfig, fetchVocabularySubmissions,
+  upsertVocabularySubmissions, markHomeworkSubmitted,
+  fetchPracticeTestResults,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -100,6 +103,7 @@ export default function StudentPortal() {
   const [skillHomeworkLinks, setSkillHomeworkLinks] = useState<HomeworkSkillLink[]>([]);
   const [expandedSkills,     setExpandedSkills]     = useState<Set<number>>(new Set());
   const [selectedSkillId,    setSelectedSkillId]    = useState<number | null>(null);
+  const [practiceTests,      setPracticeTests]      = useState<PracticeTestResult[]>([]);
 
   // Data load — waits for the viewer context to resolve auth and (if admin) preview token
   const { previewReady, effectiveStudentId, isAdminPreview, previewViewAs } = ctx;
@@ -155,15 +159,17 @@ export default function StudentPortal() {
     setPlanLoading(true);
     (async () => {
       try {
-        const [plans, skillNodes, noteLinks, hwLinks] = await Promise.all([
+        const [plans, skillNodes, noteLinks, hwLinks, testResults] = await Promise.all([
           fetchStudentPlans(student.id),
           fetchSkillNodes("SAT"),
           fetchSkillLinkedNotes(student.id),
           fetchSkillLinkedHomework(student.id),
+          fetchPracticeTestResults(student.id),
         ]);
         setPathSkillNodes(skillNodes);
         setSkillNoteLinks(noteLinks);
         setSkillHomeworkLinks(hwLinks);
+        setPracticeTests(testResults);
         const active = plans.find(p => p.status === "active") ?? plans[0] ?? null;
         if (active) {
           const [full, catalog] = await Promise.all([
@@ -216,6 +222,13 @@ export default function StudentPortal() {
   const [hwTimeInputs,    setHwTimeInputs]    = useState<Record<number, string>>({});
   const [hwNoteInputs,    setHwNoteInputs]    = useState<Record<number, string>>({});
   const [hwDiffInputs,    setHwDiffInputs]    = useState<Record<number, string>>({});
+
+  // Vocabulary homework
+  const [vocabConfigs,  setVocabConfigs]  = useState<Record<number, VocabularyAssignmentConfig | null>>({});
+  const [vocabEntries,  setVocabEntries]  = useState<Record<number, VocabularySubmissionEntry[]>>({});
+  const [vocabInputs,   setVocabInputs]   = useState<Record<number, { definition: string; sentence: string; confidence: string }[]>>({});
+  const [vocabSavingId, setVocabSavingId] = useState<number | null>(null);
+  const [vocabErrors,   setVocabErrors]   = useState<Record<number, string>>({});
   const [notesSearch,       setNotesSearch]       = useState("");
   const [selectedNoteId,    setSelectedNoteId]    = useState<number | null>(null);
   const [selectedUpdateId,  setSelectedUpdateId]  = useState<number | null>(null);
@@ -477,6 +490,69 @@ export default function StudentPortal() {
       alert(`Could not open file: ${e instanceof Error ? e.message : "Please try again."}`);
     } finally {
       setHwOpeningId(null);
+    }
+  }
+
+  async function loadVocabForHomework(hw: Homework) {
+    if (vocabConfigs[hw.id] !== undefined) return;
+    try {
+      const [config, entries] = await Promise.all([
+        fetchVocabularyConfig(hw.id),
+        fetchVocabularySubmissions(hw.id),
+      ]);
+      setVocabConfigs((prev) => ({ ...prev, [hw.id]: config }));
+      setVocabEntries((prev) => ({ ...prev, [hw.id]: entries }));
+      if (config) {
+        setVocabInputs((prev) => ({
+          ...prev,
+          [hw.id]: config.words.map((w, i) => {
+            const existing = entries.find((e) => e.wordIndex === i);
+            return {
+              definition: existing?.definition ?? "",
+              sentence:   existing?.sentence   ?? "",
+              confidence: existing?.confidence ?? "",
+            };
+          }),
+        }));
+      }
+    } catch {
+      setVocabConfigs((prev) => ({ ...prev, [hw.id]: null }));
+    }
+  }
+
+  async function submitVocabularyHomework(hwId: number) {
+    const studentId = ctx.effectiveStudentId;
+    if (!studentId) return;
+    const config = vocabConfigs[hwId];
+    const inputs = vocabInputs[hwId];
+    if (!config || !inputs) return;
+
+    const hasEmpty = inputs.some((inp) => !inp.definition.trim() || !inp.sentence.trim());
+    if (hasEmpty) {
+      setVocabErrors((prev) => ({ ...prev, [hwId]: "Please write a definition and sentence for every word." }));
+      return;
+    }
+
+    setVocabSavingId(hwId);
+    setVocabErrors((prev) => ({ ...prev, [hwId]: "" }));
+    try {
+      const entries = config.words.map((w, i) => ({
+        homeworkId: hwId,
+        studentId,
+        wordIndex:  i,
+        word:       w.word,
+        definition: (inputs[i]?.definition ?? "").trim(),
+        sentence:   (inputs[i]?.sentence   ?? "").trim(),
+        confidence: (inputs[i]?.confidence as "low" | "medium" | "high" | undefined) || undefined,
+      }));
+      const saved = await upsertVocabularySubmissions(entries);
+      setVocabEntries((prev) => ({ ...prev, [hwId]: saved }));
+      const updated = await markHomeworkSubmitted(hwId);
+      setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
+    } catch {
+      setVocabErrors((prev) => ({ ...prev, [hwId]: "Failed to save submission. Please try again." }));
+    } finally {
+      setVocabSavingId(null);
     }
   }
 
@@ -2379,6 +2455,139 @@ export default function StudentPortal() {
           const currentDiff = hwDiffInputs[h.id] ?? (h.difficultyRating ?? "");
           const currentNote = hwNoteInputs[h.id] ?? (h.studentNote ?? "");
           const diffLabels: Record<string, string> = { easy: "Easy", appropriate: "Appropriate", difficult: "Difficult" };
+
+          // ── Vocabulary assignment: custom form ──────────────────────
+          if (h.assignmentType === "sat_vocabulary") {
+            const config  = vocabConfigs[h.id];
+            const entries = vocabEntries[h.id] ?? [];
+            const inputs  = vocabInputs[h.id]  ?? [];
+            const saving  = vocabSavingId === h.id;
+            const error   = vocabErrors[h.id];
+            return (
+              <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-4">
+                {/* Tutor instructions */}
+                {h.instructions && (
+                  <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+                    <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Instructions</p>
+                    <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">{h.instructions}</p>
+                  </div>
+                )}
+                {/* Grade + feedback (for graded submissions) */}
+                {h.status === "completed" && (h.grade || h.feedback) && (
+                  <div className="bg-white border border-emerald-200 rounded-xl p-4 space-y-2">
+                    {h.grade && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">Grade</span>
+                        <span className="font-bold text-emerald-700 bg-emerald-100 px-3 py-0.5 rounded-full text-sm">{h.grade}</span>
+                      </div>
+                    )}
+                    {h.feedback && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-1">Tutor Feedback</p>
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">{h.feedback}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {/* Word cards */}
+                {config === undefined ? (
+                  <p className="text-sm text-gray-400 py-2">Loading word list…</p>
+                ) : config === null ? (
+                  <p className="text-sm text-red-400 py-2">Word list not found. Ask your tutor to re-check the assignment.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {config.words.map((word, i) => {
+                      const entry  = entries.find((e) => e.wordIndex === i);
+                      const inp    = inputs[i] ?? { definition: "", sentence: "", confidence: "" };
+                      const status = entry?.tutorStatus;
+                      return (
+                        <div key={i} className={`bg-white border rounded-xl p-4 space-y-3 ${
+                          status === "correct"        ? "border-emerald-300"
+                          : status === "needs_revision" ? "border-amber-300"
+                          : "border-gray-200"
+                        }`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-semibold text-gray-900">{word.word}</p>
+                            {status === "correct" && <span className="shrink-0 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full">✓ Correct</span>}
+                            {status === "needs_revision" && <span className="shrink-0 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-300 px-2.5 py-1 rounded-full">Needs Revision</span>}
+                          </div>
+                          {word.hintDefinition && (
+                            <p className="text-xs text-blue-600 italic">Hint: {word.hintDefinition}</p>
+                          )}
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Your Definition</label>
+                            <textarea
+                              value={inp.definition}
+                              onChange={(e) => setVocabInputs((prev) => {
+                                const arr = [...(prev[h.id] ?? [])];
+                                arr[i] = { ...(arr[i] ?? { definition: "", sentence: "", confidence: "" }), definition: e.target.value };
+                                return { ...prev, [h.id]: arr };
+                              })}
+                              rows={2}
+                              placeholder="Write a definition in your own words…"
+                              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Example Sentence</label>
+                            <textarea
+                              value={inp.sentence}
+                              onChange={(e) => setVocabInputs((prev) => {
+                                const arr = [...(prev[h.id] ?? [])];
+                                arr[i] = { ...(arr[i] ?? { definition: "", sentence: "", confidence: "" }), sentence: e.target.value };
+                                return { ...prev, [h.id]: arr };
+                              })}
+                              rows={2}
+                              placeholder="Use the word in a sentence…"
+                              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Confidence</span>
+                            {(["low", "medium", "high"] as const).map((c) => (
+                              <button key={c}
+                                onClick={() => setVocabInputs((prev) => {
+                                  const arr = [...(prev[h.id] ?? [])];
+                                  const cur = arr[i] ?? { definition: "", sentence: "", confidence: "" };
+                                  arr[i] = { ...cur, confidence: cur.confidence === c ? "" : c };
+                                  return { ...prev, [h.id]: arr };
+                                })}
+                                className={`text-xs px-2.5 py-1 rounded-lg font-medium border transition-colors ${
+                                  inp.confidence === c
+                                    ? c === "high" ? "bg-emerald-600 text-white border-emerald-600"
+                                      : c === "low" ? "bg-red-500 text-white border-red-500"
+                                      : "bg-amber-400 text-white border-amber-400"
+                                    : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"
+                                }`}>{c.charAt(0).toUpperCase() + c.slice(1)}</button>
+                            ))}
+                          </div>
+                          {entry?.tutorFeedback && (
+                            <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                              <p className="text-[10px] font-bold text-blue-700 uppercase tracking-widest mb-1">Tutor Feedback</p>
+                              <p className="text-sm text-blue-900">{entry.tutorFeedback}</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {!isParent && (
+                      <div className="pt-1 flex flex-col gap-2">
+                        {error && <p className="text-xs text-red-500">{error}</p>}
+                        <button
+                          onClick={() => submitVocabularyHomework(h.id)}
+                          disabled={!ctx.canSubmitHomework || saving}
+                          className="self-start px-5 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                        >
+                          {saving ? "Saving…" : h.status === "pending" ? "Submit Vocabulary" : "Update Submission"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-3">
               {/* Tutor-provided resources */}
@@ -2610,11 +2819,18 @@ export default function StudentPortal() {
                             <td className="py-4 px-5">
                               <p className="font-semibold text-gray-900 text-sm">{h.task}</p>
                               {h.assignedDate && <p className="text-xs text-gray-400 mt-0.5">Assigned {formatDate(h.assignedDate)}</p>}
-                              {h.estimatedMinutes != null && (
-                                <span className="inline-flex items-center text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full mt-1">
-                                  Est. {h.estimatedMinutes} min
-                                </span>
-                              )}
+                              <div className="flex flex-wrap gap-1.5 mt-1">
+                                {h.assignmentType === "sat_vocabulary" && (
+                                  <span className="inline-flex items-center text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-200 px-2 py-0.5 rounded-full">
+                                    Vocabulary
+                                  </span>
+                                )}
+                                {h.estimatedMinutes != null && (
+                                  <span className="inline-flex items-center text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
+                                    Est. {h.estimatedMinutes} min
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-4 px-5 hidden sm:table-cell">
                               <p className="text-sm text-gray-500">{tutor?.name ?? "—"}</p>
@@ -2626,7 +2842,12 @@ export default function StudentPortal() {
                             </td>
                             <td className="py-4 px-5">{mkStatusBadge(h)}</td>
                             <td className="py-4 px-5">
-                              <button onClick={() => toggleExpand(h.id)}
+                              <button onClick={() => {
+                                if (h.assignmentType === "sat_vocabulary" && !hwExpandedIds.has(h.id)) {
+                                  void loadVocabForHomework(h);
+                                }
+                                toggleExpand(h.id);
+                              }}
                                 className={`text-xs font-semibold px-3 py-1.5 rounded-xl border whitespace-nowrap transition-colors ${
                                   isExpanded          ? "bg-gray-100 text-gray-600 border-gray-200"
                                   : isOverdue         ? "bg-red-600 text-white border-red-600 hover:bg-red-700"
@@ -2989,8 +3210,13 @@ export default function StudentPortal() {
         const studyMinutesTotal = studyLog.reduce((sum, e) => sum + e.minutes, 0);
         const studyHours = +(studyMinutesTotal / 60).toFixed(1);
 
+        // Practice test score progression
+        const latestTest     = practiceTests.length > 0 ? practiceTests[practiceTests.length - 1] : null;
+        const latestScore    = latestTest?.overallScore ?? null;
+
         // Score-based milestones (4 checkpoints between start and goal)
-        const startScore = studentPlanFull.startingScore ?? studentPlanFull.currentScore ?? null;
+        const startScore = studentPlanFull.startingScore ?? null;
+        const curScore   = latestScore ?? studentPlanFull.currentScore ?? startScore;
         const goalScore  = studentPlanFull.targetScore ?? null;
         const milestones = (startScore && goalScore && goalScore > startScore)
           ? [1, 2, 3, 4].map(n => ({
@@ -2998,12 +3224,14 @@ export default function StudentPortal() {
               score: Math.round((startScore + ((goalScore - startScore) * n) / 4) / 10) * 10,
             }))
           : null;
-        // Current milestone = first checkpoint not yet consistently exceeded (based on lesson progress as proxy)
+        // Current milestone = first milestone score not yet exceeded by current score
         const curMilestoneIdx = milestones
-          ? Math.min(milestones.length - 1, Math.floor(pct / 25))
+          ? (curScore
+            ? Math.min(milestones.length - 1, milestones.findIndex(m => (curScore ?? 0) < m.score) === -1 ? milestones.length - 1 : milestones.findIndex(m => (curScore ?? 0) < m.score))
+            : Math.min(milestones.length - 1, Math.floor(pct / 25)))
           : 0;
         const curMilestone = milestones?.[curMilestoneIdx] ?? null;
-        const milestoneAchieved = pct === 100;
+        const milestoneAchieved = curScore !== null && goalScore !== null ? curScore >= goalScore : pct === 100;
 
         return (
           <div className="space-y-4">
@@ -3042,12 +3270,12 @@ export default function StudentPortal() {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
                 {
-                  label: "Starting Score",
-                  value: (studentPlanFull.startingScore ?? studentPlanFull.currentScore)
-                    ? String(studentPlanFull.startingScore ?? studentPlanFull.currentScore)
-                    : "—",
-                  sub: "baseline",
-                  accent: "text-gray-900",
+                  label: latestScore ? "Latest Score" : "Starting Score",
+                  value: (latestScore ?? startScore) ? String(latestScore ?? startScore) : "—",
+                  sub: latestScore && startScore && latestScore !== startScore
+                    ? `started at ${startScore}`
+                    : "baseline",
+                  accent: latestScore && startScore && latestScore > startScore ? "text-emerald-700" : "text-gray-900",
                   Icon: BookOpen,
                   iconBg: "bg-blue-50",
                   iconColor: "text-blue-500",
@@ -3103,35 +3331,57 @@ export default function StudentPortal() {
             </div>
 
             {/* ── Score Journey bar ── */}
-            {(studentPlanFull.startingScore ?? studentPlanFull.currentScore) && studentPlanFull.targetScore && (() => {
+            {startScore && studentPlanFull.targetScore && (() => {
               const MIN = 400, MAX = 1600, SPAN = MAX - MIN;
-              const cur  = studentPlanFull.startingScore ?? studentPlanFull.currentScore ?? MIN;
-              const goal = studentPlanFull.targetScore;
-              const curPct  = Math.max(0, Math.min(100, ((cur  - MIN) / SPAN) * 100));
-              const goalPct = Math.max(0, Math.min(100, ((goal - MIN) / SPAN) * 100));
-              const gap = goal - cur;
+              const goal       = studentPlanFull.targetScore;
+              const startPct   = Math.max(0, Math.min(100, ((startScore - MIN) / SPAN) * 100));
+              const curPct     = curScore ? Math.max(0, Math.min(100, ((curScore  - MIN) / SPAN) * 100)) : startPct;
+              const goalPct    = Math.max(0, Math.min(100, ((goal       - MIN) / SPAN) * 100));
+              const pointsLeft = curScore ? Math.max(0, goal - curScore) : goal - startScore;
+              const gained     = curScore && curScore > startScore ? curScore - startScore : 0;
               return (
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm px-6 py-5">
                   <div className="flex items-center justify-between mb-6">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Score Journey</p>
-                    {gap > 0 && (
-                      <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-0.5">
-                        +{gap} points to goal
-                      </span>
-                    )}
-                  </div>
-                  <div className="relative mb-10">
-                    <div className="h-3 w-full bg-gray-100 rounded-full relative">
-                      <div className="absolute inset-y-0 left-0 bg-emerald-400 rounded-l-full" style={{ width: `${curPct}%` }} />
-                      {gap > 0 && <div className="absolute inset-y-0 bg-blue-200" style={{ left: `${curPct}%`, width: `${Math.max(0, goalPct - curPct)}%` }} />}
+                    <div className="flex items-center gap-2">
+                      {gained > 0 && (
+                        <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-0.5">
+                          +{gained} gained
+                        </span>
+                      )}
+                      {pointsLeft > 0 && (
+                        <span className="text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-full px-2.5 py-0.5">
+                          +{pointsLeft} to goal
+                        </span>
+                      )}
                     </div>
-                    <div className="absolute" style={{ left: `${curPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
-                      <div className="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
-                      <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
-                        <span className="text-sm font-bold text-gray-900 block">{cur}</span>
-                        <span className="text-[10px] text-gray-400">starting</span>
+                  </div>
+                  <div className="relative mb-12">
+                    <div className="h-3 w-full bg-gray-100 rounded-full relative overflow-hidden">
+                      {/* Progress from start to current */}
+                      <div className="absolute inset-y-0 left-0 bg-emerald-400 rounded-l-full transition-all duration-700" style={{ width: `${curPct}%` }} />
+                      {/* Gap from current to goal */}
+                      {pointsLeft > 0 && <div className="absolute inset-y-0 bg-blue-200" style={{ left: `${curPct}%`, width: `${Math.max(0, goalPct - curPct)}%` }} />}
+                    </div>
+                    {/* Start marker */}
+                    <div className="absolute" style={{ left: `${startPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
+                      <div className="w-4 h-4 rounded-full bg-gray-300 border-2 border-white shadow-sm" />
+                      <div className="absolute top-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
+                        <span className="text-xs font-bold text-gray-500 block">{startScore}</span>
+                        <span className="text-[10px] text-gray-400">start</span>
                       </div>
                     </div>
+                    {/* Current score marker (only if different from start) */}
+                    {curScore && curScore !== startScore && (
+                      <div className="absolute" style={{ left: `${curPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 border-2 border-white shadow-md" />
+                        <div className="absolute top-7 left-1/2 -translate-x-1/2 whitespace-nowrap text-center">
+                          <span className="text-sm font-bold text-emerald-700 block">{curScore}</span>
+                          <span className="text-[10px] text-gray-400">current</span>
+                        </div>
+                      </div>
+                    )}
+                    {/* Goal marker */}
                     <div className="absolute" style={{ left: `${goalPct}%`, top: "-4px", transform: "translateX(-50%)" }}>
                       <div className="w-5 h-5 rounded-full bg-blue-500 border-2 border-white shadow-md flex items-center justify-center">
                         <div className="w-2 h-2 rounded-full bg-white" />
@@ -3141,6 +3391,15 @@ export default function StudentPortal() {
                         <span className="text-[10px] text-gray-400">goal</span>
                       </div>
                     </div>
+                    {/* Practice test dots on the bar */}
+                    {practiceTests.length > 1 && practiceTests.slice(0, -1).map((tr) => {
+                      const tPct = Math.max(0, Math.min(100, ((tr.overallScore - MIN) / SPAN) * 100));
+                      return (
+                        <div key={tr.id} className="absolute" style={{ left: `${tPct}%`, top: "3px", transform: "translateX(-50%)" }}>
+                          <div className="w-2 h-2 rounded-full bg-emerald-300 border border-white" title={`${tr.overallScore} — ${tr.testDate}`} />
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="flex justify-between text-[10px] text-gray-300 mt-2 px-0.5">
                     {[400, 600, 800, 1000, 1200, 1400, 1600].map(v => <span key={v}>{v}</span>)}
@@ -3168,6 +3427,48 @@ export default function StudentPortal() {
                         <span className={`text-2xl font-bold ${f.color.split(" ")[0]}`}>{val}</span>
                         <span className="text-xs text-gray-500 mt-0.5">{f.label}</span>
                         <span className="text-[10px] text-gray-400">/ {f.max}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ── Practice Test History ── */}
+            {practiceTests.length > 0 && (
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4">Practice Test History</p>
+                <div className="space-y-2">
+                  {practiceTests.map((tr, i) => {
+                    const prev      = i > 0 ? practiceTests[i - 1].overallScore : (startScore ?? null);
+                    const diff      = prev !== null ? tr.overallScore - prev : null;
+                    const isLatest  = i === practiceTests.length - 1;
+                    return (
+                      <div key={tr.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${isLatest ? "border-emerald-200 bg-emerald-50" : "border-gray-100 bg-gray-50"}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${isLatest ? "bg-emerald-500 text-white" : "bg-gray-200 text-gray-600"}`}>
+                          {i + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-base font-bold ${isLatest ? "text-emerald-700" : "text-gray-800"}`}>{tr.overallScore}</span>
+                            {tr.rwScore   && <span className="text-xs text-violet-600 bg-violet-100 px-2 py-0.5 rounded font-semibold">R&W {tr.rwScore}</span>}
+                            {tr.mathScore && <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded font-semibold">Math {tr.mathScore}</span>}
+                            {diff !== null && diff !== 0 && (
+                              <span className={`text-xs font-bold ${diff > 0 ? "text-emerald-600" : "text-red-500"}`}>
+                                {diff > 0 ? "▲" : "▼"} {Math.abs(diff)} pts
+                              </span>
+                            )}
+                            {isLatest && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">Latest</span>}
+                          </div>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{tr.testDate}{tr.tutorNotes ? ` · ${tr.tutorNotes}` : ""}</p>
+                        </div>
+                        {goalScore && (
+                          <div className="text-right shrink-0">
+                            <p className={`text-xs font-semibold ${tr.overallScore >= goalScore ? "text-emerald-600" : "text-gray-400"}`}>
+                              {tr.overallScore >= goalScore ? "✓ Goal reached" : `${goalScore - tr.overallScore} to goal`}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

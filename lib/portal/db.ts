@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -2076,4 +2076,173 @@ export async function fetchSkillLinkedHomework(studentId: number): Promise<Homew
     feedback:            r.homework?.feedback              ?? undefined,
     assignedDate:        r.homework?.assigned_date         ?? "",
   }));
+}
+
+// ── VOCABULARY ASSIGNMENT ─────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToVocabConfig(r: any): VocabularyAssignmentConfig {
+  return {
+    id:         r.id,
+    homeworkId: r.homework_id,
+    words:      (r.words ?? []) as VocabularyWord[],
+    createdAt:  r.created_at,
+  };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToVocabEntry(r: any): VocabularySubmissionEntry {
+  return {
+    id:            r.id,
+    homeworkId:    r.homework_id,
+    studentId:     r.student_id,
+    wordIndex:     r.word_index,
+    word:          r.word,
+    definition:    r.definition,
+    sentence:      r.sentence,
+    confidence:    r.confidence ?? undefined,
+    tutorStatus:   r.tutor_status,
+    tutorFeedback: r.tutor_feedback ?? undefined,
+    createdAt:     r.created_at,
+    updatedAt:     r.updated_at,
+  };
+}
+
+export async function fetchVocabularyConfig(homeworkId: number): Promise<VocabularyAssignmentConfig | null> {
+  const { data, error } = await supabase
+    .from("vocabulary_assignment_config")
+    .select("*")
+    .eq("homework_id", homeworkId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToVocabConfig(data) : null;
+}
+
+export async function upsertVocabularyConfig(homeworkId: number, words: VocabularyWord[]): Promise<VocabularyAssignmentConfig> {
+  const { data, error } = await supabase
+    .from("vocabulary_assignment_config")
+    .upsert({ homework_id: homeworkId, words }, { onConflict: "homework_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToVocabConfig(data);
+}
+
+export async function fetchVocabularySubmissions(homeworkId: number): Promise<VocabularySubmissionEntry[]> {
+  const { data, error } = await supabase
+    .from("vocabulary_submission_entries")
+    .select("*")
+    .eq("homework_id", homeworkId)
+    .order("word_index", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(rowToVocabEntry);
+}
+
+export async function upsertVocabularySubmissions(
+  entries: Omit<VocabularySubmissionEntry, "id" | "tutorStatus" | "tutorFeedback" | "createdAt" | "updatedAt">[],
+): Promise<VocabularySubmissionEntry[]> {
+  const rows = entries.map((e) => ({
+    homework_id: e.homeworkId,
+    student_id:  e.studentId,
+    word_index:  e.wordIndex,
+    word:        e.word,
+    definition:  e.definition,
+    sentence:    e.sentence,
+    confidence:  e.confidence ?? null,
+  }));
+  const { data, error } = await supabase
+    .from("vocabulary_submission_entries")
+    .upsert(rows, { onConflict: "homework_id,student_id,word_index" })
+    .select();
+  if (error) throw error;
+  return (data ?? []).map(rowToVocabEntry);
+}
+
+export async function updateVocabularyEntry(
+  entryId: number,
+  fields: { tutorStatus?: string; tutorFeedback?: string },
+): Promise<VocabularySubmissionEntry> {
+  const update: Record<string, unknown> = {};
+  if (fields.tutorStatus  !== undefined) update.tutor_status   = fields.tutorStatus;
+  if (fields.tutorFeedback !== undefined) update.tutor_feedback = fields.tutorFeedback;
+  const { data, error } = await supabase
+    .from("vocabulary_submission_entries")
+    .update(update)
+    .eq("id", entryId)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToVocabEntry(data);
+}
+
+export async function markHomeworkSubmitted(id: number): Promise<Homework> {
+  const { data, error } = await supabase
+    .from("homework")
+    .update({ status: "submitted", submitted_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToHomework(data);
+}
+
+// ── PRACTICE TEST RESULTS ─────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToPracticeTestResult(r: any): PracticeTestResult {
+  return {
+    id:           r.id,
+    studentId:    r.student_id,
+    planId:       r.plan_id       ?? null,
+    testDate:     r.test_date,
+    overallScore: r.overall_score,
+    rwScore:      r.rw_score      ?? undefined,
+    mathScore:    r.math_score    ?? undefined,
+    tutorNotes:   r.tutor_notes   ?? undefined,
+    createdAt:    r.created_at,
+  };
+}
+
+export async function fetchPracticeTestResults(studentId: number): Promise<PracticeTestResult[]> {
+  const { data, error } = await supabase
+    .from("practice_test_results")
+    .select("*")
+    .eq("student_id", studentId)
+    .order("test_date", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(rowToPracticeTestResult);
+}
+
+export async function insertPracticeTestResult(payload: {
+  studentId:    number;
+  planId?:      number;
+  testDate:     string;
+  overallScore: number;
+  rwScore?:     number;
+  mathScore?:   number;
+  tutorNotes?:  string;
+}): Promise<PracticeTestResult> {
+  const { data, error } = await supabase
+    .from("practice_test_results")
+    .insert({
+      student_id:    payload.studentId,
+      plan_id:       payload.planId       ?? null,
+      test_date:     payload.testDate,
+      overall_score: payload.overallScore,
+      rw_score:      payload.rwScore      ?? null,
+      math_score:    payload.mathScore    ?? null,
+      tutor_notes:   payload.tutorNotes   ?? null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToPracticeTestResult(data);
+}
+
+export async function deletePracticeTestResult(id: number): Promise<void> {
+  const { error } = await supabase
+    .from("practice_test_results")
+    .delete()
+    .eq("id", id);
+  if (error) throw error;
 }

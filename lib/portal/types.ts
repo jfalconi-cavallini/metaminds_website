@@ -412,6 +412,50 @@ export interface SkillNoteLink {
   createdAt: string;
 }
 
+// ── Vocabulary Assignment ────────────────────────────────────────
+
+export interface VocabularyWord {
+  word:            string;
+  hintDefinition?: string;
+  hintSentence?:   string;
+}
+
+export interface VocabularyAssignmentConfig {
+  id:         number;
+  homeworkId: number;
+  words:      VocabularyWord[];
+  createdAt:  string;
+}
+
+export interface VocabularySubmissionEntry {
+  id:            number;
+  homeworkId:    number;
+  studentId:     number;
+  wordIndex:     number;
+  word:          string;
+  definition:    string;
+  sentence:      string;
+  confidence?:   "low" | "medium" | "high";
+  tutorStatus:   "pending" | "correct" | "needs_revision";
+  tutorFeedback?: string;
+  createdAt:     string;
+  updatedAt:     string;
+}
+
+// ── Practice Test Results ─────────────────────────────────────────────────────
+
+export interface PracticeTestResult {
+  id:           number;
+  studentId:    number;
+  planId:       number | null;
+  testDate:     string;          // ISO date "2026-07-23"
+  overallScore: number;          // 400–1600 (SAT)
+  rwScore?:     number;          // 200–800
+  mathScore?:   number;          // 200–800
+  tutorNotes?:  string;
+  createdAt:    string;
+}
+
 /** Lightweight summary used in the student "Assignments by Skill" view. */
 export interface HomeworkSkillLink {
   skillId:             number;
