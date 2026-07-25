@@ -569,6 +569,35 @@ export async function deleteHomework(id: number): Promise<void> {
   if (error) throw error;
 }
 
+// Backfill a completed assignment with historical dates — bypasses pending/submitted flow.
+export async function logCompletedHomework(payload: {
+  studentId:      number;
+  tutorId:        number;
+  task:           string;
+  assignedDate:   string;   // ISO date "2026-05-10"
+  completedDate:  string;   // ISO date "2026-05-12" — used for submitted_at + feedback_at
+  assignmentType?: string;
+  grade?:         string;
+  feedback?:      string;
+}): Promise<Homework> {
+  const ts = `${payload.completedDate}T12:00:00.000Z`;
+  const { data, error } = await supabase.from("homework").insert({
+    student_id:      payload.studentId,
+    tutor_id:        payload.tutorId,
+    task:            payload.task,
+    assigned_date:   payload.assignedDate,
+    due_date:        payload.completedDate,
+    status:          "completed",
+    submitted_at:    ts,
+    feedback_at:     ts,
+    grade:           payload.grade          ?? null,
+    feedback:        payload.feedback        ?? null,
+    assignment_type: payload.assignmentType  ?? null,
+  }).select().single();
+  if (error) throw error;
+  return rowToHomework(data);
+}
+
 // ── STUDY LOG ─────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

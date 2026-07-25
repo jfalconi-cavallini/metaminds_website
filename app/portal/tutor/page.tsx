@@ -38,6 +38,7 @@ import {
   updateVocabularyEntry,
   fetchPracticeTestResults, insertPracticeTestResult, deletePracticeTestResult,
   updateStudentPlan,
+  logCompletedHomework,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
@@ -228,6 +229,18 @@ export default function TutorPortal() {
   const [hwType,         setHwType]         = useState("");
   const [hwInstructions, setHwInstructions] = useState("");
   const [hwSkillIds,     setHwSkillIds]     = useState<number[]>([]);
+
+  // Log Past Work form (backdated completed homework)
+  const [hwPastShowForm,     setHwPastShowForm]     = useState(false);
+  const [hwPastStudentId,    setHwPastStudentId]    = useState("");
+  const [hwPastTask,         setHwPastTask]         = useState("");
+  const [hwPastType,         setHwPastType]         = useState("");
+  const [hwPastAssignedDate, setHwPastAssignedDate] = useState("");
+  const [hwPastCompletedDate,setHwPastCompletedDate]= useState("");
+  const [hwPastGrade,        setHwPastGrade]        = useState("");
+  const [hwPastFeedback,     setHwPastFeedback]     = useState("");
+  const [hwPastSaving,       setHwPastSaving]       = useState(false);
+  const [hwPastError,        setHwPastError]        = useState("");
 
   // Vocabulary assignment creation
   const [hwVocabWords, setHwVocabWords] = useState<{ word: string; hint: string }[]>([{ word: "", hint: "" }]);
@@ -788,6 +801,37 @@ export default function TutorPortal() {
       setHomework((prev) => prev.filter((h) => h.id !== hwId));
     } catch { alert("Failed to delete. Please try again."); }
     finally { setHwDeletingId(null); }
+  }
+
+  async function submitPastHomework() {
+    if (!hwPastStudentId || !hwPastTask.trim() || !hwPastAssignedDate || !hwPastCompletedDate) {
+      setHwPastError("Student, task, assigned date, and completed date are all required."); return;
+    }
+    if (hwPastCompletedDate < hwPastAssignedDate) {
+      setHwPastError("Completed date cannot be before assigned date."); return;
+    }
+    setHwPastSaving(true); setHwPastError("");
+    try {
+      const hw = await logCompletedHomework({
+        studentId:      Number(hwPastStudentId),
+        tutorId,
+        task:           hwPastTask.trim(),
+        assignedDate:   hwPastAssignedDate,
+        completedDate:  hwPastCompletedDate,
+        assignmentType: hwPastType || undefined,
+        grade:          hwPastGrade.trim() || undefined,
+        feedback:       hwPastFeedback.trim() || undefined,
+      });
+      setHomework((prev) => [hw, ...prev]);
+      setHwPastShowForm(false);
+      setHwPastStudentId(""); setHwPastTask(""); setHwPastType("");
+      setHwPastAssignedDate(""); setHwPastCompletedDate("");
+      setHwPastGrade(""); setHwPastFeedback("");
+    } catch (err) {
+      setHwPastError(err instanceof Error ? err.message : "Failed to save.");
+    } finally {
+      setHwPastSaving(false);
+    }
   }
 
   async function sendParentUpdate(studentId: number) {
@@ -2818,12 +2862,20 @@ export default function TutorPortal() {
                 <h1 className="text-2xl font-bold text-gray-900">Homework</h1>
                 <p className="text-sm text-gray-400 mt-1">Assign, review, and track student work.</p>
               </div>
-              <button
-                onClick={() => { setHwShowForm(true); }}
-                className="shrink-0 flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" /> New Assignment
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setHwPastShowForm(true); setHwPastError(""); if (myStudents.length > 0 && !hwPastStudentId) setHwPastStudentId(String(myStudents[0].id)); }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Log Past Work
+                </button>
+                <button
+                  onClick={() => { setHwShowForm(true); }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4" /> New Assignment
+                </button>
+              </div>
             </div>
 
             {/* ── Summary stat cards ── */}
@@ -2957,6 +3009,77 @@ export default function TutorPortal() {
                   );
                 })}
               </div>
+            )}
+
+            {/* ── Log Past Work Modal ── */}
+            {hwPastShowForm && (
+              <Modal title="Log Past Assignment" subtitle="Record work the student already completed" onClose={() => { setHwPastShowForm(false); setHwPastError(""); }} size="xl">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Student</label>
+                    <select value={hwPastStudentId} onChange={(e) => setHwPastStudentId(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">Select student…</option>
+                      {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Assignment Description</label>
+                    <textarea value={hwPastTask} onChange={(e) => setHwPastTask(e.target.value)}
+                      placeholder="e.g. Khan Academy — Linear Equations Practice (30 problems)"
+                      rows={3}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Type <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                    <select value={hwPastType} onChange={(e) => setHwPastType(e.target.value)}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">Select type…</option>
+                      <option value="problems">Problems</option>
+                      <option value="reading">Reading</option>
+                      <option value="practice_test">Practice Test</option>
+                      <option value="review">Review</option>
+                      <option value="essay">Essay</option>
+                      <option value="sat_vocabulary">SAT Vocabulary</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Date Assigned <span className="text-red-400">*</span></label>
+                      <input type="date" value={hwPastAssignedDate} onChange={(e) => setHwPastAssignedDate(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Date Completed <span className="text-red-400">*</span></label>
+                      <input type="date" value={hwPastCompletedDate} onChange={(e) => setHwPastCompletedDate(e.target.value)}
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Grade <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                      <input type="text" value={hwPastGrade} onChange={(e) => setHwPastGrade(e.target.value)}
+                        placeholder="A+, 95%, 9/10, ✓…"
+                        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Feedback <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                    <textarea value={hwPastFeedback} onChange={(e) => setHwPastFeedback(e.target.value)}
+                      placeholder="Notes or feedback on the work…"
+                      rows={3}
+                      className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  {hwPastError && <p className="text-sm text-red-500">{hwPastError}</p>}
+                  <div className="flex justify-end pt-2 border-t border-gray-100">
+                    <button onClick={submitPastHomework} disabled={hwPastSaving || !hwPastStudentId || !hwPastTask.trim() || !hwPastAssignedDate || !hwPastCompletedDate}
+                      className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition-colors">
+                      {hwPastSaving ? "Saving…" : "Log Completed Work"}
+                    </button>
+                  </div>
+                </div>
+              </Modal>
             )}
 
             {/* ── New Assignment Modal ── */}
