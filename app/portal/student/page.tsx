@@ -3239,22 +3239,22 @@ export default function StudentPortal() {
         const curScore    = latestScore ?? estimatedComposite ?? null;
         const isEstimated = latestScore == null && estimatedComposite != null;
 
-        // Score-based milestones (4 checkpoints between start and goal)
+        // Milestone 1 = First Practice Test (achieved when any test is logged).
+        // Milestones 2–5 = score checkpoints (25%/50%/75%/100% of start→goal gap).
         const startScore = studentPlanFull.startingScore ?? null;
         const goalScore  = studentPlanFull.targetScore ?? null;
-        const milestones = (startScore && goalScore && goalScore > startScore)
+        const hasAnyTest = practiceTests.length > 0;
+        const scoreCheckpoints = (startScore && goalScore && goalScore > startScore)
           ? [1, 2, 3, 4].map(n => ({
-              n,
+              n: n + 1,
               score: Math.round((startScore + ((goalScore - startScore) * n) / 4) / 10) * 10,
             }))
           : null;
-        // Current milestone = first milestone score not yet exceeded by current score
-        const curMilestoneIdx = milestones
-          ? (curScore
-            ? Math.min(milestones.length - 1, milestones.findIndex(m => (curScore ?? 0) < m.score) === -1 ? milestones.length - 1 : milestones.findIndex(m => (curScore ?? 0) < m.score))
-            : Math.min(milestones.length - 1, Math.floor(pct / 25)))
-          : 0;
-        const curMilestone = milestones?.[curMilestoneIdx] ?? null;
+        const nextScoreCheckpoint = scoreCheckpoints
+          ? (curScore != null
+              ? scoreCheckpoints.find(m => curScore < m.score) ?? null
+              : scoreCheckpoints[0] ?? null)
+          : null;
         const milestoneAchieved = curScore !== null && goalScore !== null ? curScore >= goalScore : pct === 100;
 
         return (
@@ -3269,17 +3269,30 @@ export default function StudentPortal() {
                 <p className="text-lg font-bold text-white">
                   {milestoneAchieved
                     ? "All Milestones Achieved"
-                    : curMilestone
-                    ? `Milestone ${curMilestone.n} — Score ${curMilestone.score}+`
-                    : `Milestone 1 — First Practice Test`}
+                    : !hasAnyTest
+                    ? "Milestone 1 — First Practice Test"
+                    : nextScoreCheckpoint
+                    ? `Milestone ${nextScoreCheckpoint.n} — Score ${nextScoreCheckpoint.score}+`
+                    : scoreCheckpoints
+                    ? "Milestone 5 — Goal Score Reached!"
+                    : "Milestone 1 — First Practice Test"}
                 </p>
                 <p className="text-xs text-slate-400 mt-0.5">
                   {milestoneAchieved
                     ? "Goal reached — great work!"
-                    : curMilestone
-                    ? `Reach ${curMilestone.score} consistently on practice tests`
-                    : "Complete your first scored practice test with your tutor"}
+                    : !hasAnyTest
+                    ? "Complete your first scored practice test with your tutor"
+                    : nextScoreCheckpoint
+                    ? `Reach ${nextScoreCheckpoint.score} consistently on practice tests`
+                    : scoreCheckpoints
+                    ? "Goal score reached — incredible work!"
+                    : "Keep completing lessons to track your progress"}
                 </p>
+                {hasAnyTest && !milestoneAchieved && (
+                  <p className="text-[10px] text-emerald-400 font-semibold mt-1.5">
+                    ✓ Milestone 1 — First practice test complete
+                  </p>
+                )}
               </div>
               <div className="flex flex-col items-end gap-1 shrink-0">
                 <p className="text-2xl font-bold text-white">{pct}%</p>
