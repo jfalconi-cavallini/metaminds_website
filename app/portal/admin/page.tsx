@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
+import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
 import Modal from "@/components/portal/Modal";
 import { formatDate, formatTime24to12, PROGRAM_CATALOG } from "@/lib/portal/utils";
 import { useAuth } from "@/lib/auth";
@@ -25,12 +26,13 @@ import {
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest } from "@/lib/portal/types";
 
 const navItems = [
-  { id: "overview",             label: "Overview"             },
-  { id: "students",             label: "Students"             },
-  { id: "tutors",               label: "Tutors"               },
-  { id: "sessions",    label: "Sessions"    },
-  { id: "packages",    label: "Packages"    },
-  { id: "curriculum",  label: "Curriculum"  },
+  { id: "overview",   label: "Overview"   },
+  { id: "analytics",  label: "Analytics"  },
+  { id: "students",   label: "Students"   },
+  { id: "tutors",     label: "Tutors"     },
+  { id: "sessions",   label: "Sessions"   },
+  { id: "packages",   label: "Packages"   },
+  { id: "curriculum", label: "Curriculum" },
 ];
 
 
@@ -682,19 +684,34 @@ export default function AdminPortal() {
         const activeStudents = students.filter((s) => !s.archived);
 
         return (
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-6">Admin Overview</h1>
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Admin</p>
+              <h1 className="text-2xl font-bold text-gray-900">Welcome, {adminName.split(" ")[0]}</h1>
+            </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              <StatCard label="Active Students"   value={activeStudents.length} />
-              <StatCard label="Active Tutors"     value={tutors.filter((t) => !t.archived).length} />
-              <StatCard label="Upcoming Sessions" value={upcoming.length} />
-              <StatCard label="Total Hours Sold"  value={totalHoursSold} />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                { label: "Active Students",   value: activeStudents.length,                   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
+                { label: "Active Tutors",     value: tutors.filter((t) => !t.archived).length, Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
+                { label: "Upcoming Sessions", value: upcoming.length,                          Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
+                { label: "Hours Sold",        value: `${totalHoursSold}h`,                     Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+              ] as const).map((card) => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Today's Tasks */}
-            <div className="mb-8">
+            <div>
               <h2 className="text-lg font-semibold text-gray-900 mb-3">Today&apos;s Tasks</h2>
               {todaySess.length === 0 && tomorrowSess.length === 0 && submittedHwCount === 0 && lowHours.length === 0 && purchaseRequests.length === 0 ? (
                 <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-sm text-green-700 font-medium">
@@ -704,67 +721,73 @@ export default function AdminPortal() {
                 <div className="space-y-2">
                   {todaySess.length > 0 && (
                     <button onClick={() => setTab("sessions")}
-                      className="w-full flex items-start gap-4 bg-blue-50 border border-blue-200 rounded-xl px-4 py-3.5 text-left hover:bg-blue-100 transition-colors">
-                      <span className="text-xl shrink-0">📅</span>
+                      className="w-full flex items-center gap-4 bg-white border border-blue-200 rounded-2xl px-5 py-4 text-left hover:border-blue-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 text-blue-500" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-blue-900 text-sm">{todaySess.length} session{todaySess.length > 1 ? "s" : ""} today</p>
-                        <p className="text-xs text-blue-600 mt-0.5 truncate">
-                          {todaySess.map((s) => `${getStudent(s.studentId)?.name ?? "?"} with ${getTutor(s.tutorId)?.name ?? "?"} at ${s.time}`).join("  ·  ")}
+                        <p className="font-semibold text-gray-900 text-sm">{todaySess.length} session{todaySess.length > 1 ? "s" : ""} today</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          {todaySess.map((s) => `${getStudent(s.studentId)?.name ?? "?"} · ${s.time}`).join("  ·  ")}
                         </p>
                       </div>
-                      <span className="text-blue-500 text-sm font-medium shrink-0">View →</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
-
                   {tomorrowSess.length > 0 && (
                     <button onClick={() => setTab("sessions")}
-                      className="w-full flex items-start gap-4 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-left hover:bg-gray-100 transition-colors">
-                      <span className="text-xl shrink-0">📅</span>
+                      className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl px-5 py-4 text-left hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 text-gray-400" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-700 text-sm">{tomorrowSess.length} session{tomorrowSess.length > 1 ? "s" : ""} tomorrow</p>
+                        <p className="font-semibold text-gray-900 text-sm">{tomorrowSess.length} session{tomorrowSess.length > 1 ? "s" : ""} tomorrow</p>
                         <p className="text-xs text-gray-500 mt-0.5 truncate">
                           {tomorrowSess.map((s) => `${getStudent(s.studentId)?.name ?? "?"} at ${s.time}`).join("  ·  ")}
                         </p>
                       </div>
-                      <span className="text-gray-400 text-sm font-medium shrink-0">View →</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
-
                   {submittedHwCount > 0 && (
-                    <div className="flex items-start gap-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3.5">
-                      <span className="text-xl shrink-0">📋</span>
+                    <div className="w-full flex items-center gap-4 bg-white border border-amber-200 rounded-2xl px-5 py-4 shadow-sm">
+                      <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+                        <BookOpen className="w-4 h-4 text-amber-500" />
+                      </div>
                       <div>
-                        <p className="font-semibold text-amber-800 text-sm">{submittedHwCount} homework submission{submittedHwCount > 1 ? "s" : ""} waiting for tutor review</p>
-                        <p className="text-xs text-amber-600 mt-0.5">Tutors should grade these in their Homework tab</p>
+                        <p className="font-semibold text-gray-900 text-sm">{submittedHwCount} submission{submittedHwCount > 1 ? "s" : ""} waiting for tutor review</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Tutors should grade these in their Homework tab</p>
                       </div>
                     </div>
                   )}
-
                   {purchaseRequests.length > 0 && (
                     <button onClick={() => setTab("packages")}
-                      className="w-full flex items-start gap-4 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5 text-left hover:bg-emerald-100 transition-colors">
-                      <span className="text-xl shrink-0">💳</span>
+                      className="w-full flex items-center gap-4 bg-white border border-emerald-200 rounded-2xl px-5 py-4 text-left hover:border-emerald-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4 text-emerald-500" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-emerald-800 text-sm">{purchaseRequests.length} hour purchase request{purchaseRequests.length > 1 ? "s" : ""} waiting</p>
-                        <p className="text-xs text-emerald-600 mt-0.5 truncate">
+                        <p className="font-semibold text-gray-900 text-sm">{purchaseRequests.length} hour purchase request{purchaseRequests.length > 1 ? "s" : ""} waiting</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
                           {purchaseRequests.map((r) => `${getStudent(r.studentId)?.name ?? "?"} — ${r.packageLabel}`).join("  ·  ")}
                         </p>
                       </div>
-                      <span className="text-emerald-600 text-sm font-medium shrink-0">Review →</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
-
                   {lowHours.length > 0 && (
                     <button onClick={() => setTab("packages")}
-                      className="w-full flex items-start gap-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5 text-left hover:bg-red-100 transition-colors">
-                      <span className="text-xl shrink-0">⚠️</span>
+                      className="w-full flex items-center gap-4 bg-white border border-red-200 rounded-2xl px-5 py-4 text-left hover:border-red-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-red-800 text-sm">{lowHours.length} student{lowHours.length > 1 ? "s" : ""} running low on hours (&lt; 3 remaining)</p>
-                        <p className="text-xs text-red-600 mt-0.5">
-                          {lowHours.map((s) => `${s.name} (${packages.find((p) => p.studentId === s.id)?.remaining ?? 0} hr${(packages.find((p) => p.studentId === s.id)?.remaining ?? 0) === 1 ? "" : "s"})`).join(", ")}
+                        <p className="font-semibold text-gray-900 text-sm">{lowHours.length} student{lowHours.length > 1 ? "s" : ""} running low on hours</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {lowHours.map((s) => `${s.name} (${packages.find((p) => p.studentId === s.id)?.remaining ?? 0}h)`).join(", ")}
                         </p>
                       </div>
-                      <span className="text-red-500 text-sm font-medium shrink-0">Add Hours →</span>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
                     </button>
                   )}
                 </div>
@@ -772,31 +795,35 @@ export default function AdminPortal() {
             </div>
 
             {/* Upcoming sessions table */}
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">All Upcoming Sessions</h2>
-            <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Schedule</p>
+                <p className="text-base font-bold text-gray-900">All Upcoming Sessions</p>
+              </div>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <thead className="bg-gray-50 text-xs">
                   <tr>
-                    <th className="px-4 py-3 text-left">Student</th>
-                    <th className="px-4 py-3 text-left">Tutor</th>
-                    <th className="px-4 py-3 text-left">Date & Time</th>
-                    <th className="px-4 py-3 text-left">Subject</th>
-                    <th className="px-4 py-3 text-left">Type</th>
-                    <th className="px-4 py-3 text-left">Zoom</th>
+                    <th className="px-5 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Student</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Tutor</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Subject</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Type</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Zoom</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-50">
                   {upcoming.map((s) => (
-                    <tr key={s.id} className={s.date === todayIso ? "bg-blue-50" : ""}>
-                      <td className="px-4 py-3 font-medium text-gray-900">
+                    <tr key={s.id} className={s.date === todayIso ? "bg-blue-50" : "hover:bg-gray-50 transition-colors"}>
+                      <td className="px-5 py-3.5 font-semibold text-gray-900">
                         {getStudent(s.studentId)?.name ?? "—"}
-                        {s.date === todayIso && <span className="ml-2 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded font-medium">TODAY</span>}
+                        {s.date === todayIso && <span className="ml-2 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide">Today</span>}
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{getTutor(s.tutorId)?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{formatDate(s.date)} {s.time}</td>
-                      <td className="px-4 py-3 text-gray-600">{s.subject}</td>
-                      <td className="px-4 py-3"><Badge status={s.sessionType} /></td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3.5 text-gray-600">{getTutor(s.tutorId)?.name ?? "—"}</td>
+                      <td className="px-4 py-3.5 text-gray-600">{formatDate(s.date)} {s.time}</td>
+                      <td className="px-4 py-3.5 text-gray-600">{s.subject}</td>
+                      <td className="px-4 py-3.5"><Badge status={s.sessionType} /></td>
+                      <td className="px-4 py-3.5">
                         {s.zoomLink
                           ? <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
                           : <span className="text-gray-300 text-xs">—</span>}
@@ -804,7 +831,327 @@ export default function AdminPortal() {
                     </tr>
                   ))}
                   {upcoming.length === 0 && (
-                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">No upcoming sessions.</td></tr>
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 text-sm">No upcoming sessions.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── ANALYTICS ── */}
+      {tab === "analytics" && (() => {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const activeStudents  = students.filter((s) => !s.archived);
+        const activeTutors    = tutors.filter((t) => !t.archived);
+        const completed       = sessions.filter((s) => s.status === "completed");
+        const thisMonthPfx    = new Date().toISOString().slice(0, 7);
+        const lastMonthDate   = new Date(); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+        const lastMonthPfx    = lastMonthDate.toISOString().slice(0, 7);
+        const sessThisMonth   = sessions.filter((s) => s.date.startsWith(thisMonthPfx));
+        const sessLastMonth   = sessions.filter((s) => s.date.startsWith(lastMonthPfx));
+        const momDelta        = sessThisMonth.length - sessLastMonth.length;
+
+        // 6-month session bar chart
+        const chartMonths = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i));
+          const pfx   = d.toISOString().slice(0, 7);
+          const label = d.toLocaleString("en-US", { month: "short" });
+          const count = sessions.filter((s) => s.date.startsWith(pfx)).length;
+          const hrs   = sessions.filter((s) => s.date.startsWith(pfx)).reduce((sum, s) => sum + s.durationHours, 0);
+          return { label, count, hrs };
+        });
+        const maxCount = Math.max(...chartMonths.map((m) => m.count), 1);
+
+        // Hours economy
+        const totalSold      = packages.reduce((sum, p) => sum + p.totalPurchased, 0);
+        const totalUsed      = packages.reduce((sum, p) => sum + p.totalUsed, 0);
+        const totalRemaining = packages.reduce((sum, p) => sum + p.remaining, 0);
+        const utilPct        = totalSold > 0 ? Math.round((totalUsed / totalSold) * 100) : 0;
+
+        // Last session per student
+        const lastSessMap: Record<number, string> = {};
+        completed.forEach((s) => {
+          if (!lastSessMap[s.studentId] || s.date > lastSessMap[s.studentId]) lastSessMap[s.studentId] = s.date;
+        });
+
+        // Student watchlist
+        const thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        const watchlist = activeStudents.map((s) => {
+          const bal       = packages.find((p) => p.studentId === s.id);
+          const remaining = bal?.remaining ?? 99;
+          const lastSess  = lastSessMap[s.id] ?? null;
+          const daysSince = lastSess ? Math.floor((Date.now() - new Date(lastSess).getTime()) / 86400000) : null;
+          const flags: string[] = [];
+          if (remaining < 3) flags.push("low");
+          if (!lastSess || lastSess < thirtyAgo) flags.push("inactive");
+          if (!s.assignedTutorId) flags.push("unassigned");
+          return { s, remaining, lastSess, daysSince, flags };
+        }).filter((w) => w.flags.length > 0).sort((a, b) => b.flags.length - a.flags.length);
+
+        // Subject distribution (completed sessions)
+        const subjectMap: Record<string, number> = {};
+        completed.forEach((s) => { subjectMap[s.subject] = (subjectMap[s.subject] ?? 0) + 1; });
+        const topSubjects = Object.entries(subjectMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const maxSub = topSubjects[0]?.[1] ?? 1;
+
+        // Tutor workload
+        const tutorWork = activeTutors.map((t) => ({
+          t,
+          completedCount: completed.filter((s) => s.tutorId === t.id).length,
+          upcomingCount:  upcoming.filter((s) => s.tutorId === t.id).length,
+          studentCount:   t.assignedStudentIds.length,
+          hrsDelivered:   completed.filter((s) => s.tutorId === t.id).reduce((sum, s) => sum + s.durationHours, 0),
+        })).sort((a, b) => b.completedCount - a.completedCount);
+
+        // Session type split
+        const onlineCount    = completed.filter((s) => s.sessionType === "online").length;
+        const inPersonCount  = completed.filter((s) => s.sessionType === "in-person").length;
+        const totalCompleted = completed.length || 1;
+
+        return (
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Analytics</p>
+              <h1 className="text-2xl font-bold text-gray-900">Business Overview</h1>
+            </div>
+
+            {/* ── Top metric cards ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {([
+                { label: "Active Students",   value: activeStudents.length,   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
+                { label: "Active Tutors",     value: activeTutors.length,     Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
+                { label: "Sessions / Month",  value: sessThisMonth.length,    Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
+                { label: "Hours Sold",        value: `${totalSold}h`,         Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+                { label: "Hours Used",        value: `${totalUsed}h`,         Icon: Activity,     iconBg: "bg-orange-50",  iconColor: "text-orange-500"  },
+                { label: "Utilization",       value: `${utilPct}%`,           Icon: TrendingUp,   iconBg: utilPct >= 70 ? "bg-emerald-50" : "bg-gray-50", iconColor: utilPct >= 70 ? "text-emerald-500" : "text-gray-400" },
+              ] as const).map((card) => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Session trends + Hours economy ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+              {/* 6-month bar chart */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Session Volume</p>
+                    <p className="text-base font-bold text-gray-900">Last 6 Months</p>
+                  </div>
+                  <div className={`flex items-center gap-1 text-sm font-semibold px-2.5 py-1 rounded-full ${momDelta > 0 ? "bg-emerald-50 text-emerald-700" : momDelta < 0 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500"}`}>
+                    {momDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : momDelta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : null}
+                    {momDelta > 0 ? `+${momDelta}` : momDelta < 0 ? `${momDelta}` : "—"} vs last month
+                  </div>
+                </div>
+                <div className="flex items-end justify-between gap-2 h-36">
+                  {chartMonths.map((m, i) => {
+                    const isThisMonth = i === 5;
+                    const barPct = Math.max(4, Math.round((m.count / maxCount) * 100));
+                    return (
+                      <div key={m.label} className="flex flex-col items-center gap-1.5 flex-1 h-full justify-end">
+                        <span className="text-xs font-semibold text-gray-600">{m.count > 0 ? m.count : ""}</span>
+                        <div
+                          className={`w-full rounded-t-lg transition-all duration-700 ${isThisMonth ? "bg-blue-500" : "bg-blue-200"}`}
+                          style={{ height: `${barPct}%` }}
+                          title={`${m.label}: ${m.count} sessions, ${m.hrs}h`}
+                        />
+                        <span className="text-[10px] text-gray-400">{m.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <span>Total sessions: <strong className="text-gray-900">{completed.length}</strong></span>
+                  <span>Total hours: <strong className="text-gray-900">{completed.reduce((s, c) => s + c.durationHours, 0)}h</strong></span>
+                </div>
+              </div>
+
+              {/* Hours economy */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Hours Economy</p>
+                  <p className="text-base font-bold text-gray-900">Package Health</p>
+                </div>
+                {/* Aggregate bar */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                    <span>{totalUsed}h used</span>
+                    <span>{totalRemaining}h remaining</span>
+                  </div>
+                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${utilPct}%` }} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">{utilPct}% of {totalSold}h total purchased used</p>
+                </div>
+                {/* Per-student bars — show active students with packages, sorted by remaining */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Per Student</p>
+                  {activeStudents
+                    .map((s) => ({ s, bal: packages.find((p) => p.studentId === s.id) }))
+                    .filter((x) => x.bal)
+                    .sort((a, b) => (a.bal!.remaining) - (b.bal!.remaining))
+                    .slice(0, 8)
+                    .map(({ s, bal }) => {
+                      const pct = bal!.totalPurchased > 0 ? Math.round((bal!.remaining / bal!.totalPurchased) * 100) : 0;
+                      const barColor = bal!.remaining < 3 ? "bg-red-400" : bal!.remaining < 6 ? "bg-amber-400" : "bg-emerald-400";
+                      return (
+                        <div key={s.id}>
+                          <div className="flex items-center justify-between text-xs mb-0.5">
+                            <span className="font-medium text-gray-700 truncate">{s.name}</span>
+                            <span className={`font-semibold shrink-0 ml-2 ${bal!.remaining < 3 ? "text-red-600" : bal!.remaining < 6 ? "text-amber-600" : "text-emerald-600"}`}>
+                              {bal!.remaining}h left
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.max(4, pct)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Student watchlist + Session type split ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+              {/* Watchlist */}
+              <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Watchlist</p>
+                    <p className="text-base font-bold text-gray-900">Students Needing Attention</p>
+                  </div>
+                  <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${watchlist.length > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>
+                    {watchlist.length > 0 ? watchlist.length : "✓ All clear"}
+                  </span>
+                </div>
+                {watchlist.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-gray-400">All active students are in good shape.</div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {watchlist.map(({ s, remaining, lastSess, daysSince, flags }) => (
+                      <div key={s.id} className="py-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
+                          {s.name[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm">{s.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {lastSess ? `Last session ${daysSince}d ago` : "No sessions recorded"}
+                            {" · "}{remaining}h remaining
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          {flags.includes("low") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 uppercase tracking-wide">Low hours</span>
+                          )}
+                          {flags.includes("inactive") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 uppercase tracking-wide">Inactive</span>
+                          )}
+                          {flags.includes("unassigned") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase tracking-wide">No tutor</span>
+                          )}
+                        </div>
+                        <button onClick={() => setTab("students")} className="shrink-0">
+                          <ChevronRight className="w-4 h-4 text-gray-300 hover:text-gray-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Session type split */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Format</p>
+                  <p className="text-base font-bold text-gray-900">Online vs In-Person</p>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { label: "Online", count: onlineCount, color: "bg-blue-500", textColor: "text-blue-700", bg: "bg-blue-50" },
+                    { label: "In-Person", count: inPersonCount, color: "bg-violet-500", textColor: "text-violet-700", bg: "bg-violet-50" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between text-sm mb-1.5">
+                        <span className="font-medium text-gray-700">{item.label}</span>
+                        <span className={`font-bold ${item.textColor}`}>{item.count} ({Math.round((item.count / totalCompleted) * 100)}%)</span>
+                      </div>
+                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${item.color}`} style={{ width: `${Math.max(0, Math.round((item.count / totalCompleted) * 100))}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Top Subjects</p>
+                  <div className="space-y-2">
+                    {topSubjects.map(([subj, count]) => (
+                      <div key={subj} className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.round((count / maxSub) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-500 w-24 truncate text-right">{subj} ({count})</span>
+                      </div>
+                    ))}
+                    {topSubjects.length === 0 && <p className="text-xs text-gray-400">No completed sessions yet.</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Tutor workload table ── */}
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Workload</p>
+                <p className="text-base font-bold text-gray-900">Tutor Performance</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Tutor</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Students</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Sessions Done</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Hours Delivered</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Upcoming</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Subjects</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {tutorWork.map(({ t, completedCount, upcomingCount, studentCount, hrsDelivered }) => (
+                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center text-xs font-bold text-violet-700 shrink-0">
+                            {t.name[0]}
+                          </div>
+                          <span className="font-semibold text-gray-900">{t.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{studentCount}</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{completedCount}</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{hrsDelivered}h</td>
+                      <td className="px-4 py-3.5 text-right">
+                        <span className={`font-semibold ${upcomingCount > 0 ? "text-blue-600" : "text-gray-400"}`}>{upcomingCount}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-xs text-gray-500 max-w-32 truncate">{t.subjects.join(", ")}</td>
+                    </tr>
+                  ))}
+                  {tutorWork.length === 0 && (
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No active tutors.</td></tr>
                   )}
                 </tbody>
               </table>
