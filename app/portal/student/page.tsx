@@ -240,22 +240,18 @@ export default function StudentPortal() {
   const [satPtLoading,   setSatPtLoading]   = useState<Record<number, boolean>>({});
   const [satPtSaving,    setSatPtSaving]    = useState<Record<number, boolean>>({});
   const [satPtError,     setSatPtError]     = useState<Record<number, string>>({});
-  const [satPtSection,   setSatPtSection]   = useState<Record<number, number>>({});  // 0=details,1=scores,2=answers,3=categories,4=reflection
+  const [satPtSection,   setSatPtSection]   = useState<Record<number, number>>({});  // 0=details,1=scores,2=answers,3=reflection
   const [satPtDraft,     setSatPtDraft]     = useState<Record<number, {
-    submittedProvider: string; submittedTestName: string; submittedVersion: string;
+    submittedProvider: string; submittedTestName: string;
     completedDate: string; completionScope: "full" | "partial";
     totalScore: string; rwScore: string; mathScore: string; scorePending: boolean;
     activeMinutes: string;
     reflectionDifficultSection: string; reflectionRanOutOfTime: string;
     reflectionTroubleTopics: string; reflectionReviewRequests: string;
-    categoryScoreFormat: "bars" | "correct_total";
-    rwCraftStructure: string; rwInfoIdeas: string; rwExprIdeas: string; rwStdEng: string;
-    rwCraftStructureTotal: string; rwInfoIdeasTotal: string; rwExprIdeasTotal: string; rwStdEngTotal: string;
-    mathAlgebra: string; mathAdvMath: string; mathPsda: string; mathGeoTrig: string;
-    mathAlgebraTotal: string; mathAdvMathTotal: string; mathPsdaTotal: string; mathGeoTrigTotal: string;
   }>>({});
   const [satPtScoreReportFile,      setSatPtScoreReportFile]      = useState<Record<number, File>>({});
   const [satPtScoreReportUploading, setSatPtScoreReportUploading] = useState<Record<number, boolean>>({});
+  const [satPtReportOpening,        setSatPtReportOpening]        = useState<Record<number, boolean>>({});
 
   const [notesSearch,       setNotesSearch]       = useState("");
   const [selectedNoteId,    setSelectedNoteId]    = useState<number | null>(null);
@@ -619,7 +615,6 @@ export default function StudentPortal() {
         [hw.id]: {
           submittedProvider:  sub?.submittedProvider  ?? config?.provider ?? "bluebook",
           submittedTestName:  sub?.submittedTestName  ?? config?.assignedTestName ?? "",
-          submittedVersion:   sub?.submittedVersion   ?? config?.assignedVersion  ?? "",
           completedDate:      sub?.completedDate      ?? "",
           completionScope:    sub?.completionScope    ?? "full",
           totalScore:         sub?.totalScore?.toString() ?? "",
@@ -631,23 +626,6 @@ export default function StudentPortal() {
           reflectionRanOutOfTime:     sub?.reflectionRanOutOfTime     ?? "",
           reflectionTroubleTopics:    sub?.reflectionTroubleTopics    ?? "",
           reflectionReviewRequests:   sub?.reflectionReviewRequests   ?? "",
-          categoryScoreFormat: sub?.categoryScoreFormat ?? "correct_total",
-          rwCraftStructure:      sub?.categoryBreakdown?.rw.craftAndStructure?.correct?.toString()         ?? "",
-          rwInfoIdeas:           sub?.categoryBreakdown?.rw.informationAndIdeas?.correct?.toString()       ?? "",
-          rwExprIdeas:           sub?.categoryBreakdown?.rw.expressionOfIdeas?.correct?.toString()         ?? "",
-          rwStdEng:              sub?.categoryBreakdown?.rw.standardEnglishConventions?.correct?.toString() ?? "",
-          rwCraftStructureTotal: sub?.categoryBreakdown?.rw.craftAndStructure?.total?.toString()            ?? "",
-          rwInfoIdeasTotal:      sub?.categoryBreakdown?.rw.informationAndIdeas?.total?.toString()          ?? "",
-          rwExprIdeasTotal:      sub?.categoryBreakdown?.rw.expressionOfIdeas?.total?.toString()            ?? "",
-          rwStdEngTotal:         sub?.categoryBreakdown?.rw.standardEnglishConventions?.total?.toString()   ?? "",
-          mathAlgebra:      sub?.categoryBreakdown?.math.algebra?.correct?.toString()                    ?? "",
-          mathAdvMath:      sub?.categoryBreakdown?.math.advancedMath?.correct?.toString()               ?? "",
-          mathPsda:         sub?.categoryBreakdown?.math.problemSolvingDataAnalysis?.correct?.toString() ?? "",
-          mathGeoTrig:      sub?.categoryBreakdown?.math.geometryTrigonometry?.correct?.toString()       ?? "",
-          mathAlgebraTotal: sub?.categoryBreakdown?.math.algebra?.total?.toString()                      ?? "",
-          mathAdvMathTotal: sub?.categoryBreakdown?.math.advancedMath?.total?.toString()                 ?? "",
-          mathPsdaTotal:    sub?.categoryBreakdown?.math.problemSolvingDataAnalysis?.total?.toString()   ?? "",
-          mathGeoTrigTotal: sub?.categoryBreakdown?.math.geometryTrigonometry?.total?.toString()         ?? "",
         },
       }));
     } catch {
@@ -658,9 +636,9 @@ export default function StudentPortal() {
     }
   }
 
-  async function selectSatAnswer(hwId: number, section: "rw"|"math", num: number, responseType: "choice"|"numeric"|"skipped", choice?: string) {
+  async function selectSatAnswer(hwId: number, section: "rw"|"math", mod: 1|2, num: number, responseType: "choice"|"numeric"|"skipped", choice?: string) {
     if (!ctx.canSubmitHomework) return;
-    const key = `${section}_${num}`;
+    const key = `${section}_m${mod}_${num}`;
     setSatPtAnswerMap((prev) => ({
       ...prev,
       [hwId]: { ...(prev[hwId] ?? {}), [key]: { responseType, choice, numeric: undefined } },
@@ -669,29 +647,29 @@ export default function StudentPortal() {
     if (!sub) return;
     try {
       await upsertSatPracticeTestAnswer({
-        submissionId: sub.id, section, questionNumber: num, responseType,
+        submissionId: sub.id, section, module: mod, questionNumber: num, responseType,
         selectedChoice: responseType === "choice" ? choice as "A"|"B"|"C"|"D" : undefined,
       });
     } catch { /* silent — local state is still correct */ }
   }
 
-  function setSatNumericAnswerLocal(hwId: number, num: number, value: string) {
-    const key = `math_${num}`;
+  function setSatNumericAnswerLocal(hwId: number, mod: 1|2, num: number, value: string) {
+    const key = `math_m${mod}_${num}`;
     setSatPtAnswerMap((prev) => ({
       ...prev,
       [hwId]: { ...(prev[hwId] ?? {}), [key]: { responseType: "numeric", numeric: value } },
     }));
   }
 
-  async function saveSatNumericAnswer(hwId: number, num: number) {
+  async function saveSatNumericAnswer(hwId: number, mod: 1|2, num: number) {
     if (!ctx.canSubmitHomework) return;
     const sub = satPtSubs[hwId];
     if (!sub) return;
-    const cell = satPtAnswerMap[hwId]?.[`math_${num}`];
+    const cell = satPtAnswerMap[hwId]?.[`math_m${mod}_${num}`];
     if (!cell || cell.responseType !== "numeric") return;
     try {
       await upsertSatPracticeTestAnswer({
-        submissionId: sub.id, section: "math", questionNumber: num,
+        submissionId: sub.id, section: "math", module: mod, questionNumber: num,
         responseType: "numeric", numericResponse: cell.numeric ?? "",
       });
     } catch { /* silent */ }
@@ -706,28 +684,10 @@ export default function StudentPortal() {
     setSatPtSaving((prev) => ({ ...prev, [hwId]: true }));
     setSatPtError((prev) => ({ ...prev, [hwId]: "" }));
     try {
-      const bd: SatCategoryBreakdown = {
-        format: d.categoryScoreFormat,
-        rw: {
-          craftAndStructure:         d.rwCraftStructure ? { correct: +d.rwCraftStructure, total: +d.rwCraftStructureTotal || undefined } : undefined,
-          informationAndIdeas:        d.rwInfoIdeas      ? { correct: +d.rwInfoIdeas,      total: +d.rwInfoIdeasTotal      || undefined } : undefined,
-          expressionOfIdeas:          d.rwExprIdeas      ? { correct: +d.rwExprIdeas,      total: +d.rwExprIdeasTotal      || undefined } : undefined,
-          standardEnglishConventions: d.rwStdEng         ? { correct: +d.rwStdEng,         total: +d.rwStdEngTotal         || undefined } : undefined,
-        },
-        math: {
-          algebra:                    d.mathAlgebra  ? { correct: +d.mathAlgebra,  total: +d.mathAlgebraTotal  || undefined } : undefined,
-          advancedMath:               d.mathAdvMath  ? { correct: +d.mathAdvMath,  total: +d.mathAdvMathTotal  || undefined } : undefined,
-          problemSolvingDataAnalysis: d.mathPsda     ? { correct: +d.mathPsda,     total: +d.mathPsdaTotal     || undefined } : undefined,
-          geometryTrigonometry:       d.mathGeoTrig  ? { correct: +d.mathGeoTrig,  total: +d.mathGeoTrigTotal  || undefined } : undefined,
-        },
-      };
-      const hasBd = Object.values(bd.rw).some((v) => v != null) || Object.values(bd.math).some((v) => v != null);
-
       const sub = await upsertSatPracticeTestSubmission({
         homeworkId: hwId, studentId, isDraft: true,
         submittedProvider: d.submittedProvider || undefined,
         submittedTestName: d.submittedTestName || undefined,
-        submittedVersion:  d.submittedVersion  || undefined,
         completedDate:     d.completedDate     || undefined,
         completionScope:   d.completionScope,
         totalScore:        !d.scorePending && d.totalScore ? +d.totalScore : null,
@@ -739,8 +699,8 @@ export default function StudentPortal() {
         reflectionRanOutOfTime:     d.reflectionRanOutOfTime     || undefined,
         reflectionTroubleTopics:    d.reflectionTroubleTopics    || undefined,
         reflectionReviewRequests:   d.reflectionReviewRequests   || undefined,
-        categoryBreakdown:   hasBd ? bd : null,
-        categoryScoreFormat: d.categoryScoreFormat,
+        categoryBreakdown:   null,
+        categoryScoreFormat: "correct_total",
       });
       setSatPtSubs((prev) => ({ ...prev, [hwId]: sub }));
     } catch {
@@ -764,7 +724,10 @@ export default function StudentPortal() {
     const totalQ = config.rwQuestionCount + config.mathQuestionCount;
     const answeredQ = (["rw", "math"] as const).reduce((acc, sec) => {
       const count = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
-      for (let i = 1; i <= count; i++) { if (amap[`${sec}_${i}`]) acc++; }
+      const m1 = Math.ceil(count / 2);
+      const m2 = Math.floor(count / 2);
+      for (let i = 1; i <= m1; i++) { if (amap[`${sec}_m1_${i}`]) acc++; }
+      for (let i = 1; i <= m2; i++) { if (amap[`${sec}_m2_${i}`]) acc++; }
       return acc;
     }, 0);
 
@@ -840,6 +803,26 @@ export default function StudentPortal() {
       setSatPtSaving((prev) => ({ ...prev, [hwId]: false }));
       setSatPtScoreReportUploading((prev) => ({ ...prev, [hwId]: false }));
     }
+  }
+
+  async function openScoreReport(subId: number, path: string) {
+    setSatPtReportOpening((prev) => ({ ...prev, [subId]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/practice-test/score-report", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ path }),
+      });
+      if (!res.ok) { alert("Could not open score report. Please try again."); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch { alert("Could not open score report. Please try again."); }
+    finally { setSatPtReportOpening((prev) => ({ ...prev, [subId]: false })); }
   }
 
   async function openNoteAttachment(note: { id: number; attachmentUrl?: string }) {
@@ -2755,28 +2738,32 @@ export default function StudentPortal() {
             const isReadOnly = !ctx.canSubmitHomework || !!(sub && !sub.isDraft && h.status === "submitted");
 
             const totalQ = config ? config.rwQuestionCount + config.mathQuestionCount : 0;
-            const getAnswered = (sec: "rw"|"math") => {
+            const getModCount = (sec: "rw"|"math", mod: 1|2) => {
               const count = config ? (sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount) : 0;
+              return mod === 1 ? Math.ceil(count / 2) : Math.floor(count / 2);
+            };
+            const getAnswered = (sec: "rw"|"math", mod: 1|2) => {
+              const count = getModCount(sec, mod);
               let n = 0;
-              for (let i = 1; i <= count; i++) { if (amap[`${sec}_${i}`]) n++; }
+              for (let i = 1; i <= count; i++) { if (amap[`${sec}_m${mod}_${i}`]) n++; }
               return n;
             };
-            const totalAnswered = getAnswered("rw") + getAnswered("math");
+            const totalAnswered = getAnswered("rw", 1) + getAnswered("rw", 2) + getAnswered("math", 1) + getAnswered("math", 2);
 
-            const SECTIONS = ["Test Details", "Scores", "Answers", "Categories", "Reflection"];
+            const SECTIONS = ["Test Details", "Scores", "Answers", "Reflection"];
 
-            const renderAnswerRow = (sec: "rw"|"math", num: number) => {
-              const key    = `${sec}_${num}`;
+            const renderAnswerRow = (sec: "rw"|"math", mod: 1|2, num: number) => {
+              const key    = `${sec}_m${mod}_${num}`;
               const cell   = amap[key];
               const isChosen = (c: string) => cell?.responseType === "choice" && cell.choice === c;
               const isSkip   = cell?.responseType === "skipped";
               const isNum    = cell?.responseType === "numeric";
               return (
-                <div key={`${sec}-${num}`} className="flex items-center gap-1 py-1 border-b border-gray-50">
+                <div key={`${sec}-m${mod}-${num}`} className="flex items-center gap-1 py-1 border-b border-gray-50">
                   <span className="text-[11px] text-gray-400 w-5 text-right shrink-0 font-mono">{num}</span>
                   {(["A","B","C","D"] as const).map((c) => (
                     <button key={c} disabled={isReadOnly}
-                      onClick={() => void selectSatAnswer(h.id, sec, num, "choice", c)}
+                      onClick={() => void selectSatAnswer(h.id, sec, mod, num, "choice", c)}
                       className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors shrink-0
                         ${isChosen(c)
                           ? "bg-blue-600 text-white"
@@ -2789,21 +2776,21 @@ export default function StudentPortal() {
                       <input
                         type="text" disabled={isReadOnly}
                         value={cell?.numeric ?? ""}
-                        onChange={(e) => setSatNumericAnswerLocal(h.id, num, e.target.value)}
-                        onBlur={() => void saveSatNumericAnswer(h.id, num)}
+                        onChange={(e) => setSatNumericAnswerLocal(h.id, mod, num, e.target.value)}
+                        onBlur={() => void saveSatNumericAnswer(h.id, mod, num)}
                         className="w-14 text-[11px] border border-blue-300 rounded-lg px-1.5 py-1 bg-blue-50 focus:outline-none font-mono"
                         placeholder="e.g. 3/4"
                       />
                     ) : (
                       <button disabled={isReadOnly}
-                        onClick={() => void selectSatAnswer(h.id, sec, num, "numeric")}
+                        onClick={() => void selectSatAnswer(h.id, sec, mod, num, "numeric")}
                         className="text-[10px] px-1.5 h-7 rounded-lg bg-gray-100 text-gray-500 hover:bg-violet-50 hover:text-violet-700 font-semibold shrink-0 disabled:cursor-default">
                         SPR
                       </button>
                     )
                   )}
                   <button disabled={isReadOnly}
-                    onClick={() => void selectSatAnswer(h.id, sec, num, "skipped")}
+                    onClick={() => void selectSatAnswer(h.id, sec, mod, num, "skipped")}
                     className={`text-[10px] px-1.5 h-7 rounded-lg font-semibold shrink-0 transition-colors disabled:cursor-default
                       ${isSkip ? "bg-amber-100 text-amber-700" : "bg-gray-50 text-gray-300 hover:bg-amber-50 hover:text-amber-600"}`}>
                     —
@@ -2837,7 +2824,6 @@ export default function StudentPortal() {
                     <div>
                       <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">SAT Practice Test</p>
                       <p className="text-sm font-semibold text-gray-800">{config.assignedTestName ?? "Practice Test"} · {PROVIDER_LABELS[config.provider] ?? config.provider}</p>
-                      {config.assignedVersion && <p className="text-xs text-gray-500">{config.assignedVersion}</p>}
                     </div>
                     <div className="text-right">
                       <p className="text-xs text-gray-500">{totalAnswered} / {totalQ} answered</p>
@@ -2892,14 +2878,7 @@ export default function StudentPortal() {
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Version / Form <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
-                          <input type="text" disabled={isReadOnly} value={d.submittedVersion}
-                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, submittedVersion: e.target.value } }))}
-                            placeholder="Form 1"
-                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
-                        </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Date Completed</label>
                           <input type="date" disabled={isReadOnly} value={d.completedDate}
@@ -2992,10 +2971,12 @@ export default function StudentPortal() {
                         )}
                         {satPtScoreReportFile[h.id] && <p className="text-xs text-gray-500 mt-1">{satPtScoreReportFile[h.id].name}</p>}
                         {sub?.scoreReportUrl && (
-                          <a href={sub.scoreReportUrl} target="_blank" rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-700 underline block mt-1">
-                            {sub.scoreReportFilename ?? "View uploaded score report"}
-                          </a>
+                          <button
+                            onClick={() => void openScoreReport(sub.id, sub.scoreReportUrl!)}
+                            disabled={!!satPtReportOpening[sub.id]}
+                            className="text-sm text-blue-600 hover:text-blue-700 underline block mt-1 disabled:opacity-50">
+                            {satPtReportOpening[sub.id] ? "Opening…" : (sub.scoreReportFilename ?? "View uploaded score report")}
+                          </button>
                         )}
                       </div>
 
@@ -3030,12 +3011,14 @@ export default function StudentPortal() {
                             const newMap = { ...(satPtAnswerMap[h.id] ?? {}) };
                             const updates: Promise<unknown>[] = [];
                             for (const sec of ["rw", "math"] as const) {
-                              const count = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
-                              for (let i = 1; i <= count; i++) {
-                                const k = `${sec}_${i}`;
-                                if (!newMap[k]) {
-                                  newMap[k] = { responseType: "skipped" };
-                                  updates.push(upsertSatPracticeTestAnswer({ submissionId: curSub.id, section: sec, questionNumber: i, responseType: "skipped" }));
+                              for (const mod of [1, 2] as const) {
+                                const count = getModCount(sec, mod);
+                                for (let i = 1; i <= count; i++) {
+                                  const k = `${sec}_m${mod}_${i}`;
+                                  if (!newMap[k]) {
+                                    newMap[k] = { responseType: "skipped" };
+                                    updates.push(upsertSatPracticeTestAnswer({ submissionId: curSub.id, section: sec, module: mod, questionNumber: i, responseType: "skipped" }));
+                                  }
                                 }
                               }
                             }
@@ -3048,18 +3031,22 @@ export default function StudentPortal() {
                       )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        {(["rw", "math"] as const).map((sec) => {
-                          const count    = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
-                          const label    = sec === "rw" ? "Reading & Writing" : "Math";
-                          const answered = getAnswered(sec);
+                        {([
+                          { sec: "rw"   as const, mod: 1 as const, label: "Reading & Writing — Module 1" },
+                          { sec: "rw"   as const, mod: 2 as const, label: "Reading & Writing — Module 2" },
+                          { sec: "math" as const, mod: 1 as const, label: "Math — Module 1" },
+                          { sec: "math" as const, mod: 2 as const, label: "Math — Module 2" },
+                        ]).map(({ sec, mod, label }) => {
+                          const count    = getModCount(sec, mod);
+                          const answered = getAnswered(sec, mod);
                           return (
-                            <div key={sec}>
+                            <div key={`${sec}-m${mod}`}>
                               <div className="flex items-center justify-between mb-2">
                                 <p className="text-xs font-semibold text-gray-700">{label}</p>
                                 <span className="text-[11px] text-gray-400">{answered}/{count}</span>
                               </div>
                               <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-xl p-2">
-                                {Array.from({ length: count }, (_, i) => renderAnswerRow(sec, i + 1))}
+                                {Array.from({ length: count }, (_, i) => renderAnswerRow(sec, mod, i + 1))}
                               </div>
                             </div>
                           );
@@ -3074,76 +3061,6 @@ export default function StudentPortal() {
                           </button>
                           <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 3 }))}
                             className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
-                            Next: Categories →
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Section 3: Category Breakdown */}
-                  {section === 3 && d && (
-                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 4 — Category Breakdown <span className="font-normal text-gray-500 normal-case tracking-normal">(optional)</span></p>
-
-                      <div className="flex gap-2">
-                        {(["correct_total", "bars"] as const).map((fmt) => (
-                          <button key={fmt} disabled={isReadOnly}
-                            onClick={() => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, categoryScoreFormat: fmt } }))}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:cursor-default
-                              ${d.categoryScoreFormat === fmt ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}>
-                            {fmt === "correct_total" ? "Correct / Total" : "Bars (e.g. 2/7)"}
-                          </button>
-                        ))}
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-5">
-                        {([
-                          { title: "Reading & Writing", cats: [
-                            { label: "Craft & Structure",     keyC: "rwCraftStructure" as const, keyT: "rwCraftStructureTotal" as const },
-                            { label: "Information & Ideas",   keyC: "rwInfoIdeas"      as const, keyT: "rwInfoIdeasTotal"      as const },
-                            { label: "Expression of Ideas",   keyC: "rwExprIdeas"      as const, keyT: "rwExprIdeasTotal"      as const },
-                            { label: "Standard English",      keyC: "rwStdEng"         as const, keyT: "rwStdEngTotal"         as const },
-                          ]},
-                          { title: "Math", cats: [
-                            { label: "Algebra",                keyC: "mathAlgebra"  as const, keyT: "mathAlgebraTotal"  as const },
-                            { label: "Advanced Math",          keyC: "mathAdvMath"  as const, keyT: "mathAdvMathTotal"  as const },
-                            { label: "Problem Solving & Data", keyC: "mathPsda"     as const, keyT: "mathPsdaTotal"     as const },
-                            { label: "Geometry & Trig",        keyC: "mathGeoTrig"  as const, keyT: "mathGeoTrigTotal"  as const },
-                          ]},
-                        ]).map(({ title, cats }) => (
-                          <div key={title}>
-                            <p className="text-xs font-semibold text-gray-600 mb-2">{title}</p>
-                            <div className="space-y-2">
-                              {cats.map(({ label, keyC, keyT }) => (
-                                <div key={label} className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 w-32 shrink-0">{label}</span>
-                                  <input type="number" disabled={isReadOnly}
-                                    value={d[keyC]}
-                                    onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [keyC]: e.target.value } }))}
-                                    placeholder="11" min="0" max="100"
-                                    className="w-14 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 text-center" />
-                                  <span className="text-xs text-gray-400">/</span>
-                                  <input type="number" disabled={isReadOnly}
-                                    value={d[keyT]}
-                                    onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [keyT]: e.target.value } }))}
-                                    placeholder="15" min="0" max="100"
-                                    className="w-14 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 text-center" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      {!isReadOnly && (
-                        <div className="flex gap-2 mt-2">
-                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 2 }))}
-                            className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
-                            ← Back
-                          </button>
-                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 4 }))}
-                            className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
                             Next: Reflection →
                           </button>
                         </div>
@@ -3151,10 +3068,10 @@ export default function StudentPortal() {
                     </div>
                   )}
 
-                  {/* Section 4: Reflection */}
-                  {section === 4 && d && (
+                  {/* Section 3: Reflection */}
+                  {section === 3 && d && (
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 5 — Reflection</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 4 — Reflection</p>
 
                       <div>
                         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">
@@ -3186,7 +3103,7 @@ export default function StudentPortal() {
                           {err && <p className="text-sm text-red-600 font-semibold">{err}</p>}
 
                           <div className="flex gap-2">
-                            <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 3 }))}
+                            <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 2 }))}
                               className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
                               ← Back
                             </button>

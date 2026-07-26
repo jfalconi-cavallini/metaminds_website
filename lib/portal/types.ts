@@ -539,6 +539,7 @@ export interface SatPracticeTestAnswer {
   id: number;
   submissionId: number;
   section: "rw" | "math";
+  module: 1 | 2;
   questionNumber: number;
   responseType: "choice" | "numeric" | "skipped";
   selectedChoice?: "A" | "B" | "C" | "D";

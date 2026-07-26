@@ -252,7 +252,6 @@ export default function TutorPortal() {
   // SAT Practice Test assignment config creation
   const [hwPtProvider,     setHwPtProvider]     = useState("bluebook");
   const [hwPtTestName,     setHwPtTestName]      = useState("");
-  const [hwPtVersion,      setHwPtVersion]       = useState("");
   const [hwPtRwCount,      setHwPtRwCount]       = useState("54");
   const [hwPtMathCount,    setHwPtMathCount]     = useState("44");
   const [hwPtExternalLink, setHwPtExternalLink]  = useState("");
@@ -260,6 +259,7 @@ export default function TutorPortal() {
   // Tutor review of practice test submissions
   const [satPtReview,        setSatPtReview]        = useState<Record<number, { config: SatPracticeTestConfig; sub: SatPracticeTestSubmission; answers: SatPracticeTestAnswer[] } | null>>({});
   const [satPtReviewLoading, setSatPtReviewLoading] = useState<Record<number, boolean>>({});
+  const [satPtReportOpening, setSatPtReportOpening] = useState<Record<number, boolean>>({});
 
   // Tutor review of vocabulary submissions (keyed by homework id)
   const [vocabReviewData,      setVocabReviewData]      = useState<Record<number, { config: VocabularyAssignmentConfig; entries: VocabularySubmissionEntry[] }>>({});
@@ -706,12 +706,11 @@ export default function TutorPortal() {
           homeworkId:       hw.id,
           provider:         hwPtProvider,
           assignedTestName: hwPtTestName.trim() || undefined,
-          assignedVersion:  hwPtVersion.trim()  || undefined,
           rwQuestionCount:  parseInt(hwPtRwCount)   || 54,
           mathQuestionCount:parseInt(hwPtMathCount) || 44,
           externalLink:     hwPtExternalLink.trim() || undefined,
         });
-        setHwPtProvider("bluebook"); setHwPtTestName(""); setHwPtVersion("");
+        setHwPtProvider("bluebook"); setHwPtTestName("");
         setHwPtRwCount("54"); setHwPtMathCount("44"); setHwPtExternalLink("");
       }
       if (hwSkillIds.length > 0) {
@@ -808,6 +807,26 @@ export default function TutorPortal() {
     } catch { /* silent */ } finally {
       setVocabReviewSaving((prev) => ({ ...prev, [entryId]: false }));
     }
+  }
+
+  async function openScoreReport(subId: number, path: string) {
+    setSatPtReportOpening((prev) => ({ ...prev, [subId]: true }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/practice-test/score-report", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ path }),
+      });
+      if (!res.ok) { alert("Could not open score report. Please try again."); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch { alert("Could not open score report. Please try again."); }
+    finally { setSatPtReportOpening((prev) => ({ ...prev, [subId]: false })); }
   }
 
   async function loadSatPtReview(hwId: number, studentId: number) {
@@ -3266,7 +3285,17 @@ export default function TutorPortal() {
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Type <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
-                      <select value={hwType} onChange={(e) => { setHwType(e.target.value); if (e.target.value !== "sat_vocabulary") setHwVocabWords([{ word: "", hint: "" }]); }}
+                      <select value={hwType} onChange={(e) => {
+                          const t = e.target.value;
+                          setHwType(t);
+                          if (t !== "sat_vocabulary") setHwVocabWords([{ word: "", hint: "" }]);
+                          if (t === "sat_practice_test") {
+                            setHwPtProvider("bluebook");
+                            setHwPtExternalLink("https://bluebook.collegeboard.org/students");
+                            setHwPtRwCount("54");
+                            setHwPtMathCount("44");
+                          }
+                        }}
                         className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                         <option value="">Select type…</option>
                         <option value="problems">Problems</option>
@@ -3319,13 +3348,7 @@ export default function TutorPortal() {
                             className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Version / Form <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
-                          <input type="text" value={hwPtVersion} onChange={(e) => setHwPtVersion(e.target.value)}
-                            placeholder="Form 1"
-                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
+                      <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">R&amp;W Questions</label>
                           <input type="number" value={hwPtRwCount} onChange={(e) => setHwPtRwCount(e.target.value)}
@@ -3384,7 +3407,7 @@ export default function TutorPortal() {
                     <input type="date" value={hwDue} onChange={(e) => setHwDue(e.target.value)}
                       className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
-                  {hwType !== "sat_vocabulary" && (<>
+                  {hwType !== "sat_vocabulary" && hwType !== "sat_practice_test" && (<>
                     <div>
                       <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">PDF Attachment <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                       <input type="file" accept=".pdf,application/pdf"
@@ -3595,8 +3618,13 @@ export default function TutorPortal() {
                       if (!ptData) return <p className="text-sm text-gray-400 italic">No submission found.</p>;
 
                       const { config, sub, answers } = ptData;
-                      const rwAnswers   = answers.filter((a) => a.section === "rw").sort((a, b) => a.questionNumber - b.questionNumber);
-                      const mathAnswers = answers.filter((a) => a.section === "math").sort((a, b) => a.questionNumber - b.questionNumber);
+                      const getModAnswers = (sec: "rw"|"math", mod: 1|2) =>
+                        answers.filter((a) => a.section === sec && a.module === mod)
+                          .sort((a, b) => a.questionNumber - b.questionNumber);
+                      const getModCount = (sec: "rw"|"math", mod: 1|2) => {
+                        const total = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
+                        return mod === 1 ? Math.ceil(total / 2) : Math.floor(total / 2);
+                      };
 
                       const CHOICE_COLORS: Record<string, string> = {
                         A: "bg-blue-100 text-blue-700", B: "bg-violet-100 text-violet-700",
@@ -3612,12 +3640,12 @@ export default function TutorPortal() {
                             <div className="bg-gray-50 rounded-xl p-3">
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assigned</p>
                               <p className="text-sm font-semibold text-gray-800">{config.assignedTestName ?? "—"}</p>
-                              <p className="text-xs text-gray-500">{config.provider} {config.assignedVersion && `· ${config.assignedVersion}`}</p>
+                              <p className="text-xs text-gray-500">{config.provider}</p>
                             </div>
                             <div className={`rounded-xl p-3 ${sub.submittedTestName !== config.assignedTestName ? "bg-amber-50 border border-amber-200" : "bg-emerald-50"}`}>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Submitted</p>
                               <p className="text-sm font-semibold text-gray-800">{sub.submittedTestName ?? "—"}</p>
-                              <p className="text-xs text-gray-500">{sub.submittedProvider ?? config.provider} {sub.submittedVersion && `· ${sub.submittedVersion}`}</p>
+                              <p className="text-xs text-gray-500">{sub.submittedProvider ?? config.provider}</p>
                               {sub.submittedTestName !== config.assignedTestName && (
                                 <p className="text-[10px] text-amber-600 font-semibold mt-1">⚠ Differs from assigned</p>
                               )}
@@ -3645,20 +3673,24 @@ export default function TutorPortal() {
                             {sub.completionScope === "partial" && <span className="text-amber-600 font-semibold">Partial test</span>}
                           </div>
 
-                          {/* Answer grid */}
+                          {/* Answer grid — 4 sub-grids (R&W M1/M2, Math M1/M2) */}
                           <div>
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Answers ({answers.length} / {config.rwQuestionCount + config.mathQuestionCount})</p>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {(["rw", "math"] as const).map((sec) => {
-                                const secAnswers = sec === "rw" ? rwAnswers : mathAnswers;
-                                const secCount   = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
-                                const secLabel   = sec === "rw" ? "Reading & Writing" : "Math";
+                              {([
+                                { sec: "rw"   as const, mod: 1 as const, label: "Reading & Writing — Module 1" },
+                                { sec: "rw"   as const, mod: 2 as const, label: "Reading & Writing — Module 2" },
+                                { sec: "math" as const, mod: 1 as const, label: "Math — Module 1" },
+                                { sec: "math" as const, mod: 2 as const, label: "Math — Module 2" },
+                              ]).map(({ sec, mod, label }) => {
+                                const modAnswers = getModAnswers(sec, mod);
+                                const modCount   = getModCount(sec, mod);
                                 return (
-                                  <div key={sec}>
-                                    <p className="text-xs font-semibold text-gray-600 mb-2">{secLabel} ({secAnswers.length}/{secCount})</p>
+                                  <div key={`${sec}-m${mod}`}>
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">{label} ({modAnswers.length}/{modCount})</p>
                                     <div className="space-y-0.5 max-h-64 overflow-y-auto pr-1">
-                                      {Array.from({ length: secCount }, (_, i) => i + 1).map((num) => {
-                                        const ans = secAnswers.find((a) => a.questionNumber === num);
+                                      {Array.from({ length: modCount }, (_, i) => i + 1).map((num) => {
+                                        const ans = modAnswers.find((a) => a.questionNumber === num);
                                         return (
                                           <div key={num} className="flex items-center gap-2 py-0.5 border-b border-gray-50">
                                             <span className="text-[11px] text-gray-400 w-5 text-right shrink-0">{num}</span>
@@ -3682,54 +3714,6 @@ export default function TutorPortal() {
                               })}
                             </div>
                           </div>
-
-                          {/* Category breakdown */}
-                          {sub.categoryBreakdown && (() => {
-                            const bd  = sub.categoryBreakdown;
-                            const fmt = sub.categoryScoreFormat;
-                            const fmtScore = (s?: SatCategoryScore) => {
-                              if (!s) return "—";
-                              if (fmt === "bars") return s.bars != null ? `${s.bars}/${s.maxBars ?? "?"} bars` : "—";
-                              return s.correct != null ? `${s.correct}/${s.total ?? "?"} correct` : "—";
-                            };
-                            const rwCats: [string, SatCategoryScore | undefined][] = [
-                              ["Craft & Structure",    bd.rw.craftAndStructure],
-                              ["Information & Ideas",  bd.rw.informationAndIdeas],
-                              ["Expression of Ideas",  bd.rw.expressionOfIdeas],
-                              ["Standard English",     bd.rw.standardEnglishConventions],
-                            ];
-                            const mathCats: [string, SatCategoryScore | undefined][] = [
-                              ["Algebra",               bd.math.algebra],
-                              ["Advanced Math",         bd.math.advancedMath],
-                              ["Problem Solving & Data",bd.math.problemSolvingDataAnalysis],
-                              ["Geometry & Trig",       bd.math.geometryTrigonometry],
-                            ];
-                            return (
-                              <div>
-                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Category Breakdown</p>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                    <p className="text-xs font-semibold text-gray-500 mb-1.5">Reading &amp; Writing</p>
-                                    {rwCats.map(([label, score]) => (
-                                      <div key={label} className="flex justify-between text-xs py-1 border-b border-gray-50">
-                                        <span className="text-gray-600">{label}</span>
-                                        <span className="font-semibold text-gray-800">{fmtScore(score)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                  <div>
-                                    <p className="text-xs font-semibold text-gray-500 mb-1.5">Math</p>
-                                    {mathCats.map(([label, score]) => (
-                                      <div key={label} className="flex justify-between text-xs py-1 border-b border-gray-50">
-                                        <span className="text-gray-600">{label}</span>
-                                        <span className="font-semibold text-gray-800">{fmtScore(score)}</span>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            );
-                          })()}
 
                           {/* Reflection */}
                           {(sub.reflectionRanOutOfTime || sub.reflectionDifficultSection || sub.reflectionTroubleTopics || sub.reflectionReviewRequests) && (
@@ -3756,10 +3740,12 @@ export default function TutorPortal() {
                           {sub.scoreReportUrl && (
                             <div>
                               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Score Report</p>
-                              <a href={sub.scoreReportUrl} target="_blank" rel="noopener noreferrer"
-                                className="text-sm text-blue-600 hover:text-blue-700 underline">
-                                {sub.scoreReportFilename ?? "View Score Report"}
-                              </a>
+                              <button
+                                onClick={() => void openScoreReport(sub.id, sub.scoreReportUrl!)}
+                                disabled={!!satPtReportOpening[sub.id]}
+                                className="text-sm text-blue-600 hover:text-blue-700 underline disabled:opacity-50">
+                                {satPtReportOpening[sub.id] ? "Opening…" : (sub.scoreReportFilename ?? "View Score Report")}
+                              </button>
                             </div>
                           )}
 

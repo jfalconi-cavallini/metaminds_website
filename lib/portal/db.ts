@@ -2331,6 +2331,7 @@ function rowToSatPtAnswer(r: Record<string, unknown>): SatPracticeTestAnswer {
     id:             r.id as number,
     submissionId:   r.submission_id as number,
     section:        r.section as "rw" | "math",
+    module:         (r.module as number ?? 1) as 1 | 2,
     questionNumber: r.question_number as number,
     responseType:   r.response_type as "choice" | "numeric" | "skipped",
     selectedChoice: (r.selected_choice  as "A"|"B"|"C"|"D" | null) ?? undefined,
@@ -2459,6 +2460,7 @@ export async function fetchSatPracticeTestAnswers(submissionId: number): Promise
 export async function upsertSatPracticeTestAnswer(payload: {
   submissionId: number;
   section: "rw" | "math";
+  module: 1 | 2;
   questionNumber: number;
   responseType: "choice" | "numeric" | "skipped";
   selectedChoice?: "A" | "B" | "C" | "D";
@@ -2469,12 +2471,13 @@ export async function upsertSatPracticeTestAnswer(payload: {
     .upsert({
       submission_id:    payload.submissionId,
       section:          payload.section,
+      module:           payload.module,
       question_number:  payload.questionNumber,
       response_type:    payload.responseType,
       selected_choice:  payload.selectedChoice   ?? null,
       numeric_response: payload.numericResponse  ?? null,
       updated_at:       new Date().toISOString(),
-    }, { onConflict: "submission_id,section,question_number" })
+    }, { onConflict: "submission_id,section,module,question_number" })
     .select()
     .single();
   if (error) throw error;

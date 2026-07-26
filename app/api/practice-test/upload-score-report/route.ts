@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const authHeader = req.headers.get("authorization") ?? "";
-  const token = authHeader.replace("Bearer ", "");
-
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    { global: { headers: { Authorization: `Bearer ${token}` } } }
-  );
-
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const caller = await authenticate(req);
+  if (isAuthError(caller)) return caller;
 
   const form = await req.formData();
   const file = form.get("file") as File | null;
@@ -31,7 +20,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const path = `score-reports/${studentId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
   const bytes = await file.arrayBuffer();
 
-  const { data: uploadData, error: uploadError } = await supabase.storage
+  const admin = adminClient();
+
+  const { data: uploadData, error: uploadError } = await admin.storage
     .from("homework-submissions")
     .upload(path, Buffer.from(bytes), { contentType: file.type, upsert: false });
 
@@ -39,9 +30,5 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
   }
 
-  const { data: { publicUrl } } = supabase.storage
-    .from("homework-submissions")
-    .getPublicUrl(uploadData.path);
-
-  return NextResponse.json({ url: publicUrl, filename: file.name, path: uploadData.path });
+  return NextResponse.json({ url: uploadData.path, filename: file.name });
 }
