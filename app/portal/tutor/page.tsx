@@ -39,6 +39,8 @@ import {
   fetchPracticeTestResults, insertPracticeTestResult, deletePracticeTestResult,
   updateStudentPlan,
   logCompletedHomework,
+  fetchSatPracticeTestConfig, upsertSatPracticeTestConfig,
+  fetchSatPracticeTestSubmission, fetchSatPracticeTestAnswers,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
@@ -51,6 +53,7 @@ import type {
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
   StudentPlanFull, Course, CourseCatalogFull, SkillBaseline, SkillNode,
   VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult,
+  SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryScore,
 } from "@/lib/portal/types";
 import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload, Search, Trash2, BookOpen, Plus, X, Users, CalendarDays, Clock, Bell, AlertCircle, Video, ChevronDown } from "lucide-react";
 
@@ -245,6 +248,18 @@ export default function TutorPortal() {
 
   // Vocabulary assignment creation
   const [hwVocabWords, setHwVocabWords] = useState<{ word: string; hint: string }[]>([{ word: "", hint: "" }]);
+
+  // SAT Practice Test assignment config creation
+  const [hwPtProvider,     setHwPtProvider]     = useState("bluebook");
+  const [hwPtTestName,     setHwPtTestName]      = useState("");
+  const [hwPtVersion,      setHwPtVersion]       = useState("");
+  const [hwPtRwCount,      setHwPtRwCount]       = useState("54");
+  const [hwPtMathCount,    setHwPtMathCount]     = useState("44");
+  const [hwPtExternalLink, setHwPtExternalLink]  = useState("");
+
+  // Tutor review of practice test submissions
+  const [satPtReview,        setSatPtReview]        = useState<Record<number, { config: SatPracticeTestConfig; sub: SatPracticeTestSubmission; answers: SatPracticeTestAnswer[] } | null>>({});
+  const [satPtReviewLoading, setSatPtReviewLoading] = useState<Record<number, boolean>>({});
 
   // Tutor review of vocabulary submissions (keyed by homework id)
   const [vocabReviewData,      setVocabReviewData]      = useState<Record<number, { config: VocabularyAssignmentConfig; entries: VocabularySubmissionEntry[] }>>({});
@@ -686,6 +701,19 @@ export default function TutorPortal() {
           hintDefinition: w.hint.trim() || undefined,
         })));
       }
+      if (hwType === "sat_practice_test") {
+        await upsertSatPracticeTestConfig({
+          homeworkId:       hw.id,
+          provider:         hwPtProvider,
+          assignedTestName: hwPtTestName.trim() || undefined,
+          assignedVersion:  hwPtVersion.trim()  || undefined,
+          rwQuestionCount:  parseInt(hwPtRwCount)   || 54,
+          mathQuestionCount:parseInt(hwPtMathCount) || 44,
+          externalLink:     hwPtExternalLink.trim() || undefined,
+        });
+        setHwPtProvider("bluebook"); setHwPtTestName(""); setHwPtVersion("");
+        setHwPtRwCount("54"); setHwPtMathCount("44"); setHwPtExternalLink("");
+      }
       if (hwSkillIds.length > 0) {
         await setHomeworkSkillLinks(hw.id, hwSkillIds, Number(hwStudentId), tutorId);
       }
@@ -779,6 +807,25 @@ export default function TutorPortal() {
       });
     } catch { /* silent */ } finally {
       setVocabReviewSaving((prev) => ({ ...prev, [entryId]: false }));
+    }
+  }
+
+  async function loadSatPtReview(hwId: number, studentId: number) {
+    if (satPtReview[hwId] !== undefined) return;
+    setSatPtReviewLoading((prev) => ({ ...prev, [hwId]: true }));
+    try {
+      const config = await fetchSatPracticeTestConfig(hwId);
+      if (!config) { setSatPtReview((prev) => ({ ...prev, [hwId]: null })); return; }
+      const sub = await fetchSatPracticeTestSubmission(hwId, studentId);
+      const answers = sub ? await fetchSatPracticeTestAnswers(sub.id) : [];
+      setSatPtReview((prev) => ({
+        ...prev,
+        [hwId]: sub ? { config, sub, answers } : null,
+      }));
+    } catch {
+      setSatPtReview((prev) => ({ ...prev, [hwId]: null }));
+    } finally {
+      setSatPtReviewLoading((prev) => ({ ...prev, [hwId]: false }));
     }
   }
 
@@ -3086,7 +3133,9 @@ export default function TutorPortal() {
                           )}
                           {h.assignmentType && (
                             <span className="text-[10px] font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
-                              {h.assignmentType === "sat_vocabulary" ? "Vocabulary" : h.assignmentType.replace(/_/g, " ")}
+                              {h.assignmentType === "sat_vocabulary" ? "Vocabulary"
+                                : h.assignmentType === "sat_practice_test" ? "SAT Practice Test"
+                                : h.assignmentType.replace(/_/g, " ")}
                             </span>
                           )}
                           {h.estimatedMinutes != null && h.studentTimeMinutes != null && (
@@ -3223,6 +3272,7 @@ export default function TutorPortal() {
                         <option value="problems">Problems</option>
                         <option value="reading">Reading</option>
                         <option value="practice_test">Practice Test</option>
+                        <option value="sat_practice_test">SAT Practice Test</option>
                         <option value="review">Review</option>
                         <option value="essay">Essay</option>
                         <option value="sat_vocabulary">SAT Vocabulary</option>
@@ -3246,6 +3296,57 @@ export default function TutorPortal() {
                       rows={2}
                       className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
+                  {/* SAT Practice Test config */}
+                  {hwType === "sat_practice_test" && (
+                    <div className="space-y-3 border border-blue-100 bg-blue-50 rounded-2xl p-4">
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">Practice Test Config</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Provider</label>
+                          <select value={hwPtProvider} onChange={(e) => setHwPtProvider(e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="bluebook">College Board Bluebook</option>
+                            <option value="college_board_pdf">College Board PDF</option>
+                            <option value="metaminds">MetaMinds</option>
+                            <option value="act">ACT</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Test Name</label>
+                          <input type="text" value={hwPtTestName} onChange={(e) => setHwPtTestName(e.target.value)}
+                            placeholder="SAT Practice Test 3"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Version / Form <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                          <input type="text" value={hwPtVersion} onChange={(e) => setHwPtVersion(e.target.value)}
+                            placeholder="Form 1"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">R&amp;W Questions</label>
+                          <input type="number" value={hwPtRwCount} onChange={(e) => setHwPtRwCount(e.target.value)}
+                            min="1" max="100"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Math Questions</label>
+                          <input type="number" value={hwPtMathCount} onChange={(e) => setHwPtMathCount(e.target.value)}
+                            min="1" max="100"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Bluebook / External Link <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                        <input type="url" value={hwPtExternalLink} onChange={(e) => setHwPtExternalLink(e.target.value)}
+                          placeholder="https://bluebook.collegeboard.org/..."
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      </div>
+                    </div>
+                  )}
                   {/* Vocabulary word list */}
                   {hwType === "sat_vocabulary" && (
                     <div>
@@ -3342,7 +3443,9 @@ export default function TutorPortal() {
                       {h.submittedAt && <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>}
                       {h.assignmentType && (
                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg capitalize">
-                          {h.assignmentType === "sat_vocabulary" ? "Vocabulary" : h.assignmentType.replace(/_/g, " ")}
+                          {h.assignmentType === "sat_vocabulary" ? "Vocabulary"
+                            : h.assignmentType === "sat_practice_test" ? "SAT Practice Test"
+                            : h.assignmentType.replace(/_/g, " ")}
                         </span>
                       )}
                     </div>
@@ -3472,6 +3575,200 @@ export default function TutorPortal() {
                               </div>
                             );
                           })}
+                        </div>
+                      );
+                    })()}
+
+                    {/* SAT Practice Test review */}
+                    {h.assignmentType === "sat_practice_test" && (() => {
+                      const ptData    = satPtReview[h.id];
+                      const ptLoading = !!satPtReviewLoading[h.id];
+
+                      if (ptData === undefined && !ptLoading) return (
+                        <button
+                          onClick={() => st && void loadSatPtReview(h.id, st.id)}
+                          className="text-sm font-semibold text-blue-600 hover:text-blue-700 border border-blue-200 bg-blue-50 px-4 py-2.5 rounded-xl transition-colors">
+                          Load Practice Test Submission
+                        </button>
+                      );
+                      if (ptLoading) return <p className="text-sm text-gray-400">Loading submission…</p>;
+                      if (!ptData) return <p className="text-sm text-gray-400 italic">No submission found.</p>;
+
+                      const { config, sub, answers } = ptData;
+                      const rwAnswers   = answers.filter((a) => a.section === "rw").sort((a, b) => a.questionNumber - b.questionNumber);
+                      const mathAnswers = answers.filter((a) => a.section === "math").sort((a, b) => a.questionNumber - b.questionNumber);
+
+                      const CHOICE_COLORS: Record<string, string> = {
+                        A: "bg-blue-100 text-blue-700", B: "bg-violet-100 text-violet-700",
+                        C: "bg-emerald-100 text-emerald-700", D: "bg-amber-100 text-amber-700",
+                      };
+
+                      return (
+                        <div className="space-y-5 pt-2">
+                          <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Practice Test Submission</p>
+
+                          {/* Header: assigned vs submitted */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-gray-50 rounded-xl p-3">
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Assigned</p>
+                              <p className="text-sm font-semibold text-gray-800">{config.assignedTestName ?? "—"}</p>
+                              <p className="text-xs text-gray-500">{config.provider} {config.assignedVersion && `· ${config.assignedVersion}`}</p>
+                            </div>
+                            <div className={`rounded-xl p-3 ${sub.submittedTestName !== config.assignedTestName ? "bg-amber-50 border border-amber-200" : "bg-emerald-50"}`}>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Submitted</p>
+                              <p className="text-sm font-semibold text-gray-800">{sub.submittedTestName ?? "—"}</p>
+                              <p className="text-xs text-gray-500">{sub.submittedProvider ?? config.provider} {sub.submittedVersion && `· ${sub.submittedVersion}`}</p>
+                              {sub.submittedTestName !== config.assignedTestName && (
+                                <p className="text-[10px] text-amber-600 font-semibold mt-1">⚠ Differs from assigned</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Scores */}
+                          <div className="grid grid-cols-3 gap-3">
+                            {([
+                              { label: "Total Score", value: sub.scorePending ? "Pending" : (sub.totalScore?.toString() ?? "—") },
+                              { label: "R&W Score",   value: sub.rwScore?.toString()   ?? "—" },
+                              { label: "Math Score",  value: sub.mathScore?.toString() ?? "—" },
+                            ] as const).map(({ label, value }) => (
+                              <div key={label} className="bg-blue-50 rounded-xl p-3 text-center">
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+                                <p className="text-xl font-bold text-blue-700">{value}</p>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Date + Time */}
+                          <div className="flex gap-4 text-sm text-gray-600">
+                            {sub.completedDate && <span>Completed: <strong>{formatDate(sub.completedDate)}</strong></span>}
+                            {sub.activeMinutes && <span>Time: <strong>{sub.activeMinutes} min</strong></span>}
+                            {sub.completionScope === "partial" && <span className="text-amber-600 font-semibold">Partial test</span>}
+                          </div>
+
+                          {/* Answer grid */}
+                          <div>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Answers ({answers.length} / {config.rwQuestionCount + config.mathQuestionCount})</p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {(["rw", "math"] as const).map((sec) => {
+                                const secAnswers = sec === "rw" ? rwAnswers : mathAnswers;
+                                const secCount   = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
+                                const secLabel   = sec === "rw" ? "Reading & Writing" : "Math";
+                                return (
+                                  <div key={sec}>
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">{secLabel} ({secAnswers.length}/{secCount})</p>
+                                    <div className="space-y-0.5 max-h-64 overflow-y-auto pr-1">
+                                      {Array.from({ length: secCount }, (_, i) => i + 1).map((num) => {
+                                        const ans = secAnswers.find((a) => a.questionNumber === num);
+                                        return (
+                                          <div key={num} className="flex items-center gap-2 py-0.5 border-b border-gray-50">
+                                            <span className="text-[11px] text-gray-400 w-5 text-right shrink-0">{num}</span>
+                                            {!ans ? (
+                                              <span className="text-xs text-red-400 font-semibold">Unanswered</span>
+                                            ) : ans.responseType === "skipped" ? (
+                                              <span className="text-[11px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-semibold">Skip</span>
+                                            ) : ans.responseType === "numeric" ? (
+                                              <span className="text-[11px] px-2 py-0.5 rounded bg-violet-100 text-violet-700 font-mono">{ans.numericResponse ?? "—"}</span>
+                                            ) : (
+                                              <span className={`text-[11px] w-6 h-6 rounded flex items-center justify-center font-bold ${ans.selectedChoice ? CHOICE_COLORS[ans.selectedChoice] : "bg-gray-100"}`}>
+                                                {ans.selectedChoice ?? "?"}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Category breakdown */}
+                          {sub.categoryBreakdown && (() => {
+                            const bd  = sub.categoryBreakdown;
+                            const fmt = sub.categoryScoreFormat;
+                            const fmtScore = (s?: SatCategoryScore) => {
+                              if (!s) return "—";
+                              if (fmt === "bars") return s.bars != null ? `${s.bars}/${s.maxBars ?? "?"} bars` : "—";
+                              return s.correct != null ? `${s.correct}/${s.total ?? "?"} correct` : "—";
+                            };
+                            const rwCats: [string, SatCategoryScore | undefined][] = [
+                              ["Craft & Structure",    bd.rw.craftAndStructure],
+                              ["Information & Ideas",  bd.rw.informationAndIdeas],
+                              ["Expression of Ideas",  bd.rw.expressionOfIdeas],
+                              ["Standard English",     bd.rw.standardEnglishConventions],
+                            ];
+                            const mathCats: [string, SatCategoryScore | undefined][] = [
+                              ["Algebra",               bd.math.algebra],
+                              ["Advanced Math",         bd.math.advancedMath],
+                              ["Problem Solving & Data",bd.math.problemSolvingDataAnalysis],
+                              ["Geometry & Trig",       bd.math.geometryTrigonometry],
+                            ];
+                            return (
+                              <div>
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Category Breakdown</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 mb-1.5">Reading &amp; Writing</p>
+                                    {rwCats.map(([label, score]) => (
+                                      <div key={label} className="flex justify-between text-xs py-1 border-b border-gray-50">
+                                        <span className="text-gray-600">{label}</span>
+                                        <span className="font-semibold text-gray-800">{fmtScore(score)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 mb-1.5">Math</p>
+                                    {mathCats.map(([label, score]) => (
+                                      <div key={label} className="flex justify-between text-xs py-1 border-b border-gray-50">
+                                        <span className="text-gray-600">{label}</span>
+                                        <span className="font-semibold text-gray-800">{fmtScore(score)}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+
+                          {/* Reflection */}
+                          {(sub.reflectionRanOutOfTime || sub.reflectionDifficultSection || sub.reflectionTroubleTopics || sub.reflectionReviewRequests) && (
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Student Reflection</p>
+                              <div className="space-y-2">
+                                {sub.reflectionDifficultSection && (
+                                  <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Most Difficult Section</p><p className="text-sm text-gray-700">{sub.reflectionDifficultSection}</p></div>
+                                )}
+                                {sub.reflectionRanOutOfTime && (
+                                  <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Ran Out of Time</p><p className="text-sm text-gray-700">{sub.reflectionRanOutOfTime}</p></div>
+                                )}
+                                {sub.reflectionTroubleTopics && (
+                                  <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Trouble Topics</p><p className="text-sm text-gray-700">{sub.reflectionTroubleTopics}</p></div>
+                                )}
+                                {sub.reflectionReviewRequests && (
+                                  <div><p className="text-[10px] text-gray-400 uppercase tracking-wider">Would Like to Review</p><p className="text-sm text-gray-700">{sub.reflectionReviewRequests}</p></div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Score report */}
+                          {sub.scoreReportUrl && (
+                            <div>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Score Report</p>
+                              <a href={sub.scoreReportUrl} target="_blank" rel="noopener noreferrer"
+                                className="text-sm text-blue-600 hover:text-blue-700 underline">
+                                {sub.scoreReportFilename ?? "View Score Report"}
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Draft warning */}
+                          {sub.isDraft && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700">
+                              This submission is still in draft — the student has not finalized it.
+                            </div>
+                          )}
                         </div>
                       );
                     })()}

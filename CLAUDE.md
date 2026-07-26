@@ -231,3 +231,22 @@ RESEND_API_KEY
 - Never commit `.env` files
 - Never skip `npx tsc --noEmit` after editing portal files
 - Never implement features before checking `public/images/template/` for the design reference
+
+---
+
+## Collaboration Rules
+
+- Never commit directly to `main` — always create or use a dedicated feature branch
+- Before starting work, pull the latest `main`
+- Do not merge pull requests
+- Do not force-push
+- Do not modify files assigned to another developer without approval
+- Do not edit previously applied Supabase migrations — always create a new numbered migration
+- Check the latest migration number before creating one (currently up to `045_`)
+- Never run destructive production database operations automatically
+- Before pushing, run in order:
+  1. `npm run lint`
+  2. `npx tsc --noEmit`
+  3. `npm run build`
+- Keep commits focused on one feature or fix
+- Report all files changed and any migration/environment variable requirements when completing a task

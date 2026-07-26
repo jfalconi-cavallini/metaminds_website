@@ -469,3 +469,80 @@ export interface HomeworkSkillLink {
   feedback?:           string;
   assignedDate:        string;
 }
+
+// ── SAT Practice Test Assignment ──────────────────────────────────
+
+export interface SatPracticeTestConfig {
+  id: number;
+  homeworkId: number;
+  provider: string;              // "bluebook" | "college_board_pdf" | "metaminds" | "act" | "other"
+  assignedTestName?: string;     // e.g. "SAT Practice Test 3"
+  assignedVersion?: string;      // optional form label
+  rwQuestionCount: number;       // default 54
+  mathQuestionCount: number;     // default 44
+  externalLink?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SatCategoryScore {
+  correct?: number;
+  total?: number;
+  bars?: number;
+  maxBars?: number;
+}
+
+export interface SatCategoryBreakdown {
+  format: "bars" | "correct_total";
+  rw: {
+    craftAndStructure?: SatCategoryScore;
+    informationAndIdeas?: SatCategoryScore;
+    expressionOfIdeas?: SatCategoryScore;
+    standardEnglishConventions?: SatCategoryScore;
+  };
+  math: {
+    algebra?: SatCategoryScore;
+    advancedMath?: SatCategoryScore;
+    problemSolvingDataAnalysis?: SatCategoryScore;
+    geometryTrigonometry?: SatCategoryScore;
+  };
+}
+
+export interface SatPracticeTestSubmission {
+  id: number;
+  homeworkId: number;
+  studentId: number;
+  submittedProvider?: string;
+  submittedTestName?: string;
+  submittedVersion?: string;
+  completedDate?: string;
+  completionScope: "full" | "partial";
+  totalScore?: number;
+  rwScore?: number;
+  mathScore?: number;
+  scorePending: boolean;
+  activeMinutes?: number;
+  scoreReportUrl?: string;
+  scoreReportFilename?: string;
+  reflectionDifficultSection?: string;
+  reflectionRanOutOfTime?: string;
+  reflectionTroubleTopics?: string;
+  reflectionReviewRequests?: string;
+  categoryBreakdown?: SatCategoryBreakdown;
+  categoryScoreFormat: "bars" | "correct_total";
+  isDraft: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SatPracticeTestAnswer {
+  id: number;
+  submissionId: number;
+  section: "rw" | "math";
+  questionNumber: number;
+  responseType: "choice" | "numeric" | "skipped";
+  selectedChoice?: "A" | "B" | "C" | "D";
+  numericResponse?: string;
+  createdAt: string;
+  updatedAt: string;
+}

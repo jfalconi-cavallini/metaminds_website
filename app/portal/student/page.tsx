@@ -22,9 +22,12 @@ import {
   fetchVocabularyConfig, fetchVocabularySubmissions,
   upsertVocabularySubmissions, markHomeworkSubmitted,
   fetchPracticeTestResults,
+  fetchSatPracticeTestConfig, fetchSatPracticeTestSubmission,
+  upsertSatPracticeTestSubmission, fetchSatPracticeTestAnswers,
+  upsertSatPracticeTestAnswer,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatCategoryBreakdown } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -229,6 +232,31 @@ export default function StudentPortal() {
   const [vocabInputs,   setVocabInputs]   = useState<Record<number, { definition: string; sentence: string; confidence: string }[]>>({});
   const [vocabSavingId, setVocabSavingId] = useState<number | null>(null);
   const [vocabErrors,   setVocabErrors]   = useState<Record<number, string>>({});
+
+  // SAT Practice Test submission
+  const [satPtConfigs,   setSatPtConfigs]   = useState<Record<number, SatPracticeTestConfig | null>>({});
+  const [satPtSubs,      setSatPtSubs]      = useState<Record<number, SatPracticeTestSubmission | null>>({});
+  const [satPtAnswerMap, setSatPtAnswerMap] = useState<Record<number, Record<string, { responseType: "choice"|"numeric"|"skipped"; choice?: string; numeric?: string }>>>({});
+  const [satPtLoading,   setSatPtLoading]   = useState<Record<number, boolean>>({});
+  const [satPtSaving,    setSatPtSaving]    = useState<Record<number, boolean>>({});
+  const [satPtError,     setSatPtError]     = useState<Record<number, string>>({});
+  const [satPtSection,   setSatPtSection]   = useState<Record<number, number>>({});  // 0=details,1=scores,2=answers,3=categories,4=reflection
+  const [satPtDraft,     setSatPtDraft]     = useState<Record<number, {
+    submittedProvider: string; submittedTestName: string; submittedVersion: string;
+    completedDate: string; completionScope: "full" | "partial";
+    totalScore: string; rwScore: string; mathScore: string; scorePending: boolean;
+    activeMinutes: string;
+    reflectionDifficultSection: string; reflectionRanOutOfTime: string;
+    reflectionTroubleTopics: string; reflectionReviewRequests: string;
+    categoryScoreFormat: "bars" | "correct_total";
+    rwCraftStructure: string; rwInfoIdeas: string; rwExprIdeas: string; rwStdEng: string;
+    rwCraftStructureTotal: string; rwInfoIdeasTotal: string; rwExprIdeasTotal: string; rwStdEngTotal: string;
+    mathAlgebra: string; mathAdvMath: string; mathPsda: string; mathGeoTrig: string;
+    mathAlgebraTotal: string; mathAdvMathTotal: string; mathPsdaTotal: string; mathGeoTrigTotal: string;
+  }>>({});
+  const [satPtScoreReportFile,      setSatPtScoreReportFile]      = useState<Record<number, File>>({});
+  const [satPtScoreReportUploading, setSatPtScoreReportUploading] = useState<Record<number, boolean>>({});
+
   const [notesSearch,       setNotesSearch]       = useState("");
   const [selectedNoteId,    setSelectedNoteId]    = useState<number | null>(null);
   const [selectedUpdateId,  setSelectedUpdateId]  = useState<number | null>(null);
@@ -554,6 +582,263 @@ export default function StudentPortal() {
       setVocabErrors((prev) => ({ ...prev, [hwId]: "Failed to save submission. Please try again." }));
     } finally {
       setVocabSavingId(null);
+    }
+  }
+
+  async function loadSatPracticeTest(hw: Homework) {
+    if (satPtConfigs[hw.id] !== undefined) return;
+    const studentId = ctx.effectiveStudentId;
+    if (!studentId) return;
+    setSatPtLoading((prev) => ({ ...prev, [hw.id]: true }));
+    try {
+      const [config, existingSub] = await Promise.all([
+        fetchSatPracticeTestConfig(hw.id),
+        fetchSatPracticeTestSubmission(hw.id, studentId),
+      ]);
+      setSatPtConfigs((prev) => ({ ...prev, [hw.id]: config }));
+
+      let sub = existingSub;
+      if (!sub && ctx.canSubmitHomework) {
+        sub = await upsertSatPracticeTestSubmission({ homeworkId: hw.id, studentId, isDraft: true });
+      }
+      setSatPtSubs((prev) => ({ ...prev, [hw.id]: sub }));
+
+      const answers = sub ? await fetchSatPracticeTestAnswers(sub.id) : [];
+      const amap: Record<string, { responseType: "choice"|"numeric"|"skipped"; choice?: string; numeric?: string }> = {};
+      for (const a of answers) {
+        amap[`${a.section}_${a.questionNumber}`] = {
+          responseType: a.responseType,
+          choice: a.selectedChoice,
+          numeric: a.numericResponse,
+        };
+      }
+      setSatPtAnswerMap((prev) => ({ ...prev, [hw.id]: amap }));
+
+      setSatPtDraft((prev) => ({
+        ...prev,
+        [hw.id]: {
+          submittedProvider:  sub?.submittedProvider  ?? config?.provider ?? "bluebook",
+          submittedTestName:  sub?.submittedTestName  ?? config?.assignedTestName ?? "",
+          submittedVersion:   sub?.submittedVersion   ?? config?.assignedVersion  ?? "",
+          completedDate:      sub?.completedDate      ?? "",
+          completionScope:    sub?.completionScope    ?? "full",
+          totalScore:         sub?.totalScore?.toString() ?? "",
+          rwScore:            sub?.rwScore?.toString()    ?? "",
+          mathScore:          sub?.mathScore?.toString()  ?? "",
+          scorePending:       sub?.scorePending       ?? false,
+          activeMinutes:      sub?.activeMinutes?.toString() ?? "",
+          reflectionDifficultSection: sub?.reflectionDifficultSection ?? "",
+          reflectionRanOutOfTime:     sub?.reflectionRanOutOfTime     ?? "",
+          reflectionTroubleTopics:    sub?.reflectionTroubleTopics    ?? "",
+          reflectionReviewRequests:   sub?.reflectionReviewRequests   ?? "",
+          categoryScoreFormat: sub?.categoryScoreFormat ?? "correct_total",
+          rwCraftStructure:      sub?.categoryBreakdown?.rw.craftAndStructure?.correct?.toString()         ?? "",
+          rwInfoIdeas:           sub?.categoryBreakdown?.rw.informationAndIdeas?.correct?.toString()       ?? "",
+          rwExprIdeas:           sub?.categoryBreakdown?.rw.expressionOfIdeas?.correct?.toString()         ?? "",
+          rwStdEng:              sub?.categoryBreakdown?.rw.standardEnglishConventions?.correct?.toString() ?? "",
+          rwCraftStructureTotal: sub?.categoryBreakdown?.rw.craftAndStructure?.total?.toString()            ?? "",
+          rwInfoIdeasTotal:      sub?.categoryBreakdown?.rw.informationAndIdeas?.total?.toString()          ?? "",
+          rwExprIdeasTotal:      sub?.categoryBreakdown?.rw.expressionOfIdeas?.total?.toString()            ?? "",
+          rwStdEngTotal:         sub?.categoryBreakdown?.rw.standardEnglishConventions?.total?.toString()   ?? "",
+          mathAlgebra:      sub?.categoryBreakdown?.math.algebra?.correct?.toString()                    ?? "",
+          mathAdvMath:      sub?.categoryBreakdown?.math.advancedMath?.correct?.toString()               ?? "",
+          mathPsda:         sub?.categoryBreakdown?.math.problemSolvingDataAnalysis?.correct?.toString() ?? "",
+          mathGeoTrig:      sub?.categoryBreakdown?.math.geometryTrigonometry?.correct?.toString()       ?? "",
+          mathAlgebraTotal: sub?.categoryBreakdown?.math.algebra?.total?.toString()                      ?? "",
+          mathAdvMathTotal: sub?.categoryBreakdown?.math.advancedMath?.total?.toString()                 ?? "",
+          mathPsdaTotal:    sub?.categoryBreakdown?.math.problemSolvingDataAnalysis?.total?.toString()   ?? "",
+          mathGeoTrigTotal: sub?.categoryBreakdown?.math.geometryTrigonometry?.total?.toString()         ?? "",
+        },
+      }));
+    } catch {
+      setSatPtConfigs((prev) => ({ ...prev, [hw.id]: null }));
+      setSatPtError((prev) => ({ ...prev, [hw.id]: "Failed to load practice test form." }));
+    } finally {
+      setSatPtLoading((prev) => ({ ...prev, [hw.id]: false }));
+    }
+  }
+
+  async function selectSatAnswer(hwId: number, section: "rw"|"math", num: number, responseType: "choice"|"numeric"|"skipped", choice?: string) {
+    if (!ctx.canSubmitHomework) return;
+    const key = `${section}_${num}`;
+    setSatPtAnswerMap((prev) => ({
+      ...prev,
+      [hwId]: { ...(prev[hwId] ?? {}), [key]: { responseType, choice, numeric: undefined } },
+    }));
+    const sub = satPtSubs[hwId];
+    if (!sub) return;
+    try {
+      await upsertSatPracticeTestAnswer({
+        submissionId: sub.id, section, questionNumber: num, responseType,
+        selectedChoice: responseType === "choice" ? choice as "A"|"B"|"C"|"D" : undefined,
+      });
+    } catch { /* silent — local state is still correct */ }
+  }
+
+  function setSatNumericAnswerLocal(hwId: number, num: number, value: string) {
+    const key = `math_${num}`;
+    setSatPtAnswerMap((prev) => ({
+      ...prev,
+      [hwId]: { ...(prev[hwId] ?? {}), [key]: { responseType: "numeric", numeric: value } },
+    }));
+  }
+
+  async function saveSatNumericAnswer(hwId: number, num: number) {
+    if (!ctx.canSubmitHomework) return;
+    const sub = satPtSubs[hwId];
+    if (!sub) return;
+    const cell = satPtAnswerMap[hwId]?.[`math_${num}`];
+    if (!cell || cell.responseType !== "numeric") return;
+    try {
+      await upsertSatPracticeTestAnswer({
+        submissionId: sub.id, section: "math", questionNumber: num,
+        responseType: "numeric", numericResponse: cell.numeric ?? "",
+      });
+    } catch { /* silent */ }
+  }
+
+  async function saveSatDraft(hwId: number) {
+    if (!ctx.canSubmitHomework) return;
+    const studentId = ctx.effectiveStudentId;
+    if (!studentId) return;
+    const d = satPtDraft[hwId];
+    if (!d) return;
+    setSatPtSaving((prev) => ({ ...prev, [hwId]: true }));
+    setSatPtError((prev) => ({ ...prev, [hwId]: "" }));
+    try {
+      const bd: SatCategoryBreakdown = {
+        format: d.categoryScoreFormat,
+        rw: {
+          craftAndStructure:         d.rwCraftStructure ? { correct: +d.rwCraftStructure, total: +d.rwCraftStructureTotal || undefined } : undefined,
+          informationAndIdeas:        d.rwInfoIdeas      ? { correct: +d.rwInfoIdeas,      total: +d.rwInfoIdeasTotal      || undefined } : undefined,
+          expressionOfIdeas:          d.rwExprIdeas      ? { correct: +d.rwExprIdeas,      total: +d.rwExprIdeasTotal      || undefined } : undefined,
+          standardEnglishConventions: d.rwStdEng         ? { correct: +d.rwStdEng,         total: +d.rwStdEngTotal         || undefined } : undefined,
+        },
+        math: {
+          algebra:                    d.mathAlgebra  ? { correct: +d.mathAlgebra,  total: +d.mathAlgebraTotal  || undefined } : undefined,
+          advancedMath:               d.mathAdvMath  ? { correct: +d.mathAdvMath,  total: +d.mathAdvMathTotal  || undefined } : undefined,
+          problemSolvingDataAnalysis: d.mathPsda     ? { correct: +d.mathPsda,     total: +d.mathPsdaTotal     || undefined } : undefined,
+          geometryTrigonometry:       d.mathGeoTrig  ? { correct: +d.mathGeoTrig,  total: +d.mathGeoTrigTotal  || undefined } : undefined,
+        },
+      };
+      const hasBd = Object.values(bd.rw).some((v) => v != null) || Object.values(bd.math).some((v) => v != null);
+
+      const sub = await upsertSatPracticeTestSubmission({
+        homeworkId: hwId, studentId, isDraft: true,
+        submittedProvider: d.submittedProvider || undefined,
+        submittedTestName: d.submittedTestName || undefined,
+        submittedVersion:  d.submittedVersion  || undefined,
+        completedDate:     d.completedDate     || undefined,
+        completionScope:   d.completionScope,
+        totalScore:        !d.scorePending && d.totalScore ? +d.totalScore : null,
+        rwScore:           !d.scorePending && d.rwScore    ? +d.rwScore    : null,
+        mathScore:         !d.scorePending && d.mathScore  ? +d.mathScore  : null,
+        scorePending:      d.scorePending,
+        activeMinutes:     d.activeMinutes ? +d.activeMinutes : null,
+        reflectionDifficultSection: d.reflectionDifficultSection || undefined,
+        reflectionRanOutOfTime:     d.reflectionRanOutOfTime     || undefined,
+        reflectionTroubleTopics:    d.reflectionTroubleTopics    || undefined,
+        reflectionReviewRequests:   d.reflectionReviewRequests   || undefined,
+        categoryBreakdown:   hasBd ? bd : null,
+        categoryScoreFormat: d.categoryScoreFormat,
+      });
+      setSatPtSubs((prev) => ({ ...prev, [hwId]: sub }));
+    } catch {
+      setSatPtError((prev) => ({ ...prev, [hwId]: "Failed to save draft. Please try again." }));
+    } finally {
+      setSatPtSaving((prev) => ({ ...prev, [hwId]: false }));
+    }
+  }
+
+  async function submitSatPracticeTest(hwId: number) {
+    if (!ctx.canSubmitHomework) return;
+    const studentId = ctx.effectiveStudentId;
+    if (!studentId) return;
+    const d      = satPtDraft[hwId];
+    const config = satPtConfigs[hwId];
+    const sub    = satPtSubs[hwId];
+    if (!d || !config || !sub) return;
+
+    // Validate: check all questions answered or skipped
+    const amap  = satPtAnswerMap[hwId] ?? {};
+    const totalQ = config.rwQuestionCount + config.mathQuestionCount;
+    const answeredQ = (["rw", "math"] as const).reduce((acc, sec) => {
+      const count = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
+      for (let i = 1; i <= count; i++) { if (amap[`${sec}_${i}`]) acc++; }
+      return acc;
+    }, 0);
+
+    if (answeredQ < totalQ) {
+      setSatPtError((prev) => ({ ...prev, [hwId]: `${totalQ - answeredQ} question(s) still need an answer or must be marked as skipped before submitting.` }));
+      return;
+    }
+
+    // Validate scores
+    if (!d.scorePending) {
+      const ts = d.totalScore ? +d.totalScore : null;
+      const rw = d.rwScore    ? +d.rwScore    : null;
+      const mt = d.mathScore  ? +d.mathScore  : null;
+      if (ts != null && (ts < 400 || ts > 1600)) {
+        setSatPtError((prev) => ({ ...prev, [hwId]: "Total score must be between 400 and 1600." })); return;
+      }
+      if (rw != null && (rw < 200 || rw > 800)) {
+        setSatPtError((prev) => ({ ...prev, [hwId]: "R&W score must be between 200 and 800." })); return;
+      }
+      if (mt != null && (mt < 200 || mt > 800)) {
+        setSatPtError((prev) => ({ ...prev, [hwId]: "Math score must be between 200 and 800." })); return;
+      }
+      if (ts != null && rw != null && mt != null && ts !== rw + mt) {
+        setSatPtError((prev) => ({ ...prev, [hwId]: `Total score (${ts}) must equal R&W (${rw}) + Math (${mt}) = ${rw + mt}.` })); return;
+      }
+    }
+
+    if (!d.reflectionRanOutOfTime) {
+      setSatPtError((prev) => ({ ...prev, [hwId]: "Please answer the timing question in the Reflection section before submitting." })); return;
+    }
+
+    setSatPtSaving((prev) => ({ ...prev, [hwId]: true }));
+    setSatPtError((prev) => ({ ...prev, [hwId]: "" }));
+    try {
+      // Upload score report if selected
+      let scoreReportUrl: string | undefined;
+      let scoreReportFilename: string | undefined;
+      const reportFile = satPtScoreReportFile[hwId];
+      if (reportFile) {
+        setSatPtScoreReportUploading((prev) => ({ ...prev, [hwId]: true }));
+        const { data: { session } } = await supabase.auth.getSession();
+        const form = new FormData();
+        form.append("file", reportFile);
+        form.append("studentId", String(studentId));
+        const res = await fetch("/api/practice-test/upload-score-report", {
+          method: "POST",
+          headers: session ? { authorization: `Bearer ${session.access_token}` } : {},
+          body: form,
+        });
+        if (!res.ok) throw new Error("Score report upload failed");
+        const json = await res.json() as { url: string; filename: string };
+        scoreReportUrl = json.url;
+        scoreReportFilename = json.filename;
+        setSatPtScoreReportUploading((prev) => ({ ...prev, [hwId]: false }));
+      }
+
+      // Save draft fields first
+      await saveSatDraft(hwId);
+      // Then finalize submission
+      const finalSub = await upsertSatPracticeTestSubmission({
+        homeworkId: hwId, studentId, isDraft: false,
+        scoreReportUrl:      scoreReportUrl      ?? sub.scoreReportUrl,
+        scoreReportFilename: scoreReportFilename ?? sub.scoreReportFilename,
+      });
+      setSatPtSubs((prev) => ({ ...prev, [hwId]: finalSub }));
+
+      // Mark homework as submitted
+      const updated = await markHomeworkSubmitted(hwId, d.activeMinutes ? +d.activeMinutes : undefined);
+      setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
+    } catch (e: unknown) {
+      setSatPtError((prev) => ({ ...prev, [hwId]: e instanceof Error ? e.message : "Submission failed. Please try again." }));
+    } finally {
+      setSatPtSaving((prev) => ({ ...prev, [hwId]: false }));
+      setSatPtScoreReportUploading((prev) => ({ ...prev, [hwId]: false }));
     }
   }
 
@@ -2457,6 +2742,490 @@ export default function StudentPortal() {
           const currentNote = hwNoteInputs[h.id] ?? (h.studentNote ?? "");
           const diffLabels: Record<string, string> = { easy: "Easy", appropriate: "Appropriate", difficult: "Difficult" };
 
+          // ── SAT Practice Test assignment: custom form ──────────────
+          if (h.assignmentType === "sat_practice_test") {
+            const config    = satPtConfigs[h.id];
+            const sub       = satPtSubs[h.id];
+            const amap      = satPtAnswerMap[h.id] ?? {};
+            const d         = satPtDraft[h.id];
+            const loading   = !!satPtLoading[h.id];
+            const saving    = !!satPtSaving[h.id];
+            const err       = satPtError[h.id] ?? "";
+            const section   = satPtSection[h.id] ?? 0;
+            const isReadOnly = !ctx.canSubmitHomework || !!(sub && !sub.isDraft && h.status === "submitted");
+
+            const totalQ = config ? config.rwQuestionCount + config.mathQuestionCount : 0;
+            const getAnswered = (sec: "rw"|"math") => {
+              const count = config ? (sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount) : 0;
+              let n = 0;
+              for (let i = 1; i <= count; i++) { if (amap[`${sec}_${i}`]) n++; }
+              return n;
+            };
+            const totalAnswered = getAnswered("rw") + getAnswered("math");
+
+            const SECTIONS = ["Test Details", "Scores", "Answers", "Categories", "Reflection"];
+
+            const renderAnswerRow = (sec: "rw"|"math", num: number) => {
+              const key    = `${sec}_${num}`;
+              const cell   = amap[key];
+              const isChosen = (c: string) => cell?.responseType === "choice" && cell.choice === c;
+              const isSkip   = cell?.responseType === "skipped";
+              const isNum    = cell?.responseType === "numeric";
+              return (
+                <div key={`${sec}-${num}`} className="flex items-center gap-1 py-1 border-b border-gray-50">
+                  <span className="text-[11px] text-gray-400 w-5 text-right shrink-0 font-mono">{num}</span>
+                  {(["A","B","C","D"] as const).map((c) => (
+                    <button key={c} disabled={isReadOnly}
+                      onClick={() => void selectSatAnswer(h.id, sec, num, "choice", c)}
+                      className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors shrink-0
+                        ${isChosen(c)
+                          ? "bg-blue-600 text-white"
+                          : "bg-gray-100 text-gray-500 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-default"
+                        }`}
+                    >{c}</button>
+                  ))}
+                  {sec === "math" && (
+                    isNum ? (
+                      <input
+                        type="text" disabled={isReadOnly}
+                        value={cell?.numeric ?? ""}
+                        onChange={(e) => setSatNumericAnswerLocal(h.id, num, e.target.value)}
+                        onBlur={() => void saveSatNumericAnswer(h.id, num)}
+                        className="w-14 text-[11px] border border-blue-300 rounded-lg px-1.5 py-1 bg-blue-50 focus:outline-none font-mono"
+                        placeholder="e.g. 3/4"
+                      />
+                    ) : (
+                      <button disabled={isReadOnly}
+                        onClick={() => void selectSatAnswer(h.id, sec, num, "numeric")}
+                        className="text-[10px] px-1.5 h-7 rounded-lg bg-gray-100 text-gray-500 hover:bg-violet-50 hover:text-violet-700 font-semibold shrink-0 disabled:cursor-default">
+                        SPR
+                      </button>
+                    )
+                  )}
+                  <button disabled={isReadOnly}
+                    onClick={() => void selectSatAnswer(h.id, sec, num, "skipped")}
+                    className={`text-[10px] px-1.5 h-7 rounded-lg font-semibold shrink-0 transition-colors disabled:cursor-default
+                      ${isSkip ? "bg-amber-100 text-amber-700" : "bg-gray-50 text-gray-300 hover:bg-amber-50 hover:text-amber-600"}`}>
+                    —
+                  </button>
+                </div>
+              );
+            };
+
+            if (loading) return (
+              <div className="px-5 py-6 bg-gray-50 border-t border-gray-100">
+                <p className="text-sm text-gray-400 text-center">Loading practice test form…</p>
+              </div>
+            );
+
+            if (!config) return (
+              <div className="px-5 py-6 bg-gray-50 border-t border-gray-100">
+                <p className="text-sm text-gray-400 text-center">Practice test configuration not found. Contact your tutor.</p>
+              </div>
+            );
+
+            const PROVIDER_LABELS: Record<string, string> = {
+              bluebook: "Bluebook", college_board_pdf: "College Board PDF",
+              metaminds: "MetaMinds", act: "ACT", other: "Other",
+            };
+
+            return (
+              <div className="px-5 py-5 bg-blue-50/30 border-t border-gray-100">
+                <div className="max-w-3xl mx-auto">
+                  {/* Header */}
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest">SAT Practice Test</p>
+                      <p className="text-sm font-semibold text-gray-800">{config.assignedTestName ?? "Practice Test"} · {PROVIDER_LABELS[config.provider] ?? config.provider}</p>
+                      {config.assignedVersion && <p className="text-xs text-gray-500">{config.assignedVersion}</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500">{totalAnswered} / {totalQ} answered</p>
+                      <div className="w-32 bg-gray-200 rounded-full h-1.5 mt-1">
+                        <div className="bg-blue-500 h-1.5 rounded-full transition-all" style={{ width: totalQ > 0 ? `${Math.round((totalAnswered / totalQ) * 100)}%` : "0%" }} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Section tabs */}
+                  <div className="flex gap-1 mb-5 overflow-x-auto pb-1">
+                    {SECTIONS.map((s, i) => (
+                      <button key={s}
+                        onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: i }))}
+                        className={`text-xs font-semibold px-3 py-1.5 rounded-xl whitespace-nowrap transition-colors shrink-0
+                          ${section === i ? "bg-blue-600 text-white" : "bg-white text-gray-500 hover:bg-blue-50 border border-gray-200"}`}>
+                        {i + 1}. {s}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Section 0: Test Details */}
+                  {section === 0 && d && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Which test did you complete?</p>
+
+                      {config.assignedTestName && sub && d.submittedTestName !== config.assignedTestName && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                          ⚠ Your test differs from the assigned test ({config.assignedTestName}). Please confirm this is correct before submitting.
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Test Source</label>
+                          <select disabled={isReadOnly} value={d.submittedProvider}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, submittedProvider: e.target.value } }))}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50">
+                            <option value="bluebook">College Board Bluebook</option>
+                            <option value="college_board_pdf">College Board PDF</option>
+                            <option value="metaminds">MetaMinds</option>
+                            <option value="act">ACT</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Test Name / Number</label>
+                          <input type="text" disabled={isReadOnly} value={d.submittedTestName}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, submittedTestName: e.target.value } }))}
+                            placeholder="SAT Practice Test 3"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Version / Form <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                          <input type="text" disabled={isReadOnly} value={d.submittedVersion}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, submittedVersion: e.target.value } }))}
+                            placeholder="Form 1"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Date Completed</label>
+                          <input type="date" disabled={isReadOnly} value={d.completedDate}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, completedDate: e.target.value } }))}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Total Time <span className="font-normal text-gray-400 normal-case tracking-normal">(minutes)</span></label>
+                          <input type="number" disabled={isReadOnly} value={d.activeMinutes}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, activeMinutes: e.target.value } }))}
+                            min="1" max="500" placeholder="140"
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Full or Partial Test?</label>
+                        <div className="flex gap-2">
+                          {(["full", "partial"] as const).map((s) => (
+                            <button key={s} disabled={isReadOnly}
+                              onClick={() => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, completionScope: s } }))}
+                              className={`px-4 py-2 rounded-xl text-sm font-semibold border transition-colors disabled:cursor-default
+                                ${d.completionScope === s ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}>
+                              {s === "full" ? "Full Test" : "Partial Test"}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {config.externalLink && (
+                        <a href={config.externalLink} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:text-blue-700 font-semibold">
+                          Open Test ↗
+                        </a>
+                      )}
+
+                      {!isReadOnly && (
+                        <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 1 }))}
+                          className="w-full bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors mt-2">
+                          Next: Scores →
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 1: Scores */}
+                  {section === 1 && d && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 2 — Scores</p>
+
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" disabled={isReadOnly} checked={d.scorePending}
+                          onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, scorePending: e.target.checked } }))}
+                          className="w-4 h-4 rounded accent-blue-600" />
+                        <span className="text-sm text-gray-700 font-medium">Score not available yet (Bluebook results pending)</span>
+                      </label>
+
+                      {!d.scorePending && (
+                        <div className="grid grid-cols-3 gap-4">
+                          {([
+                            { label: "Total Score", key: "totalScore" as const, placeholder: "1200", min: 400, max: 1600 },
+                            { label: "R&W Score",   key: "rwScore"    as const, placeholder: "620",  min: 200, max: 800  },
+                            { label: "Math Score",  key: "mathScore"  as const, placeholder: "580",  min: 200, max: 800  },
+                          ]).map(({ label, key, placeholder, min, max }) => (
+                            <div key={key}>
+                              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">{label}</label>
+                              <input type="number" disabled={isReadOnly}
+                                value={d[key]}
+                                onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [key]: e.target.value } }))}
+                                min={min} max={max} placeholder={placeholder}
+                                className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {!d.scorePending && d.totalScore && d.rwScore && d.mathScore &&
+                       (+d.totalScore !== +d.rwScore + +d.mathScore) && (
+                        <p className="text-xs text-amber-600 font-semibold">
+                          ⚠ Total score ({d.totalScore}) should equal R&amp;W ({d.rwScore}) + Math ({d.mathScore}) = {+d.rwScore + +d.mathScore}
+                        </p>
+                      )}
+
+                      <div>
+                        <p className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Score Report Upload <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></p>
+                        {!isReadOnly && (
+                          <input type="file" accept=".pdf,.png,.jpg,.jpeg,.webp"
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) setSatPtScoreReportFile((prev) => ({ ...prev, [h.id]: f })); }}
+                            className="text-sm text-gray-600 file:mr-3 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 file:border file:border-blue-200 file:rounded-lg file:px-3 file:py-1.5 file:cursor-pointer hover:file:bg-blue-100" />
+                        )}
+                        {satPtScoreReportFile[h.id] && <p className="text-xs text-gray-500 mt-1">{satPtScoreReportFile[h.id].name}</p>}
+                        {sub?.scoreReportUrl && (
+                          <a href={sub.scoreReportUrl} target="_blank" rel="noopener noreferrer"
+                            className="text-sm text-blue-600 hover:text-blue-700 underline block mt-1">
+                            {sub.scoreReportFilename ?? "View uploaded score report"}
+                          </a>
+                        )}
+                      </div>
+
+                      {!isReadOnly && (
+                        <div className="flex gap-2 mt-2">
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 0 }))}
+                            className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
+                            ← Back
+                          </button>
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 2 }))}
+                            className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
+                            Next: Answers →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 2: Answers */}
+                  {section === 2 && config && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 3 — Answer Entry</p>
+                        <span className="text-xs font-semibold text-blue-600">{totalAnswered} / {totalQ}</span>
+                      </div>
+
+                      {!isReadOnly && totalAnswered < totalQ && (
+                        <button
+                          onClick={() => {
+                            const curSub = satPtSubs[h.id];
+                            if (!curSub) return;
+                            const newMap = { ...(satPtAnswerMap[h.id] ?? {}) };
+                            const updates: Promise<unknown>[] = [];
+                            for (const sec of ["rw", "math"] as const) {
+                              const count = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
+                              for (let i = 1; i <= count; i++) {
+                                const k = `${sec}_${i}`;
+                                if (!newMap[k]) {
+                                  newMap[k] = { responseType: "skipped" };
+                                  updates.push(upsertSatPracticeTestAnswer({ submissionId: curSub.id, section: sec, questionNumber: i, responseType: "skipped" }));
+                                }
+                              }
+                            }
+                            setSatPtAnswerMap((prev) => ({ ...prev, [h.id]: newMap }));
+                            Promise.all(updates).catch(console.error);
+                          }}
+                          className="text-xs text-gray-500 hover:text-amber-600 border border-gray-200 px-3 py-1.5 rounded-xl hover:border-amber-300 transition-colors">
+                          Mark all unanswered as Skipped
+                        </button>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        {(["rw", "math"] as const).map((sec) => {
+                          const count    = sec === "rw" ? config.rwQuestionCount : config.mathQuestionCount;
+                          const label    = sec === "rw" ? "Reading & Writing" : "Math";
+                          const answered = getAnswered(sec);
+                          return (
+                            <div key={sec}>
+                              <div className="flex items-center justify-between mb-2">
+                                <p className="text-xs font-semibold text-gray-700">{label}</p>
+                                <span className="text-[11px] text-gray-400">{answered}/{count}</span>
+                              </div>
+                              <div className="max-h-80 overflow-y-auto border border-gray-100 rounded-xl p-2">
+                                {Array.from({ length: count }, (_, i) => renderAnswerRow(sec, i + 1))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {!isReadOnly && (
+                        <div className="flex gap-2 mt-2">
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 1 }))}
+                            className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
+                            ← Back
+                          </button>
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 3 }))}
+                            className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
+                            Next: Categories →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 3: Category Breakdown */}
+                  {section === 3 && d && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 4 — Category Breakdown <span className="font-normal text-gray-500 normal-case tracking-normal">(optional)</span></p>
+
+                      <div className="flex gap-2">
+                        {(["correct_total", "bars"] as const).map((fmt) => (
+                          <button key={fmt} disabled={isReadOnly}
+                            onClick={() => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, categoryScoreFormat: fmt } }))}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors disabled:cursor-default
+                              ${d.categoryScoreFormat === fmt ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-200 hover:border-blue-300"}`}>
+                            {fmt === "correct_total" ? "Correct / Total" : "Bars (e.g. 2/7)"}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-5">
+                        {([
+                          { title: "Reading & Writing", cats: [
+                            { label: "Craft & Structure",     keyC: "rwCraftStructure" as const, keyT: "rwCraftStructureTotal" as const },
+                            { label: "Information & Ideas",   keyC: "rwInfoIdeas"      as const, keyT: "rwInfoIdeasTotal"      as const },
+                            { label: "Expression of Ideas",   keyC: "rwExprIdeas"      as const, keyT: "rwExprIdeasTotal"      as const },
+                            { label: "Standard English",      keyC: "rwStdEng"         as const, keyT: "rwStdEngTotal"         as const },
+                          ]},
+                          { title: "Math", cats: [
+                            { label: "Algebra",                keyC: "mathAlgebra"  as const, keyT: "mathAlgebraTotal"  as const },
+                            { label: "Advanced Math",          keyC: "mathAdvMath"  as const, keyT: "mathAdvMathTotal"  as const },
+                            { label: "Problem Solving & Data", keyC: "mathPsda"     as const, keyT: "mathPsdaTotal"     as const },
+                            { label: "Geometry & Trig",        keyC: "mathGeoTrig"  as const, keyT: "mathGeoTrigTotal"  as const },
+                          ]},
+                        ]).map(({ title, cats }) => (
+                          <div key={title}>
+                            <p className="text-xs font-semibold text-gray-600 mb-2">{title}</p>
+                            <div className="space-y-2">
+                              {cats.map(({ label, keyC, keyT }) => (
+                                <div key={label} className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-32 shrink-0">{label}</span>
+                                  <input type="number" disabled={isReadOnly}
+                                    value={d[keyC]}
+                                    onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [keyC]: e.target.value } }))}
+                                    placeholder="11" min="0" max="100"
+                                    className="w-14 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 text-center" />
+                                  <span className="text-xs text-gray-400">/</span>
+                                  <input type="number" disabled={isReadOnly}
+                                    value={d[keyT]}
+                                    onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [keyT]: e.target.value } }))}
+                                    placeholder="15" min="0" max="100"
+                                    className="w-14 rounded-lg border border-gray-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50 text-center" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      {!isReadOnly && (
+                        <div className="flex gap-2 mt-2">
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 2 }))}
+                            className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
+                            ← Back
+                          </button>
+                          <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 4 }))}
+                            className="flex-1 bg-blue-600 text-white rounded-xl py-2.5 text-sm font-semibold hover:bg-blue-700 transition-colors">
+                            Next: Reflection →
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Section 4: Reflection */}
+                  {section === 4 && d && (
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Section 5 — Reflection</p>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">
+                          Did you run out of time? Where? <span className="text-red-400">*</span>
+                        </label>
+                        <input type="text" disabled={isReadOnly} value={d.reflectionRanOutOfTime}
+                          onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, reflectionRanOutOfTime: e.target.value } }))}
+                          placeholder="e.g. Yes — ran out of time on Math Module 2"
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                      </div>
+
+                      {([
+                        { label: "Which section felt most difficult?",               key: "reflectionDifficultSection" as const, placeholder: "e.g. Reading & Writing, specifically Craft & Structure" },
+                        { label: "Which topics caused the most trouble?",            key: "reflectionTroubleTopics"    as const, placeholder: "e.g. Systems of equations, sentence boundaries" },
+                        { label: "What would you like to review with your tutor?",   key: "reflectionReviewRequests"   as const, placeholder: "e.g. Linear equations word problems" },
+                      ]).map(({ label, key, placeholder }) => (
+                        <div key={key}>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">{label} <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
+                          <textarea disabled={isReadOnly} rows={2}
+                            value={d[key]}
+                            onChange={(e) => setSatPtDraft((prev) => ({ ...prev, [h.id]: { ...prev[h.id]!, [key]: e.target.value } }))}
+                            placeholder={placeholder}
+                            className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50" />
+                        </div>
+                      ))}
+
+                      {!isReadOnly && (
+                        <div className="space-y-3 mt-2">
+                          {err && <p className="text-sm text-red-600 font-semibold">{err}</p>}
+
+                          <div className="flex gap-2">
+                            <button onClick={() => setSatPtSection((prev) => ({ ...prev, [h.id]: 3 }))}
+                              className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors">
+                              ← Back
+                            </button>
+                            <button disabled={saving} onClick={() => void saveSatDraft(h.id)}
+                              className="flex-1 bg-gray-100 text-gray-700 rounded-xl py-2.5 text-sm font-semibold hover:bg-gray-200 transition-colors disabled:opacity-50">
+                              {saving ? "Saving…" : "Save Progress"}
+                            </button>
+                          </div>
+
+                          <button disabled={saving || !!satPtScoreReportUploading[h.id]}
+                            onClick={() => void submitSatPracticeTest(h.id)}
+                            className="w-full bg-emerald-600 text-white rounded-xl py-3 text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-50">
+                            {saving ? "Submitting…" : `Submit Practice Test (${totalQ - totalAnswered > 0 ? `${totalQ - totalAnswered} unanswered` : "all answered"})`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Submitted / read-only state */}
+                  {isReadOnly && !loading && sub && !sub.isDraft && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4 mt-3">
+                      <p className="text-sm font-semibold text-emerald-700">✓ Practice test submitted. Your tutor will review it shortly.</p>
+                    </div>
+                  )}
+
+                  {isReadOnly && !loading && sub?.isDraft && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 mt-3">
+                      <p className="text-sm font-semibold text-amber-700">Draft saved. Complete and submit when ready.</p>
+                    </div>
+                  )}
+
+                  {/* Global error (non-reflection sections) */}
+                  {err && section < 4 && <p className="text-sm text-red-600 font-semibold mt-3">{err}</p>}
+                </div>
+              </div>
+            );
+          }
+
           // ── Vocabulary assignment: custom form ──────────────────────
           if (h.assignmentType === "sat_vocabulary") {
             const config  = vocabConfigs[h.id];
@@ -2839,6 +3608,11 @@ export default function StudentPortal() {
                                     Vocabulary
                                   </span>
                                 )}
+                                {h.assignmentType === "sat_practice_test" && (
+                                  <span className="inline-flex items-center text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full">
+                                    SAT Practice Test
+                                  </span>
+                                )}
                                 {h.estimatedMinutes != null && (
                                   <span className="inline-flex items-center text-[10px] font-semibold text-blue-600 bg-blue-50 border border-blue-100 px-2 py-0.5 rounded-full">
                                     Est. {h.estimatedMinutes} min
@@ -2859,6 +3633,9 @@ export default function StudentPortal() {
                               <button onClick={() => {
                                 if (h.assignmentType === "sat_vocabulary" && !hwExpandedIds.has(h.id)) {
                                   void loadVocabForHomework(h);
+                                }
+                                if (h.assignmentType === "sat_practice_test" && !hwExpandedIds.has(h.id)) {
+                                  void loadSatPracticeTest(h);
                                 }
                                 toggleExpand(h.id);
                               }}

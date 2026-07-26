@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -2278,4 +2278,205 @@ export async function deletePracticeTestResult(id: number): Promise<void> {
     .delete()
     .eq("id", id);
   if (error) throw error;
+}
+
+// ── SAT Practice Test ─────────────────────────────────────────────────────────
+
+function rowToSatPtConfig(r: Record<string, unknown>): SatPracticeTestConfig {
+  return {
+    id:                 r.id as number,
+    homeworkId:         r.homework_id as number,
+    provider:           r.provider as string,
+    assignedTestName:   (r.assigned_test_name  as string | null) ?? undefined,
+    assignedVersion:    (r.assigned_version    as string | null) ?? undefined,
+    rwQuestionCount:    r.rw_question_count    as number,
+    mathQuestionCount:  r.math_question_count  as number,
+    externalLink:       (r.external_link       as string | null) ?? undefined,
+    createdAt:          r.created_at as string,
+    updatedAt:          r.updated_at as string,
+  };
+}
+
+function rowToSatPtSubmission(r: Record<string, unknown>): SatPracticeTestSubmission {
+  return {
+    id:                          r.id as number,
+    homeworkId:                  r.homework_id as number,
+    studentId:                   r.student_id as number,
+    submittedProvider:           (r.submitted_provider           as string | null) ?? undefined,
+    submittedTestName:           (r.submitted_test_name          as string | null) ?? undefined,
+    submittedVersion:            (r.submitted_version            as string | null) ?? undefined,
+    completedDate:               (r.completed_date               as string | null) ?? undefined,
+    completionScope:             (r.completion_scope as "full" | "partial") ?? "full",
+    totalScore:                  (r.total_score                  as number | null) ?? undefined,
+    rwScore:                     (r.rw_score                     as number | null) ?? undefined,
+    mathScore:                   (r.math_score                   as number | null) ?? undefined,
+    scorePending:                r.score_pending as boolean,
+    activeMinutes:               (r.active_minutes               as number | null) ?? undefined,
+    scoreReportUrl:              (r.score_report_url             as string | null) ?? undefined,
+    scoreReportFilename:         (r.score_report_filename        as string | null) ?? undefined,
+    reflectionDifficultSection:  (r.reflection_difficult_section as string | null) ?? undefined,
+    reflectionRanOutOfTime:      (r.reflection_ran_out_of_time   as string | null) ?? undefined,
+    reflectionTroubleTopics:     (r.reflection_trouble_topics    as string | null) ?? undefined,
+    reflectionReviewRequests:    (r.reflection_review_requests   as string | null) ?? undefined,
+    categoryBreakdown:           (r.category_breakdown as SatCategoryBreakdown | null) ?? undefined,
+    categoryScoreFormat:         (r.category_score_format as "bars" | "correct_total") ?? "correct_total",
+    isDraft:                     r.is_draft as boolean,
+    createdAt:                   r.created_at as string,
+    updatedAt:                   r.updated_at as string,
+  };
+}
+
+function rowToSatPtAnswer(r: Record<string, unknown>): SatPracticeTestAnswer {
+  return {
+    id:             r.id as number,
+    submissionId:   r.submission_id as number,
+    section:        r.section as "rw" | "math",
+    questionNumber: r.question_number as number,
+    responseType:   r.response_type as "choice" | "numeric" | "skipped",
+    selectedChoice: (r.selected_choice  as "A"|"B"|"C"|"D" | null) ?? undefined,
+    numericResponse:(r.numeric_response as string | null) ?? undefined,
+    createdAt:      r.created_at as string,
+    updatedAt:      r.updated_at as string,
+  };
+}
+
+export async function fetchSatPracticeTestConfig(homeworkId: number): Promise<SatPracticeTestConfig | null> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_configs")
+    .select("*")
+    .eq("homework_id", homeworkId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToSatPtConfig(data) : null;
+}
+
+export async function upsertSatPracticeTestConfig(payload: {
+  homeworkId: number;
+  provider: string;
+  assignedTestName?: string;
+  assignedVersion?: string;
+  rwQuestionCount: number;
+  mathQuestionCount: number;
+  externalLink?: string;
+}): Promise<SatPracticeTestConfig> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_configs")
+    .upsert({
+      homework_id:          payload.homeworkId,
+      provider:             payload.provider,
+      assigned_test_name:   payload.assignedTestName  ?? null,
+      assigned_version:     payload.assignedVersion   ?? null,
+      rw_question_count:    payload.rwQuestionCount,
+      math_question_count:  payload.mathQuestionCount,
+      external_link:        payload.externalLink      ?? null,
+      updated_at:           new Date().toISOString(),
+    }, { onConflict: "homework_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToSatPtConfig(data);
+}
+
+export async function fetchSatPracticeTestSubmission(
+  homeworkId: number, studentId: number
+): Promise<SatPracticeTestSubmission | null> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_submissions")
+    .select("*")
+    .eq("homework_id", homeworkId)
+    .eq("student_id",  studentId)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? rowToSatPtSubmission(data) : null;
+}
+
+export async function upsertSatPracticeTestSubmission(payload: {
+  homeworkId: number;
+  studentId: number;
+  submittedProvider?: string;
+  submittedTestName?: string;
+  submittedVersion?: string;
+  completedDate?: string;
+  completionScope?: "full" | "partial";
+  totalScore?: number | null;
+  rwScore?: number | null;
+  mathScore?: number | null;
+  scorePending?: boolean;
+  activeMinutes?: number | null;
+  scoreReportUrl?: string | null;
+  scoreReportFilename?: string | null;
+  reflectionDifficultSection?: string;
+  reflectionRanOutOfTime?: string;
+  reflectionTroubleTopics?: string;
+  reflectionReviewRequests?: string;
+  categoryBreakdown?: SatCategoryBreakdown | null;
+  categoryScoreFormat?: "bars" | "correct_total";
+  isDraft?: boolean;
+}): Promise<SatPracticeTestSubmission> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_submissions")
+    .upsert({
+      homework_id:                  payload.homeworkId,
+      student_id:                   payload.studentId,
+      submitted_provider:           payload.submittedProvider           ?? null,
+      submitted_test_name:          payload.submittedTestName           ?? null,
+      submitted_version:            payload.submittedVersion            ?? null,
+      completed_date:               payload.completedDate               ?? null,
+      completion_scope:             payload.completionScope             ?? "full",
+      total_score:                  payload.totalScore                  ?? null,
+      rw_score:                     payload.rwScore                     ?? null,
+      math_score:                   payload.mathScore                   ?? null,
+      score_pending:                payload.scorePending                ?? false,
+      active_minutes:               payload.activeMinutes               ?? null,
+      score_report_url:             payload.scoreReportUrl              ?? null,
+      score_report_filename:        payload.scoreReportFilename         ?? null,
+      reflection_difficult_section: payload.reflectionDifficultSection  ?? null,
+      reflection_ran_out_of_time:   payload.reflectionRanOutOfTime      ?? null,
+      reflection_trouble_topics:    payload.reflectionTroubleTopics     ?? null,
+      reflection_review_requests:   payload.reflectionReviewRequests    ?? null,
+      category_breakdown:           payload.categoryBreakdown           ?? null,
+      category_score_format:        payload.categoryScoreFormat         ?? "correct_total",
+      is_draft:                     payload.isDraft                     ?? true,
+      updated_at:                   new Date().toISOString(),
+    }, { onConflict: "homework_id,student_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToSatPtSubmission(data);
+}
+
+export async function fetchSatPracticeTestAnswers(submissionId: number): Promise<SatPracticeTestAnswer[]> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_answers")
+    .select("*")
+    .eq("submission_id", submissionId)
+    .order("section")
+    .order("question_number");
+  if (error) throw error;
+  return (data ?? []).map(rowToSatPtAnswer);
+}
+
+export async function upsertSatPracticeTestAnswer(payload: {
+  submissionId: number;
+  section: "rw" | "math";
+  questionNumber: number;
+  responseType: "choice" | "numeric" | "skipped";
+  selectedChoice?: "A" | "B" | "C" | "D";
+  numericResponse?: string;
+}): Promise<SatPracticeTestAnswer> {
+  const { data, error } = await supabase
+    .from("sat_practice_test_answers")
+    .upsert({
+      submission_id:    payload.submissionId,
+      section:          payload.section,
+      question_number:  payload.questionNumber,
+      response_type:    payload.responseType,
+      selected_choice:  payload.selectedChoice   ?? null,
+      numeric_response: payload.numericResponse  ?? null,
+      updated_at:       new Date().toISOString(),
+    }, { onConflict: "submission_id,section,question_number" })
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToSatPtAnswer(data);
 }
