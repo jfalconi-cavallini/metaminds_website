@@ -46,6 +46,14 @@ import { scoreToStatus, STATUS_BADGE, STATUS_LABEL } from "@/lib/portal/planConf
 
 const CANCEL_LOCK_HOURS = 48;
 
+function noteMatchesSession(n: SessionNote, s: Session): boolean {
+  if (n.sessionId === s.id) return true;
+  if (n.noteDate === s.date) return true;
+  // Fallback: note has no explicit link — match by creation date
+  if (!n.sessionId && !n.noteDate && n.createdAt.slice(0, 10) === s.date) return true;
+  return false;
+}
+
 const ALL_NAV_ITEMS = [
   { id: "overview",  label: "Dashboard",     icon: LayoutDashboard },
   { id: "sessions",  label: "Schedule",      icon: Calendar        },
@@ -1371,6 +1379,15 @@ export default function StudentPortal() {
               onClick: (e) => { e.stopPropagation(); window.open(resolveZoomUrl(effectiveZoom), "_blank", "noopener,noreferrer"); },
             });
           }
+          const hasNotes = sessionNotes.some(
+            (n) => n.topic !== "_resource_" && noteMatchesSession(n, session),
+          );
+          if (hasNotes) {
+            acts.push({
+              label: "Session Notes",
+              onClick: (e) => { e.stopPropagation(); setPastSessionDetail(session); },
+            });
+          }
           if (hoursUntilSession(session) >= CANCEL_LOCK_HOURS) {
             acts.push({ label: "Reschedule", onClick: (e) => { e.stopPropagation(); handleReschedule(session); } });
             acts.push({ label: "Cancel", variant: "danger", onClick: (e) => { e.stopPropagation(); handleCancelSession(session); } });
@@ -1577,8 +1594,8 @@ export default function StudentPortal() {
                           <p className="text-[10px] font-medium text-gray-400 mt-0.5">{monthName}</p>
                         </div>
 
-                        {/* Main content */}
-                        <div className="flex-1 px-4 py-4 min-w-0">
+                        {/* Main content — click opens session detail */}
+                        <div className="flex-1 px-4 py-4 min-w-0 cursor-pointer" onClick={() => setPastSessionDetail(s)}>
                           <p className="font-bold text-gray-900 text-sm truncate">{s.subject}</p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <Clock className="w-3 h-3 text-gray-400 shrink-0" />
@@ -4519,10 +4536,17 @@ export default function StudentPortal() {
 
     {/* ── PAST SESSION DETAIL MODAL ── */}
     {pastSessionDetail && (() => {
-      const ps   = pastSessionDetail;
-      const notes = sessionNotes.filter((n) => n.sessionId === ps.id && n.topic !== "_resource_");
-      const links = sessionNotes.filter((n) => n.sessionId === ps.id && n.topic === "_resource_");
-      const hw    = homeworkList.filter((h) => h.assignedDate === ps.date);
+      const ps = pastSessionDetail;
+      const notes = sessionNotes.filter((n) => n.topic !== "_resource_" && noteMatchesSession(n, ps));
+      const links = sessionNotes.filter((n) => n.topic === "_resource_" && noteMatchesSession(n, ps));
+      const hw = homeworkList.filter((h) => h.assignedDate === ps.date);
+
+      const openNote = (noteId: number) => {
+        setSelectedNoteId(noteId);
+        setTab("notes");
+        setPastSessionDetail(null);
+      };
+
       return (
         <Modal onClose={() => setPastSessionDetail(null)} title="Session Details" size="xl"
           subtitle={`${formatDate(ps.date)} at ${ps.time}`}>
@@ -4545,8 +4569,34 @@ export default function StudentPortal() {
                 <div className="space-y-3">
                   {notes.map((n) => (
                     <div key={n.id} className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                      <p className="text-xs font-semibold text-blue-600 mb-1">{n.topic}</p>
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">{n.notes}</p>
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <p className="text-xs font-semibold text-blue-600">{n.topic}</p>
+                        <button
+                          onClick={() => openNote(n.id)}
+                          className="shrink-0 flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-0.5 rounded-lg transition-colors"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          View full note
+                        </button>
+                      </div>
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap line-clamp-4">{n.notes}</p>
+                      {(n.kamiLink || n.attachmentUrl) && (
+                        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200">
+                          {n.kamiLink && (
+                            <a href={n.kamiLink} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 bg-violet-50 hover:bg-violet-100 px-2.5 py-1 rounded-lg transition-colors">
+                              <ExternalLink className="w-3 h-3" />
+                              Open in Kami
+                            </a>
+                          )}
+                          {n.attachmentUrl && (
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500">
+                              <Paperclip className="w-3 h-3" />
+                              {n.attachmentFilename ?? "Attachment"}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
