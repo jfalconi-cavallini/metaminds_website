@@ -116,8 +116,9 @@ export default function StudentPortal() {
   const [selectedSkillId,    setSelectedSkillId]    = useState<number | null>(null);
   const [practiceTests,      setPracticeTests]      = useState<PracticeTestResult[]>([]);
 
-  // Data load — waits for the viewer context to resolve auth and (if admin) preview token
-  const { previewReady, effectiveStudentId, isAdminPreview, previewViewAs } = ctx;
+  // Data load — waits for the viewer context to resolve auth and (if admin/tutor) preview token
+  const { previewReady, effectiveStudentId, isAdminPreview, isTutorPreview, previewViewAs } = ctx;
+  const isAnyPreview = isAdminPreview || isTutorPreview;
   useEffect(() => {
     if (!previewReady || !effectiveStudentId) return;
     const studentId = effectiveStudentId;
@@ -126,7 +127,7 @@ export default function StudentPortal() {
       try {
         // Skip auto-complete in admin preview — admin session has broad RLS permissions
         // and would mark sessions as completed across all students
-        if (!isAdminPreview) await autoCompletePastSessions();
+        if (!isAnyPreview) await autoCompletePastSessions();
         const [s, pkg, sess] = await Promise.all([
           fetchStudentById(studentId),
           fetchPackageByStudent(studentId),
@@ -867,8 +868,8 @@ export default function StudentPortal() {
   }
 
   // Force password reset — block dashboard access until new password is set
-  // Skip entirely in admin preview: the admin's account never needs a force-reset
-  if (!ctx.isAdminPreview && user?.mustResetPassword && !forceResetDone) {
+  // Skip entirely in preview mode: the previewer's account never needs a force-reset
+  if (!isAnyPreview && user?.mustResetPassword && !forceResetDone) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8 w-full max-w-md">
@@ -930,15 +931,17 @@ export default function StudentPortal() {
   return (
     <DashboardShell role={isParent ? "parent" : "student"} userName={student.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
 
-      {/* ── ADMIN PREVIEW BANNER ── */}
-      {ctx.isAdminPreview && (
+      {/* ── PREVIEW BANNER (admin or tutor) ── */}
+      {(ctx.isAdminPreview || ctx.isTutorPreview) && (
         <div className="flex items-center justify-between gap-4 px-5 py-3 bg-amber-50 border-b-2 border-amber-200">
           <div className="flex items-center gap-3 min-w-0">
             <span className="shrink-0 text-[10px] font-bold px-2.5 py-1 bg-amber-200 text-amber-900 rounded-full uppercase tracking-widest">
               Read-only
             </span>
             <span className="text-sm font-semibold text-amber-900 truncate">
-              Admin Preview — {ctx.previewViewAs === "parent" ? "Parent" : "Student"} view for {ctx.previewStudentName}
+              {ctx.isTutorPreview
+                ? `Tutor Preview — Student view for ${ctx.previewStudentName}`
+                : `Admin Preview — ${ctx.previewViewAs === "parent" ? "Parent" : "Student"} view for ${ctx.previewStudentName}`}
             </span>
           </div>
           <button

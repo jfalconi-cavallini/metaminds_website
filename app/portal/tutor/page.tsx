@@ -206,6 +206,7 @@ export default function TutorPortal() {
 
   // ── SESSION NOTES FORM ──────────────────────────────────────────
   const [noteStudentId, setNoteStudentId] = useState("");
+  const [noteSessionId, setNoteSessionId] = useState("");
   const [noteTopic,     setNoteTopic]     = useState("");
   const [noteText,      setNoteText]      = useState("");
   const [noteKamiLink,  setNoteKamiLink]  = useState("");
@@ -315,6 +316,7 @@ export default function TutorPortal() {
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
   const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan" | "skills">("homework");
   const [tutorSkillId,        setTutorSkillId]        = useState<number | null>(null);
+  const [previewLoadingId,    setPreviewLoadingId]    = useState<number | null>(null);
 
   // Plan sub-tab
   const [panelPlanFull,         setPanelPlanFull]         = useState<StudentPlanFull | null>(null);
@@ -457,6 +459,26 @@ export default function TutorPortal() {
     .sort((a, b) => a.date.localeCompare(b.date));
 
   function getStudent(id: number) { return myStudents.find((s) => s.id === id); }
+
+  async function startStudentPreview(studentId: number) {
+    setPreviewLoadingId(studentId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/tutor/start-preview", {
+        method:  "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+        },
+        body: JSON.stringify({ studentId }),
+      });
+      const json = await res.json() as { previewUrl?: string; error?: string };
+      if (!res.ok || !json.previewUrl) throw new Error(json.error ?? "Failed to start preview");
+      router.push(json.previewUrl);
+    } catch {
+      setPreviewLoadingId(null);
+    }
+  }
 
   function timeTo24h(time: string): string {
     const m = time.match(/(\d+):(\d+)\s*(AM|PM)/i);
@@ -616,6 +638,7 @@ export default function TutorPortal() {
       const note = await insertSessionNote({
         tutorId, studentId: Number(noteStudentId),
         topic: noteTopic, notes: noteText,
+        sessionId: noteSessionId ? Number(noteSessionId) : undefined,
         kamiLink: noteKamiLink.trim() || undefined,
         noteDate: noteDate || undefined,
       });
@@ -650,7 +673,7 @@ export default function TutorPortal() {
       if (noteSkillIds.length > 0) {
         await setNoteSkillLinks(note.id, noteSkillIds, Number(noteStudentId), tutorId);
       }
-      setNoteTopic(""); setNoteText(""); setNoteKamiLink(""); setNoteDate(""); setNoteFile(null);
+      setNoteTopic(""); setNoteText(""); setNoteKamiLink(""); setNoteDate(""); setNoteSessionId(""); setNoteFile(null);
       setNoteSkillIds([]);
       setNoteSuccess(true); setTimeout(() => setNoteSuccess(false), 4000);
       return note.id;
@@ -1387,6 +1410,13 @@ export default function TutorPortal() {
                         className="text-xs text-gray-500 hover:text-blue-600 border border-gray-200 rounded-xl px-2.5 py-1.5 font-medium"
                       >
                         Profile
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); void startStudentPreview(s.id); }}
+                        disabled={previewLoadingId === s.id}
+                        className="text-xs text-violet-600 hover:text-violet-700 border border-violet-200 hover:border-violet-300 bg-violet-50 hover:bg-violet-100 rounded-xl px-2.5 py-1.5 font-medium disabled:opacity-50 transition-colors"
+                      >
+                        {previewLoadingId === s.id ? "Loading…" : "View as Student"}
                       </button>
                       <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`} />
                     </div>
@@ -2756,13 +2786,44 @@ export default function TutorPortal() {
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Student</label>
                         <select
                           value={noteStudentId}
-                          onChange={(e) => setNoteStudentId(e.target.value)}
+                          onChange={(e) => { setNoteStudentId(e.target.value); setNoteSessionId(""); setNoteDate(""); }}
                           className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                           <option value="">Select student…</option>
                           {myStudents.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                       </div>
+                      {noteStudentId && (() => {
+                        const studentSessions = localSessions
+                          .filter((s) => s.studentId === Number(noteStudentId) && s.status !== "cancelled" && s.date <= todayIso)
+                          .sort((a, b) => b.date.localeCompare(a.date))
+                          .slice(0, 12);
+                        if (studentSessions.length === 0) return null;
+                        return (
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Session</label>
+                            <select
+                              value={noteSessionId}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNoteSessionId(val);
+                                if (val) {
+                                  const sess = localSessions.find((s) => s.id === Number(val));
+                                  if (sess) setNoteDate(sess.date);
+                                }
+                              }}
+                              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">No specific session…</option>
+                              {studentSessions.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                  {formatDate(s.date)} · {s.subject} · {s.time}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        );
+                      })()}
                       <div>
                         <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-1.5">Topic</label>
                         <input
@@ -3842,8 +3903,12 @@ export default function TutorPortal() {
     {sessionDetail && (() => {
       const sd = sessionDetail;
       const sdStudent = getStudent(sd.studentId);
-      const sdNotes = sessionNotes.filter((n) => n.sessionId === sd.id && n.topic !== "_resource_");
-      const sdLinks = sessionNotes.filter((n) => n.sessionId === sd.id && n.topic === "_resource_");
+      const sdMatchesSession = (n: { sessionId: number | null; noteDate?: string; createdAt: string; topic: string }) =>
+        n.sessionId === sd.id ||
+        n.noteDate === sd.date ||
+        (!n.sessionId && !n.noteDate && n.createdAt.slice(0, 10) === sd.date);
+      const sdNotes = sessionNotes.filter((n) => n.topic !== "_resource_" && sdMatchesSession(n));
+      const sdLinks = sessionNotes.filter((n) => n.topic === "_resource_"  && sdMatchesSession(n));
       return (
         <Modal onClose={() => { setSessionDetail(null); setEditingSession(false); }} title="Session Details" size="xl"
           subtitle={editingSession ? "Editing session" : `${formatDate(sd.date)} at ${sd.time}`}>

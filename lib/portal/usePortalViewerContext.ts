@@ -6,15 +6,16 @@ import { supabase } from "@/lib/supabase";
 import type { AuthUser } from "@/lib/auth";
 
 export interface PortalViewerContext {
-  viewerRole:          "student" | "parent" | "admin";
+  viewerRole:          "student" | "parent" | "admin" | "tutor";
   effectiveStudentId:  number | null;
   isAdminPreview:      boolean;
+  isTutorPreview:      boolean;
   previewViewAs:       "student" | "parent";
   previewStudentName:  string | null;
   previewId:           number | null;
   // true once the auth/preview check has resolved and data loading can begin
   previewReady:        boolean;
-  // Granular capability flags — all false during admin preview
+  // Granular capability flags — all false during any preview
   // Parents may gain some of these later; do not collapse into a single readOnly flag
   canSubmitHomework:   boolean;
   canManageSchedule:   boolean;
@@ -46,6 +47,7 @@ export function usePortalViewerContext(
   const [previewId,          setPreviewId]          = useState<number | null>(null);
   const [previewViewAs,      setPreviewViewAs]      = useState<"student" | "parent">("student");
   const [previewReady,       setPreviewReady]       = useState(false);
+  const [previewerRole,      setPreviewerRole]      = useState<"admin" | "tutor" | null>(null);
 
   // Ref prevents the effect from starting a second validation or redirecting
   // when onAuthStateChange re-fires the effect with a new `user` object reference
@@ -62,38 +64,40 @@ export function usePortalViewerContext(
       return;
     }
 
-    if (user.role === "admin") {
+    if (user.role === "admin" || user.role === "tutor") {
       // If validation already started or completed, do not re-enter the flow.
-      // onAuthStateChange re-fires this effect with a new `user` object even
-      // though the admin hasn't changed — we must not redirect in that case.
       if (validationState.current !== "idle") return;
 
-      const params = new URLSearchParams(window.location.search);
-      const token  = params.get("preview");
+      const params     = new URLSearchParams(window.location.search);
+      const adminToken = user.role === "admin" ? params.get("preview")       : null;
+      const tutorToken = user.role === "tutor" ? params.get("tutorPreview")  : null;
+      const token      = adminToken ?? tutorToken;
 
       if (!token) {
-        router.push("/portal/admin");
+        router.push(user.role === "admin" ? "/portal/admin" : "/portal/tutor");
         return;
       }
 
       validationState.current = "validating";
 
       // Remove token from URL now (before async work) so back-navigation is clean.
-      // We've already captured it in `token` above.
       window.history.replaceState({}, "", "/portal/student");
+
+      const validateUrl = user.role === "admin"
+        ? `/api/admin/validate-preview?token=${encodeURIComponent(token)}`
+        : `/api/tutor/validate-preview?token=${encodeURIComponent(token)}`;
 
       (async () => {
         try {
           const { data: { session } } = await supabase.auth.getSession();
 
-          const res = await fetch(
-            `/api/admin/validate-preview?token=${encodeURIComponent(token)}`,
-            { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` } },
-          );
+          const res = await fetch(validateUrl, {
+            headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+          });
 
           if (!res.ok) {
             validationState.current = "idle";
-            router.push("/portal/admin");
+            router.push(user.role === "admin" ? "/portal/admin" : "/portal/tutor");
             return;
           }
 
@@ -101,18 +105,19 @@ export function usePortalViewerContext(
             studentId: number;
             studentName: string;
             previewId: number;
-            viewAs: "student" | "parent";
+            viewAs?: "student" | "parent";
           };
 
           setPreviewStudentId(data.studentId);
           setPreviewStudentName(data.studentName);
           setPreviewId(data.previewId);
           setPreviewViewAs(data.viewAs ?? "student");
+          setPreviewerRole(user.role as "admin" | "tutor");
           validationState.current = "done";
           setPreviewReady(true);
         } catch {
           validationState.current = "idle";
-          router.push("/portal/admin");
+          router.push(user.role === "admin" ? "/portal/admin" : "/portal/tutor");
         }
       })();
       return;
@@ -127,15 +132,18 @@ export function usePortalViewerContext(
     setPreviewReady(true);
   }, [authLoaded, user, router]);
 
-  const isAdminPreview    = user?.role === "admin" && previewStudentId !== null;
-  const isParent          = user?.role === "parent";
-  const effectiveStudentId = isAdminPreview ? previewStudentId : (user?.linkedId ?? null);
+  const isAdminPreview     = user?.role === "admin"  && previewStudentId !== null;
+  const isTutorPreview     = user?.role === "tutor"  && previewStudentId !== null;
+  const isAnyPreview       = isAdminPreview || isTutorPreview;
+  const isParent           = user?.role === "parent";
+  const effectiveStudentId = isAnyPreview ? previewStudentId : (user?.linkedId ?? null);
 
   async function exitPreview() {
     if (previewId !== null) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        await fetch("/api/admin/end-preview", {
+        const endUrl = previewerRole === "tutor" ? "/api/tutor/end-preview" : "/api/admin/end-preview";
+        await fetch(endUrl, {
           method:  "POST",
           headers: {
             "Content-Type": "application/json",
@@ -148,22 +156,23 @@ export function usePortalViewerContext(
       }
     }
     validationState.current = "idle";
-    router.push("/portal/admin");
+    router.push(previewerRole === "tutor" ? "/portal/tutor" : "/portal/admin");
   }
 
   return {
     viewerRole:          (user?.role ?? "student") as PortalViewerContext["viewerRole"],
     effectiveStudentId,
     isAdminPreview,
+    isTutorPreview,
     previewViewAs,
     previewStudentName,
     previewId,
     previewReady,
-    canSubmitHomework:   !isAdminPreview && !isParent,
-    canManageSchedule:   !isAdminPreview && !isParent,
-    canPurchaseHours:    !isAdminPreview && !isParent,
-    canReply:            !isAdminPreview,
-    canEditAccount:      !isAdminPreview && !isParent,
+    canSubmitHomework:   !isAnyPreview && !isParent,
+    canManageSchedule:   !isAnyPreview && !isParent,
+    canPurchaseHours:    !isAnyPreview && !isParent,
+    canReply:            !isAnyPreview,
+    canEditAccount:      !isAnyPreview && !isParent,
     exitPreview,
   };
 }
