@@ -34,7 +34,7 @@ import {
   LayoutDashboard, Calendar, FileText, Bell, BookOpen,
   Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
   Video, RotateCcw, X, Timer, CheckCircle, AlertCircle,
-  Paperclip, Upload, Lightbulb, TrendingUp, Star, Zap, MapPin,
+  Paperclip, Lightbulb, TrendingUp, Star, Zap, MapPin,
   Search, ThumbsUp, ThumbsDown, ExternalLink, MessageCircle,
   User, Settings as SettingsIcon, Camera, Download, Trash2,
   Map as MapIcon,
@@ -222,10 +222,9 @@ export default function StudentPortal() {
   // Past session detail
   const [pastSessionDetail, setPastSessionDetail] = useState<Session | null>(null);
 
-  // Homework upload
-  const [hwSelectedFiles, setHwSelectedFiles] = useState<Record<number, File>>({});
-  const [hwUploadingId,   setHwUploadingId]   = useState<number | null>(null);
-  const [hwUploadErrors,  setHwUploadErrors]  = useState<Record<number, string>>({});
+  // Homework simple submit
+  const [hwSubmittingId,  setHwSubmittingId]  = useState<number | null>(null);
+  const [hwSubmitErrors,  setHwSubmitErrors]  = useState<Record<number, string>>({});
   const [hwOpeningId,     setHwOpeningId]     = useState<number | null>(null);
   const [noteOpeningId,   setNoteOpeningId]   = useState<number | null>(null);
   const [hwFilter,        setHwFilter]        = useState<"todo" | "submitted" | "graded" | "all">("todo");
@@ -418,82 +417,40 @@ export default function StudentPortal() {
     }
   }
 
-  async function handleHomeworkUpload(hw: { id: number }) {
+  async function handleHomeworkSubmit(hwId: number) {
     if (!ctx.canSubmitHomework) return;
-    const file = hwSelectedFiles[hw.id];
-    if (!file) return;
-    if (file.size > 10 * 1024 * 1024) {
-      setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "File too large (max 10 MB)." }));
-      return;
-    }
-
-    // Time is required — fall back to previously reported value if not changed
-    const prevTimeMinutes = homeworkList.find((h) => h.id === hw.id)?.studentTimeMinutes;
-    const timeStr = hwTimeInputs[hw.id] ?? prevTimeMinutes?.toString() ?? "";
+    const hw = homeworkList.find((h) => h.id === hwId);
+    const timeStr = hwTimeInputs[hwId] ?? (hw?.studentTimeMinutes?.toString() ?? "");
     if (!timeStr.trim()) {
-      setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "Please enter the time you spent on this assignment." }));
+      setHwSubmitErrors((prev) => ({ ...prev, [hwId]: "Please enter the time you spent on this assignment." }));
       return;
     }
     const timeMins = Number.parseInt(timeStr, 10);
     if (!Number.isInteger(timeMins) || timeMins < 1 || timeMins > 600) {
-      setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "Time must be between 1 and 600 minutes." }));
+      setHwSubmitErrors((prev) => ({ ...prev, [hwId]: "Time must be between 1 and 600 minutes." }));
       return;
     }
-
-    const prevDiff = homeworkList.find((h) => h.id === hw.id)?.difficultyRating ?? "";
-    const prevNote = homeworkList.find((h) => h.id === hw.id)?.studentNote ?? "";
-    const diffVal  = hwDiffInputs[hw.id] ?? prevDiff;
-    const noteVal  = hwNoteInputs[hw.id] ?? prevNote;
-
-    setHwUploadingId(hw.id);
-    setHwUploadErrors((prev) => ({ ...prev, [hw.id]: "" }));
+    const diffVal = hwDiffInputs[hwId] ?? (hw?.difficultyRating ?? "");
+    const noteVal = hwNoteInputs[hwId] ?? (hw?.studentNote ?? "");
+    setHwSubmittingId(hwId);
+    setHwSubmitErrors((prev) => ({ ...prev, [hwId]: "" }));
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const form = new FormData();
-      form.append("file", file);
-      form.append("hwId", String(hw.id));
-      form.append("studentTimeMinutes", String(timeMins));
-      form.append("studentNote", noteVal.trim());
-      form.append("difficultyRating", diffVal);
-      const res = await fetch("/api/homework/upload", {
-        method: "POST",
-        headers: session ? { authorization: `Bearer ${session.access_token}` } : {},
-        body: form,
+      const updated = await markHomeworkSubmitted(hwId, {
+        studentTimeMinutes: timeMins,
+        difficultyRating:   diffVal || undefined,
+        studentNote:        noteVal.trim() || undefined,
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
-      const r = json.homework;
-      const updated: Homework = {
-        id: r.id, studentId: r.student_id, tutorId: r.tutor_id,
-        task: r.task, assignedDate: r.assigned_date, dueDate: r.due_date ?? null,
-        status: r.status, createdAt: r.created_at,
-        submissionUrl:      r.submission_url       ?? undefined,
-        submissionFilename: r.submission_filename  ?? undefined,
-        submittedAt:        r.submitted_at         ?? undefined,
-        feedback:           r.feedback             ?? undefined,
-        feedbackAt:         r.feedback_at          ?? undefined,
-        attachmentUrl:      r.attachment_url       ?? undefined,
-        attachmentFilename: r.attachment_filename  ?? undefined,
-        kamiLink:           r.kami_link            ?? undefined,
-        estimatedMinutes:   r.estimated_minutes    ?? undefined,
-        assignmentType:     r.assignment_type      ?? undefined,
-        instructions:       r.instructions         ?? undefined,
-        studentTimeMinutes: r.student_time_minutes ?? undefined,
-        studentNote:        r.student_note         ?? undefined,
-        difficultyRating:   r.difficulty_rating    ?? undefined,
-      };
-      setHomeworkList((prev) => prev.map((h) => h.id === hw.id ? updated : h));
-      setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[hw.id]; return n; });
-      setHwTimeInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
-      setHwNoteInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
-      setHwDiffInputs((prev)   => { const n = { ...prev }; delete n[hw.id]; return n; });
+      setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
+      setHwTimeInputs((prev) => { const n = { ...prev }; delete n[hwId]; return n; });
+      setHwDiffInputs((prev) => { const n = { ...prev }; delete n[hwId]; return n; });
+      setHwNoteInputs((prev) => { const n = { ...prev }; delete n[hwId]; return n; });
     } catch (e: unknown) {
-      setHwUploadErrors((prev) => ({
+      setHwSubmitErrors((prev) => ({
         ...prev,
-        [hw.id]: e instanceof Error ? e.message : "Upload failed. Please try again.",
+        [hwId]: e instanceof Error ? e.message : "Submission failed. Please try again.",
       }));
     } finally {
-      setHwUploadingId(null);
+      setHwSubmittingId(null);
     }
   }
 
@@ -580,7 +537,7 @@ export default function StudentPortal() {
       const saved = await upsertVocabularySubmissions(entries);
       setVocabEntries((prev) => ({ ...prev, [hwId]: saved }));
       const timeMins = hwTimeInputs[hwId] ? parseInt(hwTimeInputs[hwId]) : undefined;
-      const updated = await markHomeworkSubmitted(hwId, timeMins && !isNaN(timeMins) ? timeMins : undefined);
+      const updated = await markHomeworkSubmitted(hwId, { studentTimeMinutes: timeMins && !isNaN(timeMins) ? timeMins : undefined });
       setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
     } catch {
       setVocabErrors((prev) => ({ ...prev, [hwId]: "Failed to save submission. Please try again." }));
@@ -803,7 +760,7 @@ export default function StudentPortal() {
       setSatPtSubs((prev) => ({ ...prev, [hwId]: finalSub }));
 
       // Mark homework as submitted
-      const updated = await markHomeworkSubmitted(hwId, d.activeMinutes ? +d.activeMinutes : undefined);
+      const updated = await markHomeworkSubmitted(hwId, { studentTimeMinutes: d.activeMinutes ? +d.activeMinutes : undefined });
       setHomeworkList((prev) => prev.map((h) => h.id === hwId ? updated : h));
     } catch (e: unknown) {
       setSatPtError((prev) => ({ ...prev, [hwId]: e instanceof Error ? e.message : "Submission failed. Please try again." }));
@@ -1369,7 +1326,21 @@ export default function StudentPortal() {
 
         const calendarActions = (session: Session): CalendarSessionAction[] => {
           if (session.studentId !== student.id) return [];
-          if (session.status === "cancelled" || session.date < todayIso) return [];
+          if (session.status === "cancelled") return [];
+
+          const hasNotes = sessionNotes.some(
+            (n) => n.topic !== "_resource_" && noteMatchesSession(n, session),
+          );
+
+          // Past sessions: only show notes button (no booking controls)
+          if (session.date < todayIso) {
+            return hasNotes ? [{
+              label: "Session Notes",
+              onClick: (e) => { e.stopPropagation(); setPastSessionDetail(session); },
+            }] : [];
+          }
+
+          // Upcoming sessions
           const acts: CalendarSessionAction[] = [];
           const effectiveZoom = session.zoomLink ?? tutor?.zoomLink;
           if (effectiveZoom) {
@@ -1379,9 +1350,6 @@ export default function StudentPortal() {
               onClick: (e) => { e.stopPropagation(); window.open(resolveZoomUrl(effectiveZoom), "_blank", "noopener,noreferrer"); },
             });
           }
-          const hasNotes = sessionNotes.some(
-            (n) => n.topic !== "_resource_" && noteMatchesSession(n, session),
-          );
           if (hasNotes) {
             acts.push({
               label: "Session Notes",
@@ -2734,9 +2702,8 @@ export default function StudentPortal() {
         };
 
         const mkExpandPanel = (h: (typeof homeworkList)[0]) => {
-          const file        = hwSelectedFiles[h.id];
-          const isUploading = hwUploadingId === h.id;
-          const uploadError = hwUploadErrors[h.id];
+          const isSubmitting = hwSubmittingId === h.id;
+          const submitError  = hwSubmitErrors[h.id];
           const currentTime = hwTimeInputs[h.id] ?? (h.studentTimeMinutes?.toString() ?? "");
           const currentDiff = hwDiffInputs[h.id] ?? (h.difficultyRating ?? "");
           const currentNote = hwNoteInputs[h.id] ?? (h.studentNote ?? "");
@@ -3364,16 +3331,9 @@ export default function StudentPortal() {
                   )}
                 </div>
               )}
-              {/* Submit section — students only */}
-              {!isParent && (
+              {/* Submit section — students only, not shown once graded */}
+              {!isParent && h.status !== "completed" && (
                 <div>
-                  {h.status !== "pending" && (
-                    <p className="text-xs text-gray-400 mb-3">
-                      {h.status === "submitted"
-                        ? "Upload a new file to replace your current submission."
-                        : "Upload an improved version below."}
-                    </p>
-                  )}
                   {/* Study time reporting */}
                   <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3 space-y-3">
                     <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Your Study Time</p>
@@ -3418,30 +3378,15 @@ export default function StudentPortal() {
                       />
                     </div>
                   </div>
-                  {file && (
-                    <div className="flex items-center gap-3 mb-3 bg-white border border-gray-200 rounded-xl px-4 py-2.5">
-                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />
-                      <span className="text-sm text-gray-700 flex-1 truncate">{file.name}</span>
-                      <button onClick={() => setHwSelectedFiles((prev) => { const n = { ...prev }; delete n[h.id]; return n; })}
-                        className="text-xs text-gray-400 hover:text-red-500 font-medium transition-colors">Remove</button>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-3">
-                    <label className="cursor-pointer">
-                      <input type="file" accept=".pdf,application/pdf" className="hidden"
-                        onChange={(e) => { const f = e.target.files?.[0]; if (f) setHwSelectedFiles((prev) => ({ ...prev, [h.id]: f })); e.target.value = ""; }} />
-                      <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm text-gray-600 hover:bg-gray-50 hover:border-gray-300 transition-colors font-medium select-none">
-                        <Paperclip className="w-3.5 h-3.5" />{file ? "Change File" : "Attach PDF"}
-                      </span>
-                    </label>
-                    <button onClick={() => handleHomeworkUpload(h)} disabled={!ctx.canSubmitHomework || !file || isUploading}
-                      title={!ctx.canSubmitHomework ? "Not available in admin preview" : undefined}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                      <Upload className="w-3.5 h-3.5" />{isUploading ? "Submitting…" : "Submit"}
-                    </button>
-                  </div>
-                  {uploadError && <p className="text-xs text-red-500 mt-2">{uploadError}</p>}
-                  <p className="text-xs text-gray-400 mt-2">PDF only · Max 10 MB</p>
+                  {submitError && <p className="text-xs text-red-500 mb-2">{submitError}</p>}
+                  <button
+                    onClick={() => void handleHomeworkSubmit(h.id)}
+                    disabled={!ctx.canSubmitHomework || isSubmitting}
+                    title={!ctx.canSubmitHomework ? "Not available in admin preview" : undefined}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 text-white rounded-xl text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+                    <CheckCircle className="w-4 h-4" />
+                    {isSubmitting ? "Submitting…" : h.status === "submitted" ? "Update Submission" : "Mark as Done"}
+                  </button>
                 </div>
               )}
             </div>

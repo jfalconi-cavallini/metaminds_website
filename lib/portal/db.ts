@@ -2206,9 +2206,14 @@ export async function updateVocabularyEntry(
   return rowToVocabEntry(data);
 }
 
-export async function markHomeworkSubmitted(id: number, studentTimeMinutes?: number): Promise<Homework> {
+export async function markHomeworkSubmitted(
+  id: number,
+  opts?: { studentTimeMinutes?: number; difficultyRating?: string; studentNote?: string },
+): Promise<Homework> {
   const update: Record<string, unknown> = { status: "submitted", submitted_at: new Date().toISOString() };
-  if (studentTimeMinutes != null) update.student_time_minutes = studentTimeMinutes;
+  if (opts?.studentTimeMinutes != null) update.student_time_minutes = opts.studentTimeMinutes;
+  if (opts?.difficultyRating)           update.difficulty_rating    = opts.difficultyRating;
+  if (opts?.studentNote != null)        update.student_note         = opts.studentNote;
   const { data, error } = await supabase
     .from("homework")
     .update(update)
