@@ -56,9 +56,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    // Admins can access any portal path — the preview token is validated client-side
-    // by usePortalViewerContext before any student data is loaded.
-    if (profile.role === "admin") {
+    // Admins and tutors can access any portal path — the preview token is validated
+    // client-side by usePortalViewerContext before any student data is loaded.
+    if (profile.role === "admin" || profile.role === "tutor") {
       return response;
     }
 
