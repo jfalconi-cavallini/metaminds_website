@@ -1112,14 +1112,14 @@ export default function StudentPortal() {
                   <div>
                     {tutor && (
                       <div className="flex items-center gap-3 mb-3 pb-3 border-b border-gray-100">
-                        {tutor.photoUrl ? (
-                          <img src={tutor.photoUrl} alt={tutor.name}
-                            className="w-9 h-9 rounded-full object-cover border-2 border-gray-100 shrink-0" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none">
-                            {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
+                        <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none relative overflow-hidden">
+                          {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          {tutor.photoUrl && (
+                            <img src={tutor.photoUrl} alt={tutor.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{tutor.name}</p>
                           <p className="text-xs text-gray-400">{formatDate(parentUpdates[0].createdAt.slice(0, 10))}</p>
@@ -1139,14 +1139,14 @@ export default function StudentPortal() {
                   <div>
                     {tutor && (
                       <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-                        {tutor.photoUrl ? (
-                          <img src={tutor.photoUrl} alt={tutor.name}
-                            className="w-9 h-9 rounded-full object-cover border-2 border-gray-100 shrink-0" />
-                        ) : (
-                          <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none">
-                            {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-                          </div>
-                        )}
+                        <div className="w-9 h-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0 select-none relative overflow-hidden">
+                          {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                          {tutor.photoUrl && (
+                            <img src={tutor.photoUrl} alt={tutor.name}
+                              className="absolute inset-0 w-full h-full object-cover"
+                              onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          )}
+                        </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{tutor.name}</p>
                           <p className="text-xs text-gray-400">Your tutor</p>
@@ -1199,14 +1199,14 @@ export default function StudentPortal() {
                   <div className="mt-4 pt-4 border-t border-gray-100">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">My Tutor</p>
                     <div className="flex items-center gap-3">
-                      {tutor.photoUrl ? (
-                        <img src={tutor.photoUrl} alt={tutor.name}
-                          className="w-8 h-8 rounded-full object-cover shrink-0" />
-                      ) : (
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none">
-                          {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
-                        </div>
-                      )}
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-[11px] font-bold shrink-0 select-none relative overflow-hidden">
+                        {tutor.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        {tutor.photoUrl && (
+                          <img src={tutor.photoUrl} alt={tutor.name}
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{tutor.name}</p>
                         {tutor.email && (
