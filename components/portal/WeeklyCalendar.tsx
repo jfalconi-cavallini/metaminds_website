@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Session, TutorAvailability } from "@/lib/portal/types";
 
 const ROW_H      = 36;   // px per 30-min slot — spacious, Google-Calendar feel
@@ -94,15 +94,40 @@ export default function WeeklyCalendar({
   onSlotBlock, resolveStudentName,
 }: Props) {
   const renderSessions = visibleSessions ?? sessions;
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [weekOffset,       setWeekOffset]       = useState(0);
+  const [visibleDayCount,  setVisibleDayCount]  = useState(7);
+  const [dayWindowStart,   setDayWindowStart]   = useState(0);
+
+  // Responsive: 1 day on mobile (<640px), 7 on desktop
+  useEffect(() => {
+    function update() {
+      const mobile = window.innerWidth < 640;
+      setVisibleDayCount(mobile ? 1 : 7);
+      if (!mobile) setDayWindowStart(0);
+    }
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // When week or day-count changes on mobile, anchor to today
+  useEffect(() => {
+    if (visibleDayCount >= 7) return;
+    if (weekOffset === 0) {
+      setDayWindowStart(Math.max(0, Math.min(new Date().getDay(), 6)));
+    } else {
+      setDayWindowStart(0);
+    }
+  }, [weekOffset, visibleDayCount]);
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const now     = new Date();
   const sunday  = new Date(today);
   sunday.setDate(today.getDate() - today.getDay() + weekOffset * 7);
-  const days     = getWeekDays(sunday);
-  const todayISO = toISO(today);
+  const days        = getWeekDays(sunday);
+  const todayISO    = toISO(today);
+  const visibleDays = days.slice(dayWindowStart, dayWindowStart + visibleDayCount);
 
   const nowH       = now.getHours() + now.getMinutes() / 60;
   const nowTopPx   = (nowH - SLOT_START) * 2 * ROW_H;
@@ -146,6 +171,37 @@ export default function WeeklyCalendar({
         <div className="shrink-0 text-xs text-gray-400 font-medium">Week</div>
       </div>
 
+      {/* ── Mobile day strip: tap any day to jump to it ── */}
+      {visibleDayCount < 7 && (
+        <div className="flex gap-1 mb-3">
+          {days.map((d, i) => {
+            const iso       = toISO(d);
+            const isToday   = iso === todayISO;
+            const isSelected = i === dayWindowStart;
+            return (
+              <button
+                key={i}
+                onClick={() => setDayWindowStart(i)}
+                className={`flex-1 flex flex-col items-center py-2 rounded-xl transition-all ${
+                  isSelected
+                    ? "bg-blue-600 shadow-sm"
+                    : isToday
+                    ? "bg-blue-50"
+                    : "bg-gray-50 hover:bg-gray-100"
+                }`}
+              >
+                <span className={`text-[9px] font-bold uppercase tracking-wide ${
+                  isSelected ? "text-blue-100" : isToday ? "text-blue-500" : "text-gray-400"
+                }`}>{DAY_SHORT[d.getDay()]}</span>
+                <span className={`text-sm font-bold ${
+                  isSelected ? "text-white" : isToday ? "text-blue-600" : "text-gray-700"
+                }`}>{d.getDate()}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* ── Mode hints ── */}
       {mode === "book" && (
         <div className="flex items-center gap-2.5 mb-4 px-4 py-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-sm text-emerald-700">
@@ -167,16 +223,16 @@ export default function WeeklyCalendar({
       )}
 
       {/* ── Calendar grid ── */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white shadow-sm">
-        <div className="min-w-[640px]">
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+        <div>
 
           {/* Day column headers */}
           <div className="flex border-b border-gray-200 bg-gray-50/80 sticky top-0 z-30">
             {/* Time gutter spacer */}
             <div className="w-16 shrink-0 border-r border-gray-200" />
             {/* Day headers */}
-            <div className="flex-1 grid grid-cols-7">
-              {days.map((d, i) => {
+            <div className="flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${visibleDayCount}, 1fr)` }}>
+              {visibleDays.map((d, i) => {
                 const iso        = toISO(d);
                 const isToday    = iso === todayISO;
                 const isBlocked  = blockedDates?.includes(iso) ?? false;
@@ -227,8 +283,8 @@ export default function WeeklyCalendar({
             </div>
 
             {/* Day columns */}
-            <div className="flex-1 grid grid-cols-7">
-              {days.map((d, dayIdx) => {
+            <div className="flex-1" style={{ display: "grid", gridTemplateColumns: `repeat(${visibleDayCount}, 1fr)` }}>
+              {visibleDays.map((d, dayIdx) => {
                 const dateISO      = toISO(d);
                 const dow          = d.getDay();
                 const isToday      = dateISO === todayISO;
