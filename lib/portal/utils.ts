@@ -27,6 +27,8 @@ export const PROGRAM_CATALOG: Record<string, string[]> = {
     "AP Macroeconomics",
   ],
   "Academics": [
+    "Elementary School Math",
+    "Middle School Math",
     "Algebra I",
     "Algebra II",
     "Geometry",
