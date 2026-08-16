@@ -6,6 +6,37 @@ Full architecture, philosophy, and roadmap live in `docs/`. Reusable curriculum/
 
 ---
 
+## Connecting the MetaMinds Knowledge Vault (optional, recommended)
+
+Claude sessions working in this repo can optionally get read access to the shared curriculum/knowledge vault (`metaminds-vault`) through a local MCP server. This is separate from running the app — you don't need it to `npm run dev` or ship features — but it lets Claude search and read real curriculum content while helping with this codebase, instead of relying only on the deprecated in-repo `knowledge/` folder.
+
+If you've already cloned this repo (`metaminds_website`) and want the vault connected too:
+
+```bash
+# 1. Clone the vault as a sibling directory — not inside this repo
+cd ..
+git clone https://github.com/jfalconi-cavallini/Metaminds-vault.git
+
+# 2. Install and build the MCP server
+cd Metaminds-vault/mcp-server
+npm install
+npm run build
+
+# 3. Register it — run this from inside metaminds_website (this repo), not the vault
+cd ../../metaminds_website
+claude mcp add metaminds-vault -s local \
+  -e VAULT_PATH=<absolute-path-to-your-Metaminds-vault-clone> \
+  -- node <absolute-path-to-your-Metaminds-vault-clone>/mcp-server/dist/index.js
+```
+
+Replace `<absolute-path-to-your-Metaminds-vault-clone>` with wherever step 1 actually put it on your machine (e.g. `/Users/emma/dev/Metaminds-vault`) — every contributor's path will differ, and that's expected.
+
+Confirm it worked with `claude mcp get metaminds-vault` — look for `Status: ✔ Connected`. This registers at **local scope**: private to you, on this machine, for this project, stored in your own Claude Code user config rather than any file in either repo — so nothing here needs to be committed or kept in sync across contributors. Each person who wants this runs the same three steps once, with their own paths.
+
+For how to update the vault later, what to do when the MCP server's own source changes, and the full Emma-friendly contribution workflow, see `README.md` and `CONTRIBUTING.md` in the vault repo itself.
+
+---
+
 ## What Is MetaMinds?
 
 MetaMinds STEM Academy is an **Educational Operating System** — not a tutoring website.
