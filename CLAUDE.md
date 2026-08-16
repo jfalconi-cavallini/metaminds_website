@@ -2,7 +2,7 @@
 
 Every Claude session working on this codebase should read this file first.
 **Also read `PRODUCT_BIBLE.md`** before implementing any new feature — it defines the mission, learning flow, roles, curriculum philosophy, AI roadmap, and engineering principles that every implementation decision must align with.
-Full architecture, philosophy, and roadmap live in `docs/`. Knowledge base lives in `knowledge/`.
+Full architecture, philosophy, and roadmap live in `docs/`. Reusable curriculum/knowledge now lives in the separate **`metaminds-vault`** repo (shared, git-based — see its `VAULT.md`). The in-repo `knowledge/` folder is temporarily retained for compatibility; do not add new content there. Neither replaces the Supabase Curriculum CMS (`courses`/`modules`/`lessons` tables), which remains the operational system tutors assign from.
 
 ---
 
@@ -68,7 +68,7 @@ metaminds_website/
 │       ├── template/              # Design reference PNGs (read before implementing tabs)
 │       └── dashboard_Logo.png     # Current active logo
 ├── docs/                          # Full architecture + strategy documentation
-└── knowledge/                     # Subject curriculum knowledge base
+└── knowledge/                     # DEPRECATED — retained temporarily for compatibility; new curriculum goes in the separate metaminds-vault repo, not here
 ```
 
 ---
@@ -219,16 +219,18 @@ RESEND_API_KEY
 | `docs/StudentWorkflow.md` | End-to-end student experience |
 | `docs/TutorWorkflow.md` | End-to-end tutor workflow |
 | `docs/ParentExperience.md` | Parent touchpoints and communication |
-| `knowledge/README.md` | How the knowledge base is organized |
-| `knowledge/SAT/README.md` | SAT curriculum structure (model for all subjects) |
+| `knowledge/README.md` | *(Deprecated — retained temporarily)* How the old in-repo knowledge base was organized |
+| `knowledge/SAT/README.md` | *(Deprecated — retained temporarily)* Old SAT curriculum structure |
+| `metaminds-vault` (separate repo) | **Current** shared curriculum/knowledge source — see its `VAULT.md` and `INDEX.md` |
 
 ---
 
 ## Never Do
 
 - Never use `useState` / `useEffect` inside an IIFE tab renderer
-- Never hardcode curriculum content — it belongs in `knowledge/`
-- Never invent curriculum — AI assembles from `knowledge/` only
+- Never hardcode curriculum content — it belongs in the `metaminds-vault` repo. The in-repo `knowledge/` folder is deprecated; do not add new content there.
+- Never invent curriculum — AI assembles from vetted knowledge sources only (`metaminds-vault`, and legacy `knowledge/` content until it's migrated)
+- Never treat the vault as a replacement for the Supabase Curriculum CMS — the CMS (`courses`/`modules`/`lessons`) remains the operational system tutors assign lessons from; the vault is a reference/authoring layer upstream of it
 - Never commit `.env` files
 - Never skip `npx tsc --noEmit` after editing portal files
 - Never implement features before checking `public/images/template/` for the design reference
