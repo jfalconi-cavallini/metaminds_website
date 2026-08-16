@@ -56,7 +56,7 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
   const [packageHours,  setPackageHours]  = useState("4");
   const [packageExpiry, setPackageExpiry] = useState("");
   const [tutorId,       setTutorId]       = useState("");
-  const [programs,      setPrograms]      = useState<string[]>(["SAT Prep"]);
+  const [programs,      setPrograms]      = useState<string[]>([]);
   const [status,        setStatus]        = useState<"active" | "inactive" | "paused">("active");
   const [step2Error,    setStep2Error]    = useState("");
 
