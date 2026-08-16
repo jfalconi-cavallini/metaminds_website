@@ -7,6 +7,7 @@ import type { Tutor } from "@/lib/portal/types";
 import { PROGRAM_CATALOG } from "@/lib/portal/utils";
 
 const GRADES = [
+  "Kindergarten", "1st", "2nd", "3rd", "4th", "5th",
   "6th", "7th", "8th", "9th", "10th", "11th", "12th",
   "College Freshman", "College Sophomore", "College Junior", "College Senior",
 ];
