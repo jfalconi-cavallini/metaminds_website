@@ -172,6 +172,15 @@ Current guidance:
 
 ---
 
+## Payment Rules
+
+- **Tutors never collect payment directly from families.** All payments go through MetaMinds.
+- Tutors are compensated by MetaMinds after sessions are completed and logged.
+- If a parent offers to pay a tutor directly, the tutor must decline and direct them to MetaMinds.
+- See `docs/ServiceTiers.md` for current pay bands.
+
+---
+
 ## Tutor Communication Guidelines
 
 ### With Students

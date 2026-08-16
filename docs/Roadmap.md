@@ -13,6 +13,42 @@ We build in phases. Each phase must be fully functional before the next begins. 
 
 ---
 
+## Phase 0 — Prove the Workflow (Pre-Scale)
+
+**Goal:** Manually validate the full tutoring business cycle before automating anything.
+
+**Theme:** Operations before infrastructure. Real students before real features.
+
+The workflow to prove manually, in order:
+
+```
+Lead → free consultation → student needs assessment → tutor recommendation →
+parent payment → tutor match → completed session → session notes →
+homework assignment → parent update → hours-package deduction →
+tutor payment → package renewal
+```
+
+### Manual Tools for This Phase
+
+- **Google Sheets** — Leads, Students, Parents, Tutors, Packages, Sessions, Homework, Progress, Tutor Payroll
+- **Google Forms** — Student intake, session note submission (early)
+- **Calendly** — Scheduling until the in-platform booking is proven
+- **Stripe payment links** — Manual package purchases until Stripe is formally integrated
+- **Email templates** — Parent updates, homework notifications, receipts
+- **Google Drive** — Session materials, homework files, resource folders
+
+### Phase 0 Completion Criteria
+
+- [ ] At least one student has gone through the full workflow, start to finish, manually
+- [ ] At least one tutor has been matched, taught, and paid through MetaMinds
+- [ ] At least one package has been purchased, tracked, used, and renewed
+- [ ] Tutor pay has been issued at least once
+- [ ] The manual process has been documented well enough to hand to a second staff member
+
+**Nothing in the digital platform should be built to automate steps that haven't been proven manually first.**
+
+---
+
 ## Phase 1 — Foundation (Current)
 
 **Goal:** A complete, professional portal for existing students, tutors, and one admin.
@@ -202,6 +238,14 @@ Prompts tutors to fill gaps.
 | College application center | Essay review, school list, timeline |
 
 ### Summer Camps & Bootcamps
+
+> **Note:** The first bootcamp is a FREE community pilot — a 4-session SAT/ACT program offered to a school, library, church, PTA/PTO, AVID program, or youth organization. Its purpose is community relationship-building, testimonials, and 1:1 lead generation — not revenue. Paid bootcamps and recurring group classes are a later phase, contingent on proven enrollment.
+
+**Conditions required before launching recurring group tutoring:**
+- Enough students with similar subject needs
+- Similar academic level and grade
+- Compatible schedules
+- Enrollment sufficient to cover tutor pay and operating costs
 
 | Feature | Description |
 |---------|-------------|

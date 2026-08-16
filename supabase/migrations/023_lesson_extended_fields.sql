@@ -15,7 +15,7 @@ do $$
 declare
   v_con text;
 begin
-  select constraint_name into v_con
+  select cc.constraint_name into v_con
   from information_schema.check_constraints cc
   join information_schema.constraint_column_usage cu
     on cu.constraint_name = cc.constraint_name

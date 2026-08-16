@@ -235,13 +235,52 @@ Every feature built should support at least one revenue stream. When deciding wh
 
 | Revenue Stream | Stage | Notes |
 |---------------|-------|-------|
-| Private Tutoring | Now | Core — 1:1 sessions, hours packages |
-| Group Classes | Near-term | Small groups, same curriculum, lower cost per student |
-| Bootcamps | Near-term | Intensive short-term programs (SAT, coding) |
-| Summer Camps | Seasonal | Same infrastructure as group classes |
+| Premium 1:1 Tutoring | Now | Core revenue — experienced tutors, higher rate |
+| College Mentor 1:1 Tutoring | Now | Accessible 1:1 — high-achieving college students, lower rate |
+| SAT/ACT Preparation | Now | Both tiers serve SAT/ACT; primary student acquisition driver |
+| Group Classes | Conditional | Launch only when: similar needs + similar level + compatible schedules + financially sustainable enrollment |
+| Bootcamps | Pilot phase | First bootcamp is a FREE community pilot (school/library/org partner). Paid bootcamps come after the pilot proves the model. |
+| Summer Camps | Seasonal | Same infrastructure as group classes — not yet |
 | Monthly Membership | Mid-term | Platform access + curriculum for independent learners |
 | Course Marketplace | Mid-term | Tutors and curriculum managers sell lesson packages |
 | School Partnerships | Long-term | Institutional licenses, district-level contracts |
+
+### Two Service Tiers (Now)
+
+**Premium Mentoring** — experienced tutors (graduates, engineers, specialized SAT/ACT instructors, professionals with significant teaching experience)
+
+| Package | Price | Per Hour |
+|---------|-------|----------|
+| 1 hour | $70 | $70 |
+| 4 hours | $260 | $65 |
+| 8 hours | $480 | $60 |
+| 20 hours | $1,000 | $50 |
+
+**College Mentor Tutoring** — high-achieving college students, trained and supervised by MetaMinds
+
+| Package | Price | Per Hour |
+|---------|-------|----------|
+| 1 hour | $50 | $50 |
+| 4 hours | $190 | $47.50 |
+| 8 hours | $360 | $45 |
+| 20 hours | $850 | $42.50 |
+
+**Payment rule:** Parents always pay MetaMinds directly. Tutors never collect payment from families.
+
+See `docs/ServiceTiers.md` for full positioning, pay bands, and messaging guidelines.
+
+### Operating Principle: Prove the Workflow First
+
+Before building platform automation, prove this sequence manually:
+
+```
+Lead → consultation → needs assessment → tutor recommendation →
+parent payment → tutor match → completed session → session notes →
+homework assignment → parent update → package-hours deduction →
+tutor payment → renewal
+```
+
+Use manual tools (Google Sheets, Calendly, Stripe payment links, email templates) until the workflow is reliable with real students. Platform automation follows proven process — it does not replace unproven process.
 
 ---
 

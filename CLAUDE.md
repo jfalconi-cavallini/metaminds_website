@@ -212,6 +212,7 @@ RESEND_API_KEY
 | `docs/AI.md` | AI strategy: how AI assists without inventing |
 | `docs/Roadmap.md` | Phased feature roadmap |
 | `docs/Brand.md` | Brand identity, voice, messaging |
+| `docs/ServiceTiers.md` | **Service tiers, pricing, tutor pay bands, College Mentor positioning** |
 | `docs/DesignPrinciples.md` | Design philosophy |
 | `docs/UIUX.md` | UI patterns, components, spacing rules |
 | `docs/EngineeringStandards.md` | Code conventions, PR standards, TypeScript rules |

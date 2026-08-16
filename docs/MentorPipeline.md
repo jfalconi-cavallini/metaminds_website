@@ -122,10 +122,12 @@ Credits never expire. They transfer when a Junior Mentor becomes a College Tutor
 
 ## Level 2: College Tutor
 
+> **Terminology note:** Internally and in this pipeline document, these people are called **College Tutors**. In all parent-facing marketing and communications, they are called **College Mentors**. Same people, different framing. See `docs/ServiceTiers.md` for the full positioning and pay structure.
+
 **Who:** Undergraduate college students (or recent graduates)  
 **Subjects they teach:** Any subject they are qualified in (assessed)  
 **Relationship:** Employee / Contractor  
-**Compensation:** Standard hourly rate (competitive with market)
+**Compensation:** Standard hourly rate — see `docs/ServiceTiers.md` for current pay bands
 
 ### Requirements
 

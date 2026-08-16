@@ -66,13 +66,16 @@ Educators who:
 - Compound knowledge
 - Leadership pathway
 - Progress, not grades
+- College Mentor (the public-facing name for college-student tutors)
+- Premium Mentoring (the public-facing name for the higher-experience tier)
 
 **Avoid:**
-- "Cheap" (in any context)
-- "Kids teaching kids" (undermines Junior Mentors)
+- "Cheap" (in any context — especially for the College Mentor tier)
+- "Kids teaching kids" (undermines Junior Mentors and College Mentors)
 - "Tutoring service" (we are more than that)
 - "Just" ("just a tutoring company", "just homework help")
 - Hyperbole ("the best ever", "revolutionary")
+- "Lower-quality" or "budget" when describing College Mentor tutoring — it is a different tier, not an inferior one
 
 ---
 
@@ -121,12 +124,48 @@ Educators who:
 
 ---
 
-## The Junior Mentor Program — Brand Framing
+## The Two Service Tiers — Brand Framing
 
-**Do not frame this as:** "High schoolers tutoring kids"  
-**Do not frame this as:** "Lower-cost tutoring option"  
+### Premium Mentoring
+
+**Who delivers it:** Experienced tutors — graduates, engineers, professionals, specialized SAT/ACT instructors with significant teaching experience.
+
+**Frame it as:** Expert, personalized instruction from tutors with deep subject expertise and professional teaching experience.
+
+**For parents:** "Your child works directly with an experienced educator who has mastered both the subject and the craft of teaching."
+
+---
+
+### College Mentor Tutoring
+
+**Who delivers it:** High-achieving college students, carefully selected and trained under MetaMinds curriculum, systems, supervision, and quality-control process.
+
+**Do not frame this as:** Cheaper tutoring. Inferior tutoring. A budget option.
 
 **Frame it as:**
+
+> More accessible, personalized one-on-one tutoring from high-achieving college mentors — selected, supervised, and supported by MetaMinds.
+
+**Key messages:**
+- Same structured curriculum and MetaMinds oversight as Premium Mentoring
+- Session notes, homework, parent updates — the full MetaMinds workflow
+- More relatable: a college student who recently passed these exact milestones
+- More accessible price point — personalized tutoring that more families can sustain long-term
+
+**What to say:** "College Mentors are high-achieving students from top universities who tutor under MetaMinds systems and supervision. They bring the same structured curriculum, session notes, and parent updates — at a more accessible price."
+
+**What not to say:** "Our affordable option," "budget tutoring," "less experienced tutors," or anything that implies lower quality.
+
+---
+
+## The Junior Mentor Program — Brand Framing
+
+> **Note:** Junior Mentors (high school students earning credits) are a future program. The active tutoring workforce now is College Mentors (college students, paid). Do not confuse these two in marketing copy.
+
+**Do not frame Junior Mentors as:** "High schoolers tutoring kids"  
+**Do not frame Junior Mentors as:** "Lower-cost tutoring option"  
+
+**Frame them as:**
 
 > The MetaMinds Leadership Program gives exceptional high school students the opportunity to develop their teaching, communication, and leadership skills under the supervision of experienced educators — while giving younger students a mentor who recently walked the same path.
 
