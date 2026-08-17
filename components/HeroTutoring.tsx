@@ -1,8 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Award, Users, Lightbulb } from "lucide-react";
-import { siteData } from "@/lib/data";
+import { ArrowRight, FileText, TrendingUp, GraduationCap } from "lucide-react";
 import TutorCarousel from "./TutorCarousel";
 import CalendlyButton from "./CalendlyButton";
 
@@ -23,17 +22,22 @@ export default function HeroTutoring() {
                         className="flex flex-col justify-center"
                     >
                         <div className="mb-5">
-                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">PERSONALIZED. EFFECTIVE. RESULTS.</span>
+                            <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">
+                                PERSONALIZED · STRUCTURED · MEASURABLE
+                            </span>
                         </div>
 
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
-                            Unlock Your<br />
-                            Child&apos;s Potential<br />
-                            in <span className="text-blue-400">STEM</span>
+                            A dedicated mentor.<br />
+                            A plan built for<br />
+                            <span className="text-blue-400">your child.</span>
                         </h1>
 
                         <p className="text-base md:text-lg text-blue-100 mb-7 leading-relaxed max-w-xl">
-                            Expert tutoring in SAT/ACT, Math, Coding, and STEM from degreed professionals who work in their fields every day — not grad students or career tutors.
+                            MetaMinds pairs every student with a dedicated mentor who builds a
+                            personalized learning plan, sends session notes after every session,
+                            and gives parents real visibility into skill growth. SAT &amp; ACT,
+                            AP classes, K–12 math, coding, robotics, and more.
                         </p>
 
                         {/* CTA Buttons */}
@@ -50,7 +54,7 @@ export default function HeroTutoring() {
                             </a>
                         </div>
 
-                        {/* Credibility Callouts */}
+                        {/* Differentiator callouts — no unverified aggregate stats */}
                         <div className="grid grid-cols-3 gap-3">
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
@@ -58,9 +62,9 @@ export default function HeroTutoring() {
                                 transition={{ delay: 0.2, duration: 0.6 }}
                                 className="flex flex-col items-center text-center p-3 bg-white/5 backdrop-blur rounded-lg border border-white/10"
                             >
-                                <Award className="w-5 h-5 text-green-400 mb-2" />
-                                <div className="text-xs font-bold text-white">Proven Results</div>
-                                <div className="text-xs text-blue-200 mt-0.5">+200 SAT pts avg</div>
+                                <FileText className="w-5 h-5 text-blue-400 mb-2" />
+                                <div className="text-xs font-bold text-white">Session Notes</div>
+                                <div className="text-xs text-blue-200 mt-0.5">After every session</div>
                             </motion.div>
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
@@ -68,9 +72,9 @@ export default function HeroTutoring() {
                                 transition={{ delay: 0.3, duration: 0.6 }}
                                 className="flex flex-col items-center text-center p-3 bg-white/5 backdrop-blur rounded-lg border border-white/10"
                             >
-                                <Users className="w-5 h-5 text-green-400 mb-2" />
-                                <div className="text-xs font-bold text-white">Expert Tutors</div>
-                                <div className="text-xs text-blue-200 mt-0.5">Active professionals</div>
+                                <TrendingUp className="w-5 h-5 text-blue-400 mb-2" />
+                                <div className="text-xs font-bold text-white">Skill Tracking</div>
+                                <div className="text-xs text-blue-200 mt-0.5">Measurable progress</div>
                             </motion.div>
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
@@ -78,9 +82,9 @@ export default function HeroTutoring() {
                                 transition={{ delay: 0.4, duration: 0.6 }}
                                 className="flex flex-col items-center text-center p-3 bg-white/5 backdrop-blur rounded-lg border border-white/10"
                             >
-                                <Lightbulb className="w-5 h-5 text-green-400 mb-2" />
-                                <div className="text-xs font-bold text-white">1-on-1 Sessions</div>
-                                <div className="text-xs text-blue-200 mt-0.5">Personalized</div>
+                                <GraduationCap className="w-5 h-5 text-blue-400 mb-2" />
+                                <div className="text-xs font-bold text-white">K–12 &amp; Beyond</div>
+                                <div className="text-xs text-blue-200 mt-0.5">One long-term partner</div>
                             </motion.div>
                         </div>
                     </motion.div>
