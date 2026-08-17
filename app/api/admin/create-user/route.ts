@@ -1,44 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-}
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
 export async function POST(request: Request) {
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json(
-      { error: "SUPABASE_SERVICE_ROLE_KEY is not set in .env.local" },
-      { status: 500 },
-    );
-  }
+  const caller = await authenticate(request);
+  if (isAuthError(caller)) return caller;
 
-  // Verify caller is an authenticated admin
-  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (caller.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const admin = adminClient();
-
-  const { data: { user: caller } } = await admin.auth.getUser(token);
-  if (!caller) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: callerProfile } = await admin
-    .from("profiles")
-    .select("role")
-    .eq("id", caller.id)
-    .single();
-
-  if (callerProfile?.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden: admin only" }, { status: 403 });
-  }
 
   // Parse body
   const body = await request.json() as {
