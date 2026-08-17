@@ -206,7 +206,7 @@ Draft  →  In Review  →  Active  →  Archived
 
 AI in MetaMinds is a tool for tutors, not a replacement for them. It automates the repetitive so tutors can focus on what only humans can do: build relationships and adapt in real time.
 
-**Rule:** All AI output must be grounded in `knowledge/` content. AI assembles — it never invents curriculum.
+**Rule:** All AI output must be grounded in the shared MetaMinds Knowledge Vault (`metaminds-vault`) — the in-repo `knowledge/` folder is deprecated and retained only for compatibility. AI assembles — it never invents curriculum.
 
 ### Phase 1 — Automation (reduce tutor admin time)
 - AI-drafted parent updates (tutor reviews and sends, not AI sends)
@@ -215,7 +215,7 @@ AI in MetaMinds is a tool for tutors, not a replacement for them. It automates t
 - Automatic skill tagging from session notes
 
 ### Phase 2 — Adaptation (personalize the path)
-- AI Curriculum Builder: tutor selects a topic, AI assembles a lesson package from `knowledge/`
+- AI Curriculum Builder: tutor selects a topic, AI assembles a lesson package from the MetaMinds Knowledge Vault
 - Adaptive homework difficulty based on submission history
 - Skill gap detection from homework grades and mastery check scores
 - Recommended next lesson based on current skill map
@@ -295,7 +295,7 @@ Build for five years from now, not just for what exists today.
 - **No subject hardcoding.** SAT is not the only subject. Every assumption about curriculum structure must generalize to Scratch, Python, Physics, Calculus.
 - **The right architecture over the easy code.** A clear data model today saves three refactors tomorrow.
 - **Better abstraction over fewer tables.** More normalized is more future-proof.
-- **AI assembles from knowledge — it never invents.** All AI-generated curriculum must trace back to verified content in `knowledge/`.
+- **AI assembles from knowledge — it never invents.** All AI-generated curriculum must trace back to verified content in the MetaMinds Knowledge Vault (`metaminds-vault`); the deprecated in-repo `knowledge/` folder no longer receives new content.
 
 ---
 

@@ -2,7 +2,38 @@
 
 Every Claude session working on this codebase should read this file first.
 **Also read `PRODUCT_BIBLE.md`** before implementing any new feature — it defines the mission, learning flow, roles, curriculum philosophy, AI roadmap, and engineering principles that every implementation decision must align with.
-Full architecture, philosophy, and roadmap live in `docs/`. Knowledge base lives in `knowledge/`.
+Full architecture, philosophy, and roadmap live in `docs/`. Reusable curriculum/knowledge now lives in the separate **`metaminds-vault`** repo (shared, git-based — see its `VAULT.md`). The in-repo `knowledge/` folder is temporarily retained for compatibility; do not add new content there. Neither replaces the Supabase Curriculum CMS (`courses`/`modules`/`lessons` tables), which remains the operational system tutors assign from.
+
+---
+
+## Connecting the MetaMinds Knowledge Vault (optional, recommended)
+
+Claude sessions working in this repo can optionally get read access to the shared curriculum/knowledge vault (`metaminds-vault`) through a local MCP server. This is separate from running the app — you don't need it to `npm run dev` or ship features — but it lets Claude search and read real curriculum content while helping with this codebase, instead of relying only on the deprecated in-repo `knowledge/` folder.
+
+If you've already cloned this repo (`metaminds_website`) and want the vault connected too:
+
+```bash
+# 1. Clone the vault as a sibling directory — not inside this repo
+cd ..
+git clone https://github.com/jfalconi-cavallini/Metaminds-vault.git
+
+# 2. Install and build the MCP server
+cd Metaminds-vault/mcp-server
+npm install
+npm run build
+
+# 3. Register it — run this from inside metaminds_website (this repo), not the vault
+cd ../../metaminds_website
+claude mcp add metaminds-vault -s local \
+  -e VAULT_PATH=<absolute-path-to-your-Metaminds-vault-clone> \
+  -- node <absolute-path-to-your-Metaminds-vault-clone>/mcp-server/dist/index.js
+```
+
+Replace `<absolute-path-to-your-Metaminds-vault-clone>` with wherever step 1 actually put it on your machine (e.g. `/Users/emma/dev/Metaminds-vault`) — every contributor's path will differ, and that's expected.
+
+Confirm it worked with `claude mcp get metaminds-vault` — look for `Status: ✔ Connected`. This registers at **local scope**: private to you, on this machine, for this project, stored in your own Claude Code user config rather than any file in either repo — so nothing here needs to be committed or kept in sync across contributors. Each person who wants this runs the same three steps once, with their own paths.
+
+For how to update the vault later, what to do when the MCP server's own source changes, and the full Emma-friendly contribution workflow, see `README.md` and `CONTRIBUTING.md` in the vault repo itself.
 
 ---
 
@@ -68,7 +99,7 @@ metaminds_website/
 │       ├── template/              # Design reference PNGs (read before implementing tabs)
 │       └── dashboard_Logo.png     # Current active logo
 ├── docs/                          # Full architecture + strategy documentation
-└── knowledge/                     # Subject curriculum knowledge base
+└── knowledge/                     # DEPRECATED — retained temporarily for compatibility; new curriculum goes in the separate metaminds-vault repo, not here
 ```
 
 ---
@@ -219,16 +250,18 @@ RESEND_API_KEY
 | `docs/StudentWorkflow.md` | End-to-end student experience |
 | `docs/TutorWorkflow.md` | End-to-end tutor workflow |
 | `docs/ParentExperience.md` | Parent touchpoints and communication |
-| `knowledge/README.md` | How the knowledge base is organized |
-| `knowledge/SAT/README.md` | SAT curriculum structure (model for all subjects) |
+| `knowledge/README.md` | *(Deprecated — retained temporarily)* How the old in-repo knowledge base was organized |
+| `knowledge/SAT/README.md` | *(Deprecated — retained temporarily)* Old SAT curriculum structure |
+| `metaminds-vault` (separate repo) | **Current** shared curriculum/knowledge source — see its `VAULT.md` and `INDEX.md` |
 
 ---
 
 ## Never Do
 
 - Never use `useState` / `useEffect` inside an IIFE tab renderer
-- Never hardcode curriculum content — it belongs in `knowledge/`
-- Never invent curriculum — AI assembles from `knowledge/` only
+- Never hardcode curriculum content — it belongs in the `metaminds-vault` repo. The in-repo `knowledge/` folder is deprecated; do not add new content there.
+- Never invent curriculum — AI assembles from vetted knowledge sources only (`metaminds-vault`, and legacy `knowledge/` content until it's migrated)
+- Never treat the vault as a replacement for the Supabase Curriculum CMS — the CMS (`courses`/`modules`/`lessons`) remains the operational system tutors assign lessons from; the vault is a reference/authoring layer upstream of it
 - Never commit `.env` files
 - Never skip `npx tsc --noEmit` after editing portal files
 - Never implement features before checking `public/images/template/` for the design reference
