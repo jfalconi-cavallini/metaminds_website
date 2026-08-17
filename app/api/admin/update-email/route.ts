@@ -1,24 +1,15 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 
 export async function POST(request: Request) {
-  const token = request.headers.get("Authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const caller = await authenticate(request);
+  if (isAuthError(caller)) return caller;
 
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-
-  const { data: { user: caller } } = await admin.auth.getUser(token);
-  if (!caller) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const { data: callerProfile } = await admin
-    .from("profiles").select("role").eq("id", caller.id).single();
-  if (callerProfile?.role !== "admin") {
+  if (caller.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
+
+  const admin = adminClient();
 
   const { role, linkedId, newEmail } = await request.json() as {
     role: "student" | "tutor";
@@ -42,8 +33,9 @@ export async function POST(request: Request) {
   }
 
   if (!profile) {
+    console.warn("[update-email] No auth profile found", { role, linkedId });
     return NextResponse.json(
-      { error: `No auth account is linked to this ${role} (linked_id=${linkedId}). Their login account may not exist or was created before profile linking was set up.` },
+      { error: `No login account found for this ${role}. The account may not have been created yet.` },
       { status: 404 },
     );
   }
@@ -53,7 +45,10 @@ export async function POST(request: Request) {
     email_confirm: true,
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error("[update-email] Failed to update auth email", { role, linkedId, detail: error.message });
+    return NextResponse.json({ error: "Failed to update login email." }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
