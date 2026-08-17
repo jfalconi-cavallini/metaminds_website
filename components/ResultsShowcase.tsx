@@ -74,9 +74,8 @@ const programs = [
 ];
 
 const results = [
-    { before: 900, after: 1300, improvement: 400, student: "Student 1" },
-    { before: 1300, after: 1570, improvement: 270, student: "Student 2" },
-    { before: 1380, after: 1590, improvement: 210, student: "Student 3" },
+    { before: 950, after: 1110, improvement: 160, label: "SAT Composite", student: "MetaMinds Student" },
+    { before: 370, after: 590, improvement: 220, label: "SAT Math Section", student: "MetaMinds Student" },
 ];
 
 export default function ProgramsAndResults() {
@@ -145,19 +144,19 @@ export default function ProgramsAndResults() {
                         <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Student Success</span>
                     </motion.div>
                     <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-white mb-3">
-                        Proven Results That Speak for Themselves
+                        Real Progress. Visible Results.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed">
-                        Our students consistently achieve significant improvements in test scores, coding mastery, and academic confidence.
+                        Every student&apos;s progress is tracked in the portal — skill by skill, session by session. Here are examples from real students.
                     </motion.p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-5 max-w-5xl mx-auto mb-10">
+                <div className="flex flex-col sm:flex-row justify-center gap-5 max-w-3xl mx-auto mb-4">
                     {results.map((result, idx) => (
                         <motion.div key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
-                            className="bg-white rounded-xl p-5 border border-white/20 shadow-lg hover:shadow-xl transition-shadow">
+                            className="flex-1 bg-white rounded-xl p-5 border border-white/20 shadow-lg hover:shadow-xl transition-shadow">
                             <div className="text-center">
-                                <div className="text-xs font-bold text-gray-500 mb-4">SAT Score Improvement</div>
+                                <div className="text-xs font-bold text-gray-500 mb-4">{result.label}</div>
                                 <div className="flex items-end justify-center gap-3 mb-4">
                                     <div>
                                         <div className="text-2xl font-black text-gray-400">{result.before}</div>
@@ -173,7 +172,6 @@ export default function ProgramsAndResults() {
                                     <div className="text-xl font-black text-green-600">+{result.improvement}</div>
                                     <div className="text-xs text-green-600 font-semibold">points improvement</div>
                                 </div>
-                                <div className="font-bold text-gray-900 text-sm mb-3">{result.student}</div>
                                 <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                     <motion.div initial={{ width: 0 }} whileInView={{ width: `${(result.after / 1600) * 100}%` }} transition={{ delay: 0.3, duration: 0.8 }}
                                         className="h-full bg-gradient-to-r from-blue-500 to-green-500" />
@@ -182,12 +180,15 @@ export default function ProgramsAndResults() {
                         </motion.div>
                     ))}
                 </div>
+                <p className="text-center text-xs text-slate-400 mb-10">
+                    Individual student results — shown as examples, not guarantees.
+                </p>
 
                 <div className="bg-white/5 border border-white/10 rounded-xl p-8 max-w-4xl mx-auto">
                     <h3 className="text-xl font-bold text-white mb-5 text-center">What Our Success Looks Like</h3>
                     <div className="grid md:grid-cols-2 gap-5">
                         {[
-                            { title: "Higher Test Scores", body: "Students average +200 SAT point improvements and +3 ACT point increases." },
+                            { title: "Higher Test Scores", body: "Students track measurable score growth in SAT, ACT, and AP exams — section by section, session by session." },
                             { title: "College Acceptance", body: "Our students gain admission to top universities including UC schools and beyond." },
                             { title: "STEM Mastery", body: "Students build working robots, create 3D designs, and develop real software projects." },
                             { title: "Confidence & Competence", body: "Students develop real skills they can use, leading to lasting confidence in academics." },

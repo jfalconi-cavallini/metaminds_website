@@ -38,7 +38,7 @@ export default function FoundingTeam() {
                         transition={{ delay: 0.1 }}
                         className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed"
                     >
-                        MetaMinds was founded by working engineers and scientists — every tutor holds a degree and works in their profession today. No career tutors. No grad students. Real expertise, passed directly to your student.
+                        MetaMinds was built by working engineers and scientists who believe exceptional teaching requires both deep subject mastery and genuine care for students. Every tutor is selected for subject expertise, communication, and fit.
                     </motion.p>
                 </div>
 
