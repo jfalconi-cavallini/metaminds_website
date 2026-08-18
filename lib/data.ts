@@ -240,7 +240,7 @@ export const siteData = {
         },
         {
             question: "How much can I improve my SAT/ACT score?",
-            answer: "Our average student improves by 200+ SAT points or 3+ ACT points within 8-12 weeks with consistent practice. Results vary based on starting score and effort.",
+            answer: "Students we've worked with have seen 200+ point SAT improvements, with others reaching 1500+ scores. Results depend on starting point, consistency, and effort — individual results vary.",
         },
         {
             question: "Can I schedule sessions around my school schedule?",
