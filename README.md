@@ -1,36 +1,146 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MetaMinds Website
 
-## Getting Started
+The MetaMinds STEM Academy platform — student, tutor, and admin portals built on Next.js 15, Supabase, and Tailwind CSS.
 
-First, run the development server:
+**Before writing any code, read [`CLAUDE.md`](./CLAUDE.md) and [`PRODUCT_BIBLE.md`](./PRODUCT_BIBLE.md).**
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+---
+
+## New Machine Setup
+
+This project uses **two repositories** that must both be cloned as siblings:
+
+```
+C:\Software Engineering\
+├── metaminds_website\     ← this repo (the app)
+└── Metaminds-vault\       ← curriculum knowledge base (separate repo)
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 1. Clone both repos
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cd "C:\Software Engineering"
+git clone https://github.com/jfalconi-cavallini/metaminds_website.git
+git clone https://github.com/jfalconi-cavallini/Metaminds-vault.git
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Install app dependencies
 
-## Learn More
+```bash
+cd metaminds_website
+npm install
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Set up environment variables
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Create `metaminds_website/.env.local` with:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+RESEND_API_KEY=...
+```
 
-## Deploy on Vercel
+Get these values from Jose or from the Supabase dashboard. Never commit this file.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Build the vault MCP server
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The vault MCP server lets Claude read curriculum content during dev sessions.
+
+```bash
+cd "C:\Software Engineering\Metaminds-vault\mcp-server"
+npm install
+npm run build
+```
+
+### 5. Register the vault with Claude Code
+
+Run this from inside `metaminds_website` (adjust the path if your drive letter differs):
+
+```bash
+claude mcp add metaminds-vault -s local \
+  -e VAULT_PATH="C:\Software Engineering\Metaminds-vault" \
+  -- node "C:\Software Engineering\Metaminds-vault\mcp-server\dist\index.js"
+```
+
+Verify it worked:
+
+```bash
+claude mcp get metaminds-vault
+# Should show: Status: ✔ Connected
+```
+
+This is registered at local scope — it's private to your machine and not committed to either repo. Every contributor runs this once.
+
+### 6. Install GitHub CLI
+
+```bash
+winget install --id GitHub.cli --accept-package-agreements --accept-source-agreements
+```
+
+Open a new terminal, then authenticate:
+
+```bash
+gh auth login
+# Choose: GitHub.com → HTTPS → Login with a web browser
+```
+
+### 7. Start the dev server
+
+```bash
+cd "C:\Software Engineering\metaminds_website"
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Keeping both repos up to date
+
+Always pull both repos when starting a new session:
+
+```bash
+cd "C:\Software Engineering\metaminds_website"
+git checkout main && git pull
+
+cd "C:\Software Engineering\Metaminds-vault"
+git pull
+```
+
+If the vault's MCP server source changed (check `Metaminds-vault/mcp-server/src/`), rebuild it:
+
+```bash
+cd "C:\Software Engineering\Metaminds-vault\mcp-server"
+npm install && npm run build
+```
+
+---
+
+## Before you commit
+
+Run these in order from `metaminds_website`:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+All three must pass. See [`CLAUDE.md`](./CLAUDE.md) for full collaboration rules.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 15 (App Router, Turbopack) |
+| Language | TypeScript (strict) |
+| Styling | Tailwind CSS v4 |
+| Animation | Framer Motion |
+| Database | Supabase (PostgreSQL + Auth + Storage) |
+| Email | Resend |
+| Deployment | Vercel |
+
+Full architecture, schema, and roadmap live in [`docs/`](./docs/).
