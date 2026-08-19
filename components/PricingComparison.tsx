@@ -10,7 +10,7 @@ const tiers = [
         name: "Premium Mentoring",
         tag: "SAT/ACT · AP Courses · Advanced Coursework",
         description:
-            "Our most experienced educators — graduates, engineers, and specialized instructors with deep subject mastery and proven teaching track records.",
+            "Our most experienced tutors — practicing engineers, scientists, and subject specialists who've taught this exact material for years.",
         rate: "From $70/hr",
         rateNote: "Single session through 20-hour packages",
     },

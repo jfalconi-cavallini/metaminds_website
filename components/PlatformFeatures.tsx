@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Brain, BookOpen, MessageSquare, Users, Rocket, Shield } from "lucide-react";
+import { Brain, BookOpen, MessageSquare, Users, FileText, TrendingUp, GraduationCap } from "lucide-react";
 import Section from "./Section";
 import { siteData } from "@/lib/data";
 
@@ -10,8 +10,9 @@ const iconMap: Record<string, React.ElementType> = {
     BookOpen,
     MessageSquare,
     Users,
-    Rocket,
-    Shield,
+    FileText,
+    TrendingUp,
+    GraduationCap,
 };
 
 export default function PlatformFeatures() {

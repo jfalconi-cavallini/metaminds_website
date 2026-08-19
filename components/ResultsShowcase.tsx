@@ -1,25 +1,36 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Code2, Cpu, Zap, Calculator, Trophy, CheckCircle } from "lucide-react";
+import { BookOpen, Code2, Cpu, Zap, Calculator, GraduationCap, CheckCircle } from "lucide-react";
 import Section from "./Section";
 
 const programs = [
     {
         icon: BookOpen,
         title: "SAT & ACT Prep",
-        description: "Comprehensive test preparation designed to maximize scores and college acceptance.",
+        description: "Full-length practice tests, section-by-section score tracking, and a plan built around your actual weak areas — not a generic syllabus.",
         details: [
             "Full-length practice tests",
-            "Targeted weak area focus",
-            "Test-taking strategies",
+            "Targeted weak-area focus",
+            "Test-day strategy",
             "College readiness guidance"
+        ]
+    },
+    {
+        icon: GraduationCap,
+        title: "AP Courses",
+        description: "AP-level instruction from tutors who studied this material at the college level, not just taught it from a textbook.",
+        details: [
+            "Calculus AB/BC, Physics, Chemistry & more",
+            "Free-response & essay strategy",
+            "Exam-day pacing",
+            "College-credit strategy"
         ]
     },
     {
         icon: Calculator,
         title: "Math Concepts",
-        description: "Master mathematics from elementary through advanced levels with personalized instruction.",
+        description: "Elementary through calculus, with a focus on actually understanding the concept — not memorizing steps to pass the next quiz.",
         details: [
             "Elementary to advanced levels",
             "Homework help & tutoring",
@@ -30,7 +41,7 @@ const programs = [
     {
         icon: Code2,
         title: "Programming",
-        description: "Learn coding languages and build real-world projects with hands-on experience.",
+        description: "Python, Java, and JavaScript, taught by tutors who write code professionally — building toward a real project, not just exercises.",
         details: [
             "Python, Java, JavaScript",
             "Web development",
@@ -41,7 +52,7 @@ const programs = [
     {
         icon: Cpu,
         title: "Robotics",
-        description: "Design, build, and program robots while learning engineering principles.",
+        description: "Design, build, and program robots with mentors who work in engineering — from first build to competition-ready.",
         details: [
             "VEX robotics systems",
             "Mechanical engineering",
@@ -52,7 +63,7 @@ const programs = [
     {
         icon: Zap,
         title: "3D Printing & Design",
-        description: "Learn CAD design and bring ideas to life using 3D printing technology.",
+        description: "CAD design and hands-on 3D printing, taught by a practicing design engineer — from first sketch to a real printed part.",
         details: [
             "CAD software mastery",
             "3D modeling design",
@@ -60,17 +71,6 @@ const programs = [
             "Real-world prototyping"
         ]
     },
-    {
-        icon: Trophy,
-        title: "Test Prep & Beyond",
-        description: "Prepare for standardized tests and develop critical thinking skills.",
-        details: [
-            "Multiple test formats",
-            "Strategic test-taking",
-            "Time management",
-            "Stress reduction techniques"
-        ]
-    }
 ];
 
 const results = [
@@ -85,13 +85,13 @@ export default function ProgramsAndResults() {
             <Section id="programs" className="bg-white py-14">
                 <div className="text-center mb-10">
                     <motion.div initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="inline-block mb-3">
-                        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">Comprehensive Learning</span>
+                        <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">What We Teach</span>
                     </motion.div>
                     <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
-                        What We Teach
+                        One tutor, six directions your kid could go.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                        From SAT/ACT prep to cutting-edge robotics and 3D design, we offer personalized tutoring across multiple disciplines.
+                        Test prep, math, code, and hardware — taught by tutors who work in the field, not just teach it.
                     </motion.p>
                 </div>
 
@@ -115,39 +115,19 @@ export default function ProgramsAndResults() {
                         </motion.div>
                     ))}
                 </div>
-
-                <div className="mt-10 bg-gradient-to-br from-blue-900 to-blue-800 rounded-xl p-8 max-w-4xl mx-auto">
-                    <h3 className="text-xl font-black text-white mb-6 text-center">Why Parents Choose Our Programs</h3>
-                    <div className="grid md:grid-cols-2 gap-5 text-white">
-                        {[
-                            { title: "Personalized Learning", body: "Each student gets 1-on-1 attention customized to their pace and learning style." },
-                            { title: "Proven Track Record", body: "Our students consistently achieve higher test scores and master complex concepts." },
-                            { title: "Expert Instructors", body: "UC graduates working in their fields today, with 7+ years of teaching experience." },
-                            { title: "Flexible Scheduling", body: "Evening and weekend sessions that fit your family's schedule. No long-term contracts." },
-                        ].map(({ title, body }) => (
-                            <div key={title} className="flex gap-3">
-                                <div className="text-green-400 font-black flex-shrink-0">✓</div>
-                                <div>
-                                    <p className="font-bold text-sm mb-1">{title}</p>
-                                    <p className="text-blue-100 text-sm">{body}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
             </Section>
 
             <section id="results" className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 py-14 scroll-mt-20">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="text-center mb-10">
                     <motion.div initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="inline-block mb-3">
-                        <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Student Success</span>
+                        <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Real Students</span>
                     </motion.div>
                     <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-white mb-3">
-                        Real Progress. Visible Results.
+                        Progress you can point to.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed">
-                        Every student&apos;s progress is tracked in the portal — skill by skill, session by session. Here are examples from real students.
+                        Every student&apos;s progress is tracked skill by skill, session by session. Here are two real examples.
                     </motion.p>
                 </div>
 
@@ -180,29 +160,9 @@ export default function ProgramsAndResults() {
                         </motion.div>
                     ))}
                 </div>
-                <p className="text-center text-xs text-slate-400 mb-10">
+                <p className="text-center text-xs text-slate-400">
                     Individual student results — shown as examples, not guarantees.
                 </p>
-
-                <div className="bg-white/5 border border-white/10 rounded-xl p-8 max-w-4xl mx-auto">
-                    <h3 className="text-xl font-bold text-white mb-5 text-center">What Our Success Looks Like</h3>
-                    <div className="grid md:grid-cols-2 gap-5">
-                        {[
-                            { title: "Higher Test Scores", body: "Students track measurable score growth in SAT, ACT, and AP exams — section by section, session by session." },
-                            { title: "College Acceptance", body: "Our students gain admission to top universities including UC schools and beyond." },
-                            { title: "STEM Mastery", body: "Students build working robots, create 3D designs, and develop real software projects." },
-                            { title: "Confidence & Competence", body: "Students develop real skills they can use, leading to lasting confidence in academics." },
-                        ].map(({ title, body }) => (
-                            <div key={title} className="flex gap-3">
-                                <Trophy className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-white text-sm mb-1">{title}</p>
-                                    <p className="text-slate-300 text-sm">{body}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
                 </div>
             </section>
         </>
