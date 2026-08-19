@@ -7,12 +7,13 @@ import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
 import Modal from "@/components/portal/Modal";
-import { formatDate, formatTime24to12, PROGRAM_CATALOG } from "@/lib/portal/utils";
+import { formatDate, formatTime24to12, DISPLAY_GROUP_ORDER, displayGroupFor } from "@/lib/portal/utils";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
 import CurriculumBuilder from "@/components/curriculum/CurriculumBuilder";
+import CoursesOverview from "@/components/portal/CoursesOverview";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
   insertSession, logCompletedSession, cancelSession,
@@ -22,8 +23,9 @@ import {
   archiveStudent, restoreStudent, archiveTutor, restoreTutor,
   countHomeworkByStatus,
   fetchPendingPurchaseRequests, resolvePurchaseRequest,
+  fetchCourses, fetchEnrollmentsForStudent, setStudentEnrollments,
 } from "@/lib/portal/db";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest, Course } from "@/lib/portal/types";
 
 const navItems = [
   { id: "overview",   label: "Overview"   },
@@ -32,6 +34,7 @@ const navItems = [
   { id: "tutors",     label: "Tutors"     },
   { id: "sessions",   label: "Sessions"   },
   { id: "packages",   label: "Packages"   },
+  { id: "courses",    label: "Courses"    },
   { id: "curriculum", label: "Curriculum" },
 ];
 
@@ -67,7 +70,8 @@ export default function AdminPortal() {
   const [pfEmail,        setPfEmail]        = useState("");
   const [pfGrade,        setPfGrade]        = useState("");
   const [pfSubjects,     setPfSubjects]     = useState("");
-  const [pfPrograms,     setPfPrograms]     = useState<string[]>([]);
+  const [pfCourseIds,    setPfCourseIds]    = useState<number[]>([]);
+  const [courses,        setCourses]        = useState<Course[]>([]);
   const [pfPhone,        setPfPhone]        = useState("");
   const [pfParentName,   setPfParentName]   = useState("");
   const [pfParentEmail,  setPfParentEmail]  = useState("");
@@ -90,13 +94,14 @@ export default function AdminPortal() {
     }
     async function load() {
       try {
-        const [s, t, sess, pkgs, hwCount, purchReqs] = await Promise.all([
+        const [s, t, sess, pkgs, hwCount, purchReqs, crs] = await Promise.all([
           fetchStudents({ all: true }), fetchTutors({ all: true }), fetchSessions(), fetchAllPackages(),
-          countHomeworkByStatus("submitted"), fetchPendingPurchaseRequests(),
+          countHomeworkByStatus("submitted"), fetchPendingPurchaseRequests(), fetchCourses({ all: true }),
         ]);
         setStudents(s); setTutors(t); setSessions(sess); setPackages(pkgs);
         setSubmittedHwCount(hwCount);
         setPurchaseRequests(purchReqs);
+        setCourses(crs);
       } catch (err) { console.error("Admin load error:", err); }
       finally { setLoading(false); }
     }
@@ -561,11 +566,14 @@ export default function AdminPortal() {
   function openStudentProfile(s: Student) {
     setProfileStudent(s); setEditingProfile(false);
     setPfName(s.name); setPfEmail(s.email); setPfGrade(s.grade);
-    setPfSubjects(s.subjects.join(", ")); setPfPrograms(s.programs ?? []);
+    setPfSubjects(s.subjects.join(", ")); setPfCourseIds([]);
     setPfPhone(s.phone ?? "");
     setPfParentName(s.parentName ?? ""); setPfParentEmail(s.parentEmail ?? "");
     setPfParentPhone(s.parentPhone ?? ""); setPfNotes(s.notes ?? "");
     setPfAllowInPerson(s.allowInPerson ?? false);
+    fetchEnrollmentsForStudent(s.id).then((enrollments) => {
+      setPfCourseIds(enrollments.map((e) => e.courseId));
+    }).catch(console.error);
   }
 
   function openTutorProfile(t: Tutor) {
@@ -582,10 +590,10 @@ export default function AdminPortal() {
       const updated = await updateStudentProfile(profileStudent.id, {
         name: pfName, email: pfEmail, grade: pfGrade,
         subjects: pfSubjects.split(",").map((s) => s.trim()).filter(Boolean),
-        programs: pfPrograms,
         phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
         parentPhone: pfParentPhone, notes: pfNotes, allowInPerson: pfAllowInPerson,
       });
+      await setStudentEnrollments(profileStudent.id, pfCourseIds);
       // Sync auth email if it changed
       if (pfEmail && pfEmail !== profileStudent.email) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -1896,6 +1904,11 @@ export default function AdminPortal() {
         </Modal>
       )}
 
+      {/* ── COURSES ── */}
+      {tab === "courses" && (
+        <CoursesOverview students={students} role="admin" onSelectStudent={openStudentProfile} />
+      )}
+
       {/* ── CURRICULUM ── */}
       {tab === "curriculum" && (() => {
         const isReady = skillLibCount !== null && skillLibCount >= SAT_SKILL_TOTAL;
@@ -2027,29 +2040,29 @@ export default function AdminPortal() {
                 <input value={pfPhone} onChange={(e) => setPfPhone(e.target.value)} placeholder="Student phone"    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <input value={pfSubjects} onChange={(e) => setPfSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
               </div>
-              {/* Programs */}
+              {/* Courses */}
               <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">Programs <span className="font-normal text-gray-400">— select all that apply</span></p>
+                <p className="text-xs font-semibold text-gray-500 mb-2">Courses <span className="font-normal text-gray-400">— select all that apply</span></p>
                 <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                  {Object.entries(PROGRAM_CATALOG).map(([cat, items]) => (
-                    <div key={cat}>
-                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">{cat}</p>
+                  {DISPLAY_GROUP_ORDER.filter((group) => courses.some((c) => displayGroupFor(c.subject) === group)).map((group) => (
+                    <div key={group}>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">{group}</p>
                       <div className="flex flex-wrap gap-1">
-                        {items.map((p) => {
-                          const sel = pfPrograms.includes(p);
+                        {courses.filter((c) => displayGroupFor(c.subject) === group).map((c) => {
+                          const sel = pfCourseIds.includes(c.id);
                           return (
-                            <button key={p} type="button"
-                              onClick={() => setPfPrograms((prev) => sel ? prev.filter((x) => x !== p) : [...prev, p])}
+                            <button key={c.id} type="button"
+                              onClick={() => setPfCourseIds((prev) => sel ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
                               className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-all ${sel ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}
-                            >{p}</button>
+                            >{c.title}</button>
                           );
                         })}
                       </div>
                     </div>
                   ))}
                 </div>
-                {pfPrograms.length > 0 && (
-                  <p className="text-xs text-blue-600 mt-1">{pfPrograms.length} program{pfPrograms.length !== 1 ? "s" : ""} selected</p>
+                {pfCourseIds.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">{pfCourseIds.length} course{pfCourseIds.length !== 1 ? "s" : ""} selected</p>
                 )}
               </div>
               <p className="text-xs font-semibold text-gray-500 mt-2">Parent / Guardian</p>

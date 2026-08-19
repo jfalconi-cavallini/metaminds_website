@@ -185,6 +185,24 @@ export interface Course {
   updatedAt: string;
 }
 
+// ── COURSE OFFERINGS / ENROLLMENT ───────────────────────────────────────────
+// `Course` (above) is the canonical Course Offering catalog — a row is allowed
+// to exist with no modules/lessons under it (an offering without curriculum
+// built yet). This is the Student <-> Course Offering relationship — the real,
+// FK-backed replacement for the legacy `students.programs` string array.
+
+export type EnrollmentStatus = "active" | "paused" | "completed" | "dropped";
+
+export interface StudentCourseEnrollment {
+  id:          number;
+  studentId:   number;
+  courseId:    number;
+  status:      EnrollmentStatus;
+  enrolledAt:  string;
+  createdAt:   string;
+  updatedAt:   string;
+}
+
 export interface Module {
   id: number;
   courseId: number;

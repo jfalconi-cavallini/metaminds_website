@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 import CourseLibrary from "@/components/curriculum/CourseLibrary";
+import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl } from "@/lib/portal/utils";
@@ -87,6 +88,7 @@ const navItems = [
   { id: "schedule",  label: "Schedule"       },
   { id: "notes",     label: "Session Notes"  },
   { id: "homework",  label: "Homework"       },
+  { id: "courses",   label: "Courses"        },
   { id: "library",   label: "Course Library" },
   { id: "settings",  label: "Settings"       },
 ];
@@ -3885,6 +3887,8 @@ export default function TutorPortal() {
 
 
       {/* ── COURSE LIBRARY ── */}
+      {tab === "courses" && <CoursesOverview students={myStudents} role="tutor" />}
+
       {tab === "library" && <CourseLibrary />}
 
     </DashboardShell>

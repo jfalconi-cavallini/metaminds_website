@@ -184,7 +184,7 @@ export async function POST(request: Request) {
     packageHours: number;
     packageExpiry: string;
     tutorId?: number;
-    programs: string[];
+    courseIds: number[];
     status?: string;
   };
 
@@ -193,7 +193,7 @@ export async function POST(request: Request) {
     grade, school, graduationYear,
     parentName, parentEmail, parentPhone,
     packageHours, packageExpiry,
-    tutorId, programs, status = "active",
+    tutorId, courseIds, status = "active",
   } = body;
 
   if (!firstName || !lastName || !email || !grade || !parentName || !parentEmail || !packageExpiry) {
@@ -211,6 +211,7 @@ export async function POST(request: Request) {
     parentAuthCreated:  false,
     packageAssigned:    false,
     tutorAssigned:      false,
+    coursesEnrolled:    false,
     studentEmailSent:   false,
     parentEmailSent:    false,
     errors:             [] as string[],
@@ -223,8 +224,6 @@ export async function POST(request: Request) {
     name:             studentName,
     email:            email.trim(),
     grade:            grade.trim(),
-    subjects:         programs ?? [],   // keep for backwards compat
-    programs:         programs ?? [],
     phone:            phone         || null,
     parent_name:      parentName    || null,
     parent_email:     parentEmail   || null,
@@ -321,6 +320,20 @@ export async function POST(request: Request) {
     results.errors.push(`Package: ${pkgError.message}`);
   } else {
     results.packageAssigned = true;
+  }
+
+  // ── 3b. Enroll in course offerings ───────────────────────────────
+  if (courseIds && courseIds.length > 0) {
+    const { error: enrollError } = await admin.from("student_course_enrollments").insert(
+      courseIds.map((courseId) => ({ student_id: studentId, course_id: courseId }))
+    );
+    if (enrollError) {
+      results.errors.push(`Course enrollment: ${enrollError.message}`);
+    } else {
+      results.coursesEnrolled = true;
+    }
+  } else {
+    results.coursesEnrolled = true; // nothing to enroll — not an error
   }
 
   // ── 4. Create parent Supabase Auth account (if different email) ──
