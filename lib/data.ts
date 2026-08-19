@@ -8,16 +8,10 @@ export const siteData = {
     },
 
     hero: {
-        headline: "Tutored by Real Engineers & Scientists",
-        subheadline: "Not grad students — working professionals. Our tutors hold B.S. and M.S. degrees in Engineering and Computer Science from UC San Diego & UC Berkeley and work in industry every day.",
-        cta1: "Book Free Consultation",
-        cta2: "View Programs",
+        // Only formUrl is live (read by /consultation) — headline/stats fields were
+        // removed here since the homepage hero renders its own copy and nothing
+        // else read them.
         formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
-        stats: {
-            students: "500+",
-            satImprovement: "+200pts",
-            successRate: "98%",
-        },
     },
 
     trustBar: [
@@ -25,76 +19,6 @@ export const siteData = {
         { label: "Avg SAT Improvement", value: "+200pts" },
         { label: "Tutor Degrees", value: "B.S. / M.S." },
         { label: "Success Rate", value: "98%" },
-    ],
-
-    services: [
-        {
-            id: "sat-act",
-            title: "SAT & ACT Prep",
-            description: "Comprehensive test prep with proven score improvements. Average +200 SAT points.",
-            features: ["Full-length practice tests", "Targeted weak area focus", "Test-day strategy"],
-            icon: "📚",
-        },
-        {
-            id: "ap",
-            title: "AP Exam Prep",
-            description: "Targeted prep for AP exams from tutors who know the material at a professional level. Calculus, Physics, Chemistry, CS, Biology, Statistics, and more.",
-            features: ["All major AP subjects", "Free-response & essay strategy", "Score improvement focus"],
-            icon: "🏆",
-        },
-        {
-            id: "ged",
-            title: "GED Test Prep",
-            description: "Get your diploma with 1-on-1 prep across all four GED subjects. Flexible scheduling around your life.",
-            features: ["Math, Science, RLA & Social Studies", "Practice tests & strategy", "Flexible scheduling"],
-            icon: "🎓",
-        },
-        {
-            id: "math",
-            title: "K-12 Math Tutoring",
-            description: "Master any math topic from algebra to calculus. Personalized to your pace.",
-            features: ["All grade levels", "Homework help", "Concept mastery"],
-            icon: "🔢",
-        },
-        {
-            id: "coding",
-            title: "Coding & Programming",
-            description: "Learn Python, JavaScript, Java, and web development from active software engineers.",
-            features: ["Real projects", "Portfolio building", "Interview prep"],
-            icon: "💻",
-        },
-        {
-            id: "stem",
-            title: "STEM Mentoring",
-            description: "Advanced mentorship in CS, robotics, AI, and engineering from working professionals.",
-            features: ["Industry-experienced mentors", "Portfolio projects", "Career guidance"],
-            icon: "🚀",
-        },
-    ],
-
-    whyUs: [
-        {
-            title: "Working Professionals, Not Grad Students",
-            description: "Every tutor holds a B.S. or M.S. in Engineering or Computer Science from UC San Diego or UC Berkeley — and works in industry today. You get real-world expertise, not textbook knowledge.",
-        },
-        {
-            title: "Proven Results",
-            description: "Average SAT improvement of +200 points. 500+ students helped. Real success stories from students at every level.",
-        },
-        {
-            title: "Truly Personalized",
-            description: "1-on-1 sessions built around your goals, pace, and learning style. No shared classes, no cookie-cutter plans.",
-        },
-        {
-            title: "Flexible & Affordable",
-            description: "Evening and weekend sessions that fit your schedule. Transparent pricing, no hidden fees, money-back guarantee.",
-        },
-    ],
-
-    results: [
-        { before: 1050, after: 1310, student: "Sarah J." },
-        { before: 1200, after: 1470, student: "Michael K." },
-        { before: 980, after: 1200, student: "Emma T." },
     ],
 
     testimonials: [
@@ -115,110 +39,39 @@ export const siteData = {
         },
     ],
 
-    howItWorks: [
-        {
-            step: "1",
-            title: "Book Free Consultation",
-            description: "Tell us your goals. We'll assess your needs and create a personalized plan.",
-        },
-        {
-            step: "2",
-            title: "Start 1-on-1 Sessions",
-            description: "Meet with your tutor online. Real-time feedback, screen sharing, and live coding.",
-        },
-        {
-            step: "3",
-            title: "Track Progress",
-            description: "Regular check-ins and progress reports. See improvement in real-time.",
-        },
-        {
-            step: "4",
-            title: "Achieve Your Goals",
-            description: "SAT/ACT scores, college admission, coding mastery, or career readiness.",
-        },
-    ],
-
-    pricing: {
-        packages: [
-            {
-                name: "Single Session",
-                price: "$70",
-                pricePerHour: "$70/hr",
-                duration: "1 Hour",
-                description: "Perfect for trying out 1-on-1 tutoring or getting targeted help on a specific topic.",
-                badge: null,
-            },
-            {
-                name: "4-Hour Package",
-                price: "$260",
-                pricePerHour: "$65/hr",
-                duration: "4 Hours Total",
-                description: "Best for focused skill-building or multi-session test prep.",
-                badge: null,
-            },
-            {
-                name: "8-Hour Package",
-                price: "$480",
-                pricePerHour: "$60/hr",
-                duration: "8 Hours Total",
-                description: "Our most popular package — deep mastery, consistent progress, and measurable results.",
-                badge: "Most Popular",
-            },
-            {
-                name: "20-Hour Package",
-                price: "$1,000",
-                pricePerHour: "$50/hr",
-                duration: "20 Hours Total",
-                description: "Maximum value for families committed to real transformation. Our best rate — reserved for serious students.",
-                badge: "Best Value",
-            },
-        ],
-        competitors: [
-            { name: "TKO Prep", pricePerHour: "$200+/hr", type: "Premium test prep service", url: "https://www.tkoprep.com/tutoring" },
-            { name: "Princeton Review", pricePerHour: "$200+/hr", type: "Large franchise model", url: "https://www.princetonreview.com/college/sat-test-prep?ceid=promo-sat" },
-            { name: "Revolution Prep", pricePerHour: "$200+/hr", type: "Corporate tutoring company", url: "https://www.revolutionprep.com/programs/test-prep/sat/" },
-        ],
-        differentiators: [
-            "No middleman — your money goes directly to your tutor, not a sales team",
-            "Built by tutors, for students. The mission is results, not profit margins.",
-            "Same elite credentials: degreed professionals actively working in their fields",
-            "No long-term contracts. Cancel or pause anytime.",
-        ],
-    },
-
     platform: {
-        headline: "A Learning Platform Built by Tutors, for Students",
-        subheadline: "Not just 1-on-1 sessions — a complete ecosystem designed to accelerate your growth between sessions.",
+        headline: "Every Session Leaves a Trail You Can See",
+        subheadline: "Most tutoring disappears the moment the session ends. Ours doesn't — every session, skill, and assignment lives in one place for you and your family.",
         features: [
             {
-                icon: "Brain",
-                title: "AI-Generated Homework",
-                description: "Every assignment is generated by AI trained on your tutor's feedback, your past homework, and your test performance — personalized to exactly where you need to improve.",
+                icon: "Users",
+                title: "One Mentor, Not a Rotation",
+                description: "Your child is matched with a dedicated tutor who stays with them — not whoever happens to be free that week.",
+            },
+            {
+                icon: "FileText",
+                title: "Session Notes, Every Time",
+                description: "What was covered, what to review, what's next. Posted to the parent and student portal after every single session — no exceptions.",
+            },
+            {
+                icon: "TrendingUp",
+                title: "Skill Tracking, Not Just Grades",
+                description: "Algebra, geometry, and trig aren't the same skill. We track mastery skill-by-skill, so you know exactly what's solid and what still needs work.",
             },
             {
                 icon: "BookOpen",
-                title: "Interactive Curriculum",
-                description: "A living curriculum embedded in your student account. Lessons, quizzes, and practice problems that adapt as you progress.",
+                title: "Homework With Real Feedback",
+                description: "Assigned after each session and graded by your tutor — not an answer key, and not busywork.",
             },
             {
                 icon: "MessageSquare",
-                title: "Student Community Hub",
-                description: "A Discord-like space where students connect, share resources, ask questions, and support each other — moderated and monitored by your tutors.",
+                title: "Direct Parent Updates",
+                description: "Updates come from the person who actually taught the session, not a form email on a schedule.",
             },
             {
-                icon: "Users",
-                title: "Study Groups",
-                description: "Join or create study groups for SAT prep, AP subjects, or coding projects. Peer learning accelerates growth beyond the session.",
-            },
-            {
-                icon: "Rocket",
-                title: "Private Project Rooms",
-                description: "Students can create private collaborative spaces for business ideas, 3D printing projects, entrepreneurship ventures, and personal builds.",
-            },
-            {
-                icon: "Shield",
-                title: "Tutor-Monitored Spaces",
-                description: "All group spaces are overseen by your tutors. Get guidance and mentorship even outside of your scheduled sessions.",
+                icon: "GraduationCap",
+                title: "K–12 Through College, One System",
+                description: "Students can stay with MetaMinds from elementary school through AP exams and beyond — same tutor relationship, same tracked history, no starting over.",
             },
         ],
     },
@@ -236,7 +89,7 @@ export const siteData = {
         },
         {
             question: "What's the cost of tutoring?",
-            answer: "Our packages start at $70 for a single session. With our 20-hour package you pay as little as $50/hr — compared to $200+/hr at companies like Revolution Prep and Princeton Review. Same elite credentials, no middleman markup. We also offer a money-back guarantee if you're not satisfied after your first session.",
+            answer: "Packages start at $70 for a single session, and drop as low as $50/hr on our 20-hour package. Book a free consultation and we'll walk you through which tier and package fit your goals.",
         },
         {
             question: "How much can I improve my SAT/ACT score?",
@@ -260,19 +113,9 @@ export const siteData = {
         },
         {
             question: "What technology do I need?",
-            answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for coding/problem-solving.",
-        },
-        {
-            question: "How do I prepare for my first session?",
-            answer: "Have your goals ready and any materials related to what you want to learn. We'll handle the rest! Our instructors will guide you through everything.",
+            answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for coding and problem-solving.",
         },
     ],
-
-    cta: {
-        headline: "Ready to Get Started?",
-        subheadline: "Book a free 30-minute consultation with one of our tutors. No commitment. No pressure.",
-        buttonText: "Book Free Consultation",
-    },
 
     nav: [
         { label: "Platform", href: "#platform" },

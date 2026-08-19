@@ -43,7 +43,7 @@ export default function Footer() {
                 </div>
 
                 <div className="border-t border-slate-800 pt-8 text-center text-gray-400 text-sm">
-                    <p>&copy; 2024 MetaMinds STEM Academy. All rights reserved.</p>
+                    <p>&copy; {new Date().getFullYear()} MetaMinds STEM Academy. All rights reserved.</p>
                 </div>
             </div>
         </footer>
