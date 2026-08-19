@@ -1,55 +1,29 @@
 import type { PurchaseOption } from "./types";
 
-export const PROGRAM_CATALOG: Record<string, string[]> = {
-  "Test Prep": [
-    "SAT Prep",
-    "ACT Prep",
-    "PSAT Prep",
-    "AP Exam Prep",
-  ],
-  "AP Courses": [
-    "AP Calculus AB",
-    "AP Calculus BC",
-    "AP Statistics",
-    "AP Computer Science A",
-    "AP Computer Science Principles",
-    "AP Physics 1",
-    "AP Physics 2",
-    "AP Physics C: Mechanics",
-    "AP Chemistry",
-    "AP Biology",
-    "AP Environmental Science",
-    "AP Psychology",
-    "AP English Language",
-    "AP English Literature",
-    "AP US History",
-    "AP World History",
-    "AP Macroeconomics",
-  ],
-  "Academics": [
-    "Elementary School Math",
-    "Middle School Math",
-    "Algebra I",
-    "Algebra II",
-    "Geometry",
-    "Pre-Calculus",
-    "Calculus",
-    "Physics",
-    "Chemistry",
-    "Biology",
-    "English / Writing",
-    "Reading Comprehension",
-    "History / Social Studies",
-  ],
-  "Coding & Technology": [
-    "Python",
-    "Java",
-    "JavaScript",
-    "Scratch",
-    "Robotics",
-    "Data Science",
-  ],
+/**
+ * Course Offerings (the `courses` table) are the canonical catalog — see
+ * migration 053. This is a *display-grouping* label only, mapping a course's
+ * `subject` column to a friendlier section heading in the Courses UI. It is
+ * not a second catalog: every name shown to a user comes from the database,
+ * never from a hardcoded list here.
+ */
+export const SUBJECT_DISPLAY_GROUP: Record<string, string> = {
+  SAT:      "Test Prep",
+  ACT:      "Test Prep",
+  GED:      "Test Prep",
+  AP:       "AP Courses",
+  Math:     "Academics",
+  English:  "Academics",
+  Coding:   "Coding & STEM",
+  Robotics: "Coding & STEM",
+  STEM:     "Coding & STEM",
 };
+
+export const DISPLAY_GROUP_ORDER = ["Test Prep", "AP Courses", "Academics", "Coding & STEM"];
+
+export function displayGroupFor(subject: string): string {
+  return SUBJECT_DISPLAY_GROUP[subject] ?? "Other";
+}
 
 export function formatDate(iso: string): string {
   const d = new Date(iso + "T00:00:00");

@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Modal from "./Modal";
 import { supabase } from "@/lib/supabase";
-import type { Tutor } from "@/lib/portal/types";
-import { PROGRAM_CATALOG } from "@/lib/portal/utils";
+import { fetchCourses } from "@/lib/portal/db";
+import type { Tutor, Course } from "@/lib/portal/types";
+import { DISPLAY_GROUP_ORDER, displayGroupFor } from "@/lib/portal/utils";
 
 const GRADES = [
   "Kindergarten", "1st", "2nd", "3rd", "4th", "5th",
@@ -24,6 +25,7 @@ interface OnboardResult {
     parentAuthCreated:  boolean;
     packageAssigned:    boolean;
     tutorAssigned:      boolean;
+    coursesEnrolled:    boolean;
     studentEmailSent:   boolean;
     parentEmailSent:    boolean;
     errors:             string[];
@@ -56,9 +58,14 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
   const [packageHours,  setPackageHours]  = useState("4");
   const [packageExpiry, setPackageExpiry] = useState("");
   const [tutorId,       setTutorId]       = useState("");
-  const [programs,      setPrograms]      = useState<string[]>([]);
+  const [courses,       setCourses]       = useState<Course[]>([]);
+  const [courseIds,     setCourseIds]     = useState<number[]>([]);
   const [status,        setStatus]        = useState<"active" | "inactive" | "paused">("active");
   const [step2Error,    setStep2Error]    = useState("");
+
+  useEffect(() => {
+    fetchCourses({ all: true }).then(setCourses).catch(console.error);
+  }, []);
 
   // ── Submission ───────────────────────────────────────────────────
   const [submitting,   setSubmitting]   = useState(false);
@@ -114,7 +121,7 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
           packageHours:   Number(packageHours),
           packageExpiry,
           tutorId:        tutorId ? Number(tutorId) : undefined,
-          programs,
+          courseIds,
           status,
         }),
       });
@@ -285,27 +292,27 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
             </div>
           </div>
 
-          {/* Programs */}
+          {/* Course Offerings */}
           <div>
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Programs</p>
-            <p className="text-xs text-gray-400 mb-3">Select all that apply — more can be added later</p>
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Courses</p>
+            <p className="text-xs text-gray-400 mb-3">Select all that apply — more can be added later. A course&apos;s curriculum doesn&apos;t need to be built yet to enroll a student in it.</p>
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-              {Object.entries(PROGRAM_CATALOG).map(([category, items]) => (
-                <div key={category}>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{category}</p>
+              {DISPLAY_GROUP_ORDER.filter((group) => courses.some((c) => displayGroupFor(c.subject) === group)).map((group) => (
+                <div key={group}>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">{group}</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {items.map((p) => {
-                      const selected = programs.includes(p);
+                    {courses.filter((c) => displayGroupFor(c.subject) === group).map((c) => {
+                      const selected = courseIds.includes(c.id);
                       return (
-                        <button key={p} type="button"
-                          onClick={() => setPrograms((prev) => selected ? prev.filter((x) => x !== p) : [...prev, p])}
+                        <button key={c.id} type="button"
+                          onClick={() => setCourseIds((prev) => selected ? prev.filter((x) => x !== c.id) : [...prev, c.id])}
                           className={`px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
                             selected
                               ? "bg-blue-600 text-white border-blue-600 shadow-sm"
                               : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
                           }`}
                         >
-                          {p}
+                          {c.title}
                         </button>
                       );
                     })}
@@ -313,8 +320,8 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
                 </div>
               ))}
             </div>
-            {programs.length > 0 && (
-              <p className="text-xs text-blue-600 mt-2 font-medium">{programs.length} program{programs.length !== 1 ? "s" : ""} selected</p>
+            {courseIds.length > 0 && (
+              <p className="text-xs text-blue-600 mt-2 font-medium">{courseIds.length} course{courseIds.length !== 1 ? "s" : ""} selected</p>
             )}
           </div>
 
@@ -394,8 +401,10 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
               <p className="text-xs text-gray-400 mt-0.5">Expires {packageExpiry}</p>
             </div>
             <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Programs & Tutor</p>
-              <p className="text-sm font-semibold text-gray-900">{programs.length > 0 ? programs.join(", ") : "None selected"}</p>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Courses & Tutor</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {courseIds.length > 0 ? courses.filter((c) => courseIds.includes(c.id)).map((c) => c.title).join(", ") : "None selected"}
+              </p>
               <p className="text-xs text-gray-500 mt-0.5">
                 {tutorId ? tutors.find((t) => t.id === Number(tutorId))?.name ?? "—" : "Tutor TBD"}
               </p>
@@ -451,6 +460,7 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
               { label: "Parent Account Created",      ok: result.results.parentAuthCreated,  warn: !result.results.parentAuthCreated },
               { label: "Package Assigned",            ok: result.results.packageAssigned,    warn: !result.results.packageAssigned },
               { label: "Tutor Assigned",              ok: result.results.tutorAssigned,      warn: !result.results.tutorAssigned && !tutorId },
+              { label: "Courses Enrolled",            ok: result.results.coursesEnrolled,    warn: !result.results.coursesEnrolled },
               { label: "Student Welcome Email Sent",  ok: result.results.studentEmailSent,   warn: !result.results.studentEmailSent },
               { label: "Parent Welcome Email Sent",   ok: result.results.parentEmailSent,    warn: !result.results.parentEmailSent },
               { label: "Password Reset on First Login", ok: result.results.studentAuthCreated, warn: false },

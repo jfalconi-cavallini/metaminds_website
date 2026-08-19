@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown } from "./types";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -1147,6 +1147,67 @@ export async function updateCourse(id: number, payload: Partial<{
 export async function deleteCourse(id: number): Promise<void> {
   const { error } = await supabase.from("courses").delete().eq("id", id);
   if (error) throw error;
+}
+
+// ── COURSE OFFERING ENROLLMENT ──────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToEnrollment(r: any): StudentCourseEnrollment {
+  return {
+    id: r.id, studentId: r.student_id, courseId: r.course_id,
+    status: r.status, enrolledAt: r.enrolled_at,
+    createdAt: r.created_at, updatedAt: r.updated_at,
+  };
+}
+
+/** All enrollments visible to the current user — RLS scopes this per role
+ *  (admin: all, tutor: own assigned students, student/parent: own only). */
+export async function fetchCourseEnrollments(): Promise<StudentCourseEnrollment[]> {
+  const { data, error } = await supabase.from("student_course_enrollments").select("*");
+  if (error) throw error;
+  return data.map(rowToEnrollment);
+}
+
+export async function fetchEnrollmentsForStudent(studentId: number): Promise<StudentCourseEnrollment[]> {
+  const { data, error } = await supabase.from("student_course_enrollments").select("*").eq("student_id", studentId);
+  if (error) throw error;
+  return data.map(rowToEnrollment);
+}
+
+export async function enrollStudentInCourse(studentId: number, courseId: number): Promise<StudentCourseEnrollment> {
+  const { data, error } = await supabase.from("student_course_enrollments")
+    .insert({ student_id: studentId, course_id: courseId })
+    .select().single();
+  if (error) throw error;
+  return rowToEnrollment(data);
+}
+
+export async function unenrollStudent(enrollmentId: number): Promise<void> {
+  const { error } = await supabase.from("student_course_enrollments").delete().eq("id", enrollmentId);
+  if (error) throw error;
+}
+
+/** Reconciles a student's enrollments to exactly the given set of course ids —
+ *  inserts what's missing, removes what's no longer selected. Used by the
+ *  admin profile editor's course picker. */
+export async function setStudentEnrollments(studentId: number, courseIds: number[]): Promise<void> {
+  const current = await fetchEnrollmentsForStudent(studentId);
+  const currentCourseIds = new Set(current.map((e) => e.courseId));
+  const nextCourseIds    = new Set(courseIds);
+
+  const toAdd    = courseIds.filter((id) => !currentCourseIds.has(id));
+  const toRemove = current.filter((e) => !nextCourseIds.has(e.courseId));
+
+  if (toAdd.length > 0) {
+    const { error } = await supabase.from("student_course_enrollments")
+      .insert(toAdd.map((courseId) => ({ student_id: studentId, course_id: courseId })));
+    if (error) throw error;
+  }
+  if (toRemove.length > 0) {
+    const { error } = await supabase.from("student_course_enrollments")
+      .delete().in("id", toRemove.map((e) => e.id));
+    if (error) throw error;
+  }
 }
 
 // ── CMS: MODULES ──────────────────────────────────────────────────────────────
