@@ -1,0 +1,2235 @@
+"use client";
+
+import React, { useEffect, useState, useCallback, Fragment } from "react";
+import { useRouter } from "next/navigation";
+import DashboardShell from "@/components/DashboardShell";
+import Badge from "@/components/portal/Badge";
+import StatCard from "@/components/portal/StatCard";
+import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
+import Modal from "@/components/portal/Modal";
+import { formatDate, formatTime24to12, PROGRAM_CATALOG } from "@/lib/portal/utils";
+import { useAuth } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
+import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
+import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
+import CurriculumBuilder from "@/components/curriculum/CurriculumBuilder";
+import {
+  fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
+  insertSession, logCompletedSession, cancelSession,
+  createTutor, assignStudentToTutor, addPackageHours,
+  updateSessionZoomLink, fetchTutorAvailability, fetchSessionsByTutor,
+  bulkInsertSessions, updateStudentProfile, updateTutorProfile,
+  archiveStudent, restoreStudent, archiveTutor, restoreTutor,
+  countHomeworkByStatus,
+  fetchPendingPurchaseRequests, resolvePurchaseRequest,
+} from "@/lib/portal/db";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest } from "@/lib/portal/types";
+
+const navItems = [
+  { id: "overview",   label: "Overview"   },
+  { id: "analytics",  label: "Analytics"  },
+  { id: "students",   label: "Students"   },
+  { id: "tutors",     label: "Tutors"     },
+  { id: "sessions",   label: "Sessions"   },
+  { id: "packages",   label: "Packages"   },
+  { id: "curriculum", label: "Curriculum" },
+];
+
+
+export default function AdminPortal() {
+  const { user, authLoaded } = useAuth();
+  const router = useRouter();
+  const [tab, setTab] = useState("overview");
+
+  const handleTabChange = useCallback((id: string) => {
+    setTab(id);
+  }, []);
+
+  const [students,         setStudents]         = useState<Student[]>([]);
+  const [tutors,           setTutors]           = useState<Tutor[]>([]);
+  const [sessions,         setSessions]         = useState<Session[]>([]);
+  const [packages,         setPackages]         = useState<HoursBalance[]>([]);
+  const [submittedHwCount, setSubmittedHwCount] = useState(0);
+  const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>([]);
+  const [resolvingRequestId, setResolvingRequestId] = useState<number | null>(null);
+  const [fulfillingRequestId, setFulfillingRequestId] = useState<number | null>(null);
+  const [loading,          setLoading]          = useState(true);
+
+  // ── PROFILE MODALS ─────────────────────────────────────────────
+  const [profileStudent,  setProfileStudent]  = useState<Student | null>(null);
+  const [profileTutor,    setProfileTutor]    = useState<Tutor | null>(null);
+  const [editingProfile,  setEditingProfile]  = useState(false);
+  const [profileSaving,   setProfileSaving]   = useState(false);
+  const [syncEmailLoading, setSyncEmailLoading] = useState(false);
+  const [syncEmailMsg,     setSyncEmailMsg]     = useState<{ ok: boolean; text: string } | null>(null);
+  // Student edit fields
+  const [pfName,         setPfName]         = useState("");
+  const [pfEmail,        setPfEmail]        = useState("");
+  const [pfGrade,        setPfGrade]        = useState("");
+  const [pfSubjects,     setPfSubjects]     = useState("");
+  const [pfPrograms,     setPfPrograms]     = useState<string[]>([]);
+  const [pfPhone,        setPfPhone]        = useState("");
+  const [pfParentName,   setPfParentName]   = useState("");
+  const [pfParentEmail,  setPfParentEmail]  = useState("");
+  const [pfParentPhone,  setPfParentPhone]  = useState("");
+  const [pfNotes,          setPfNotes]          = useState("");
+  const [pfAllowInPerson,  setPfAllowInPerson]  = useState(false);
+  // Tutor edit fields
+  const [pfTutName,      setPfTutName]      = useState("");
+  const [pfTutEmail,     setPfTutEmail]     = useState("");
+  const [pfTutSubjects,  setPfTutSubjects]  = useState("");
+  const [pfTutPhone,     setPfTutPhone]     = useState("");
+  const [pfTutBio,       setPfTutBio]       = useState("");
+  const [pfTutPhoto,     setPfTutPhoto]     = useState("");
+
+  useEffect(() => {
+    if (!authLoaded) return;
+    if (!user || user.role !== "admin") {
+      router.push("/login");
+      return;
+    }
+    async function load() {
+      try {
+        const [s, t, sess, pkgs, hwCount, purchReqs] = await Promise.all([
+          fetchStudents({ all: true }), fetchTutors({ all: true }), fetchSessions(), fetchAllPackages(),
+          countHomeworkByStatus("submitted"), fetchPendingPurchaseRequests(),
+        ]);
+        setStudents(s); setTutors(t); setSessions(sess); setPackages(pkgs);
+        setSubmittedHwCount(hwCount);
+        setPurchaseRequests(purchReqs);
+      } catch (err) { console.error("Admin load error:", err); }
+      finally { setLoading(false); }
+    }
+    load();
+  }, [authLoaded, user, router]);
+
+  // ── SKILL LIBRARY ───────────────────────────────────────────────
+  const [skillLibCount,    setSkillLibCount]    = useState<number | null>(null);
+  const [skillLibIniting,  setSkillLibIniting]  = useState(false);
+  const [skillLibResult,   setSkillLibResult]   = useState<{ inserted: number; skipped: number; total: number; errors: string[] } | null>(null);
+  const SAT_SKILL_TOTAL = 69;
+
+  async function checkSkillLib() {
+    const { count } = await supabase.from("skill_nodes").select("id", { count: "exact", head: true }).eq("course", "SAT");
+    setSkillLibCount(count ?? 0);
+  }
+
+  useEffect(() => {
+    if (tab === "curriculum" && skillLibCount === null) checkSkillLib();
+  }, [tab, skillLibCount]);
+
+  async function initSkillLib() {
+    setSkillLibIniting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/seed-skills", {
+        method: "POST",
+        headers: { "content-type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ course: "SAT" }),
+      });
+      const j = await res.json() as { inserted?: number; skipped?: number; total?: number; errors?: string[] };
+      setSkillLibResult({ inserted: j.inserted ?? 0, skipped: j.skipped ?? 0, total: j.total ?? 0, errors: j.errors ?? [] });
+      setSkillLibCount((prev) => (prev ?? 0) + (j.inserted ?? 0));
+    } catch { /* silent — result panel shows nothing */ }
+    finally { setSkillLibIniting(false); }
+  }
+
+  // ── STUDENT PREVIEW ─────────────────────────────────────────────
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError,   setPreviewError]   = useState<string | null>(null);
+
+  async function openStudentPreview(studentId: number, viewAs: "student" | "parent" = "student") {
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/start-preview", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body:    JSON.stringify({ studentId, viewAs }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Failed to start preview");
+      }
+      const { previewUrl } = await res.json() as { previewUrl: string };
+      router.push(previewUrl);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Could not open preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
+  // ── ARCHIVE ─────────────────────────────────────────────────────
+  const [showArchivedStudents, setShowArchivedStudents] = useState(false);
+  const [showArchivedTutors,   setShowArchivedTutors]   = useState(false);
+  const [archivingId,          setArchivingId]          = useState<number | null>(null);
+
+  // ── DELETE (permanent) ──────────────────────────────────────────
+  const [deleteTarget,   setDeleteTarget]   = useState<{ id: number; name: string; type: "student" | "tutor" } | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError,    setDeleteError]    = useState("");
+  const [deleteLoading,  setDeleteLoading]  = useState(false);
+  const [showDeletePw,   setShowDeletePw]   = useState(false);
+
+  async function submitDelete() {
+    if (!deleteTarget || !deletePassword) return;
+    setDeleteLoading(true); setDeleteError("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired — please refresh and sign in again.");
+      const res = await fetch("/api/admin/delete-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          role: deleteTarget.type,
+          linkedId: deleteTarget.id,
+          adminPassword: deletePassword,
+        }),
+      });
+      const result = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(result.error ?? "Delete failed");
+      if (deleteTarget.type === "student") {
+        setStudents((prev) => prev.filter((s) => s.id !== deleteTarget.id));
+      } else {
+        setTutors((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+      }
+      setDeleteTarget(null); setDeletePassword("");
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+    } finally { setDeleteLoading(false); }
+  }
+
+  async function handleArchiveStudent(id: number) {
+    setArchivingId(id);
+    try {
+      await archiveStudent(id);
+      setStudents((prev) => prev.map((s) => s.id === id ? { ...s, archived: true } : s));
+    } catch { /* silent */ } finally { setArchivingId(null); }
+  }
+
+  async function handleRestoreStudent(id: number) {
+    setArchivingId(id);
+    try {
+      await restoreStudent(id);
+      setStudents((prev) => prev.map((s) => s.id === id ? { ...s, archived: false } : s));
+    } catch { /* silent */ } finally { setArchivingId(null); }
+  }
+
+  async function handleArchiveTutor(id: number) {
+    setArchivingId(id);
+    try {
+      await archiveTutor(id);
+      setTutors((prev) => prev.map((t) => t.id === id ? { ...t, archived: true } : t));
+    } catch { /* silent */ } finally { setArchivingId(null); }
+  }
+
+  async function handleRestoreTutor(id: number) {
+    setArchivingId(id);
+    try {
+      await restoreTutor(id);
+      setTutors((prev) => prev.map((t) => t.id === id ? { ...t, archived: false } : t));
+    } catch { /* silent */ } finally { setArchivingId(null); }
+  }
+
+  // ── SESSION FORM ────────────────────────────────────────────────
+  const [showSessionForm, setShowSessionForm] = useState(false);
+  const [sessStudentId,   setSessStudentId]   = useState("");
+  const [sessTutorId,     setSessTutorId]     = useState("");
+  const [sessSubject,     setSessSubject]     = useState("");
+  const [sessDate,        setSessDate]        = useState("");
+  const [sessTime,        setSessTime]        = useState("");
+  const [sessDuration,    setSessDuration]    = useState("1");
+  const [sessType,        setSessType]        = useState<"online" | "in-person">("online");
+  const [sessStatus,      setSessStatus]      = useState<"upcoming" | "completed">("upcoming");
+  const [sessZoom,        setSessZoom]        = useState("");
+  const [sessSuccess,     setSessSuccess]     = useState(false);
+  const [sessError,       setSessError]       = useState("");
+
+  // ── BULK SCHEDULE ──────────────────────────────────────────────
+  const [showBulkForm,   setShowBulkForm]   = useState(false);
+  const [bulkStudentId,  setBulkStudentId]  = useState("");
+  const [bulkTutorId,    setBulkTutorId]    = useState("");
+  const [bulkSubject,    setBulkSubject]    = useState("");
+  const [bulkStartDate,  setBulkStartDate]  = useState("");
+  const [bulkTime,       setBulkTime]       = useState("");
+  const [bulkDuration,   setBulkDuration]   = useState("1");
+  const [bulkType,       setBulkType]       = useState<"online" | "in-person">("online");
+  const [bulkZoom,       setBulkZoom]       = useState("");
+  const [bulkCount,      setBulkCount]      = useState("8");
+  const [bulkSaving,     setBulkSaving]     = useState(false);
+  const [bulkSuccess,    setBulkSuccess]    = useState(false);
+  const [bulkError,      setBulkError]      = useState("");
+
+  useEffect(() => {
+    if (students.length > 0 && !sessStudentId) setSessStudentId(String(students[0].id));
+    if (tutors.length   > 0 && !sessTutorId)   setSessTutorId(String(tutors[0].id));
+  }, [students, tutors, sessStudentId, sessTutorId]);
+
+  async function submitSession() {
+    if (!sessDate || !sessTime || !sessSubject) return;
+    setSessError("");
+    try {
+      const payload = {
+        studentId:     Number(sessStudentId),
+        tutorId:       Number(sessTutorId),
+        subject:       sessSubject,
+        sessionDate:   sessDate,
+        sessionTime:   formatTime24to12(sessTime),
+        durationHours: Number(sessDuration),
+        sessionType:   sessType,
+      };
+      const newSession = sessStatus === "completed"
+        ? await logCompletedSession(payload)
+        : await insertSession({ ...payload });
+      if (sessZoom) await updateSessionZoomLink(newSession.id, sessZoom);
+      setSessions((prev) => [{ ...newSession, zoomLink: sessZoom || undefined }, ...prev]);
+      setSessSuccess(true); setShowSessionForm(false);
+      setSessSubject(""); setSessDate(""); setSessTime(""); setSessZoom(""); setSessStatus("upcoming");
+      setTimeout(() => setSessSuccess(false), 4000);
+    } catch { setSessError("Failed to create session."); }
+  }
+
+  // ── BULK SCHEDULE HELPERS ───────────────────────────────────────
+  function getBulkDates(): string[] {
+    if (!bulkStartDate || !bulkCount) return [];
+    const dates: string[] = [];
+    const start = new Date(bulkStartDate + "T12:00:00"); // noon avoids DST edge
+    const n = Math.min(Math.max(1, Number(bulkCount)), 52);
+    for (let i = 0; i < n; i++) {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i * 7);
+      dates.push(d.toISOString().slice(0, 10));
+    }
+    return dates;
+  }
+
+  async function submitBulkSchedule() {
+    if (!bulkStartDate || !bulkTime || !bulkSubject || !bulkStudentId || !bulkTutorId) {
+      setBulkError("Fill in all required fields."); return;
+    }
+    setBulkSaving(true); setBulkError("");
+    try {
+      const timeStr = formatTime24to12(bulkTime);
+      const rows = getBulkDates().map((date) => ({
+        studentId: Number(bulkStudentId), tutorId: Number(bulkTutorId),
+        subject: bulkSubject, sessionDate: date, sessionTime: timeStr,
+        durationHours: Number(bulkDuration), sessionType: bulkType,
+        zoomLink: bulkZoom || undefined,
+      }));
+      const newSessions = await bulkInsertSessions(rows);
+      setSessions((prev) => [...newSessions, ...prev]);
+      setBulkSuccess(true); setShowBulkForm(false);
+      setBulkSubject(""); setBulkStartDate(""); setBulkTime(""); setBulkZoom(""); setBulkCount("8");
+      setTimeout(() => setBulkSuccess(false), 5000);
+    } catch (e: unknown) { setBulkError(e instanceof Error ? e.message : "Failed to schedule sessions."); }
+    finally { setBulkSaving(false); }
+  }
+
+  // ── STUDENT ONBOARDING WIZARD ────────────────────────────────────
+  const [showStudentWizard, setShowStudentWizard] = useState(false);
+
+  async function handleWizardSuccess() {
+    // Refresh both students and packages after successful onboarding
+    try {
+      const [s, pkgs] = await Promise.all([fetchStudents({ all: true }), fetchAllPackages()]);
+      setStudents(s);
+      setPackages(pkgs);
+    } catch { /* silent — lists refresh on next tab visit */ }
+  }
+
+  // ── TUTOR FORM ──────────────────────────────────────────────────
+  const [showTutorForm,   setShowTutorForm]   = useState(false);
+  const [newTutName,      setNewTutName]      = useState("");
+  const [newTutEmail,     setNewTutEmail]     = useState("");
+  const [newTutPassword,  setNewTutPassword]  = useState("");
+  const [newTutSubjs,     setNewTutSubjs]     = useState("");
+  const [tutFormError,    setTutFormError]    = useState("");
+  const [tutFormSuccess,  setTutFormSuccess]  = useState("");
+  const [tutFormLoading,  setTutFormLoading]  = useState(false);
+
+  async function submitNewTutor() {
+    if (!newTutName || !newTutEmail || !newTutPassword) {
+      setTutFormError("Name, email, and password are required."); return;
+    }
+    setTutFormLoading(true); setTutFormError(""); setTutFormSuccess("");
+    let createdTutorId: number | null = null;
+    try {
+      // 1. Create DB record
+      const t = await createTutor({
+        name: newTutName, email: newTutEmail,
+        subjects: newTutSubjs.split(",").map((x) => x.trim()).filter(Boolean),
+      });
+      createdTutorId = t.id;
+      setTutors((prev) => [...prev, t]);
+
+      // 2. Create Supabase Auth account + link to DB record
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Your session has expired — please refresh and sign in again.");
+      const res = await fetch("/api/admin/create-user", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          email: newTutEmail,
+          password: newTutPassword,
+          fullName: newTutName,
+          role: "tutor",
+          linkedId: t.id,
+        }),
+      });
+      const result = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(result.error ?? `Server error ${res.status}`);
+
+      setTutFormSuccess(`Account created! ${newTutName} can now log in with ${newTutEmail}.`);
+      setNewTutName(""); setNewTutEmail(""); setNewTutPassword(""); setNewTutSubjs("");
+      setTimeout(() => { setShowTutorForm(false); setTutFormSuccess(""); }, 4000);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setTutFormError(`${msg}${createdTutorId ? ` (Tutor DB record #${createdTutorId} was created — re-submit or delete it manually in Supabase)` : ""}`);
+    } finally { setTutFormLoading(false); }
+  }
+
+  // ── ASSIGN TUTOR ────────────────────────────────────────────────
+  const [assignFor,      setAssignFor]      = useState<number | null>(null);
+  const [assignTutorId,  setAssignTutorId]  = useState("");
+  const [assignLoading,  setAssignLoading]  = useState(false);
+
+  // ── RESEND WELCOME EMAIL ─────────────────────────────────────────
+  const [resendFor,          setResendFor]          = useState<number | null>(null);
+  const [resendStudentEmail, setResendStudentEmail] = useState("");
+  const [resendParentEmail,  setResendParentEmail]  = useState("");
+  const [resendLoading,      setResendLoading]      = useState<"student" | "parent" | "both" | null>(null);
+  const [resendMsg,          setResendMsg]          = useState<{ ok: boolean; text: string } | null>(null);
+
+  async function handleResendWelcome(studentId: number, which: "student" | "parent" | "both") {
+    setResendLoading(which); setResendMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired");
+      const student = students.find((s) => s.id === studentId);
+      const res = await fetch("/api/admin/resend-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          studentId,
+          which,
+          studentEmail: resendStudentEmail || undefined,
+          parentEmail:  resendParentEmail  || undefined,
+          studentName:  student?.name ?? "",
+          parentName:   student?.parentName ?? "Parent",
+        }),
+      });
+      const result = await res.json() as { success?: boolean; results?: Record<string, unknown>; error?: string };
+      if (!res.ok) throw new Error(result.error ?? "Failed");
+      const r = result.results ?? {};
+      const sent: string[] = [];
+      if (r.studentEmailSent) sent.push(`student (${resendStudentEmail})`);
+      if (r.parentEmailSent)  sent.push(`parent (${resendParentEmail})`);
+      if (sent.length > 0) {
+        setResendMsg({ ok: true, text: `Email sent to: ${sent.join(" and ")}.` });
+      } else {
+        const note = (r.studentNote ?? r.parentNote ?? r.studentError ?? r.parentError ?? "Check RESEND_API_KEY") as string;
+        setResendMsg({ ok: !!(r.studentTempPassword ?? r.parentTempPassword), text: note });
+      }
+      setTimeout(() => { setResendFor(null); setResendMsg(null); }, 7000);
+    } catch (e: unknown) {
+      setResendMsg({ ok: false, text: e instanceof Error ? e.message : "Error sending email" });
+    } finally { setResendLoading(null); }
+  }
+
+  async function submitAssign(studentId: number) {
+    setAssignLoading(true);
+    try {
+      await assignStudentToTutor(studentId, Number(assignTutorId));
+      setStudents((prev) => prev.map((s) =>
+        s.id === studentId ? { ...s, assignedTutorId: Number(assignTutorId) } : s
+      ));
+      setAssignFor(null);
+    } catch { /* silent */ }
+    finally { setAssignLoading(false); }
+  }
+
+  // ── CANCEL SESSION ──────────────────────────────────────────────
+  const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  async function handleCancelSession(s: Session) {
+    setCancellingId(s.id);
+    try {
+      await cancelSession(s.id);
+      setSessions((prev) => prev.map((x) => x.id === s.id ? { ...x, status: "cancelled" } : x));
+      setPackages((prev) => prev.map((b) =>
+        b.studentId === s.studentId
+          ? { ...b, totalUsed: Math.max(0, b.totalUsed - s.durationHours), remaining: b.remaining + s.durationHours }
+          : b
+      ));
+    } catch { /* silent */ }
+    finally { setCancellingId(null); }
+  }
+
+  // ── ZOOM LINK EDIT ──────────────────────────────────────────────
+  const [zoomEditId,   setZoomEditId]   = useState<number | null>(null);
+  const [zoomEditVal,  setZoomEditVal]  = useState("");
+  const [zoomSaving,   setZoomSaving]   = useState(false);
+
+  // ── TUTOR SCHEDULE VIEW ─────────────────────────────────────────
+  const [schedTutor,    setSchedTutor]    = useState<Tutor | null>(null);
+  const [schedAvail,    setSchedAvail]    = useState<TutorAvailability[]>([]);
+  const [schedSessions, setSchedSessions] = useState<Session[]>([]);
+  const [schedLoading,  setSchedLoading]  = useState(false);
+
+  async function openTutorSchedule(tutor: Tutor) {
+    setSchedTutor(tutor);
+    setSchedLoading(true);
+    try {
+      const [avail, sess] = await Promise.all([
+        fetchTutorAvailability(tutor.id),
+        fetchSessionsByTutor(tutor.id),
+      ]);
+      setSchedAvail(avail);
+      setSchedSessions(sess);
+    } catch { /* silent */ }
+    finally { setSchedLoading(false); }
+  }
+
+  async function saveZoomLink(sessionId: number) {
+    setZoomSaving(true);
+    try {
+      await updateSessionZoomLink(sessionId, zoomEditVal);
+      setSessions((prev) => prev.map((s) => s.id === sessionId ? { ...s, zoomLink: zoomEditVal || undefined } : s));
+      setZoomEditId(null);
+    } catch { /* silent */ }
+    finally { setZoomSaving(false); }
+  }
+
+  // ── ADD HOURS MODAL ─────────────────────────────────────────────
+  const [addHoursFor,    setAddHoursFor]    = useState<number | null>(null);
+  const [addHoursAmt,    setAddHoursAmt]    = useState("4");
+  const [addHoursExpiry, setAddHoursExpiry] = useState("");
+  const [addHoursLoading,setAddHoursLoading]= useState(false);
+  const [addHoursError,  setAddHoursError]  = useState("");
+
+  async function submitAddHours() {
+    if (!addHoursFor || !addHoursExpiry) { setAddHoursError("Select an expiry date."); return; }
+    setAddHoursLoading(true); setAddHoursError("");
+    try {
+      const updated = await addPackageHours(addHoursFor, Number(addHoursAmt), addHoursExpiry);
+      setPackages((prev) => {
+        const exists = prev.find((b) => b.studentId === addHoursFor);
+        if (exists) return prev.map((b) => b.studentId === addHoursFor ? updated : b);
+        return [...prev, updated];
+      });
+      if (fulfillingRequestId) {
+        const requestId = fulfillingRequestId;
+        setFulfillingRequestId(null);
+        resolvePurchaseRequest(requestId, "fulfilled")
+          .then(() => setPurchaseRequests((prev) => prev.filter((r) => r.id !== requestId)))
+          .catch(console.error);
+      }
+      setAddHoursFor(null);
+    } catch { setFulfillingRequestId(null); setAddHoursError("Failed to add hours."); }
+    finally { setAddHoursLoading(false); }
+  }
+
+  function openFulfillRequest(req: PurchaseRequest) {
+    setFulfillingRequestId(req.id);
+    setAddHoursFor(req.studentId);
+    setAddHoursAmt(String(req.hours));
+    setAddHoursExpiry("");
+    setAddHoursError("");
+  }
+
+  async function dismissPurchaseRequest(id: number) {
+    setResolvingRequestId(id);
+    try {
+      await resolvePurchaseRequest(id, "dismissed");
+      setPurchaseRequests((prev) => prev.filter((r) => r.id !== id));
+    } catch { /* leave it in the list so the admin can retry */ }
+    finally { setResolvingRequestId(null); }
+  }
+
+  // ── HELPERS ─────────────────────────────────────────────────────
+  function getStudent(id: number) { return students.find((s) => s.id === id); }
+  function getTutor(id: number)   { return tutors.find((t) => t.id === id);   }
+
+  function openStudentProfile(s: Student) {
+    setProfileStudent(s); setEditingProfile(false);
+    setPfName(s.name); setPfEmail(s.email); setPfGrade(s.grade);
+    setPfSubjects(s.subjects.join(", ")); setPfPrograms(s.programs ?? []);
+    setPfPhone(s.phone ?? "");
+    setPfParentName(s.parentName ?? ""); setPfParentEmail(s.parentEmail ?? "");
+    setPfParentPhone(s.parentPhone ?? ""); setPfNotes(s.notes ?? "");
+    setPfAllowInPerson(s.allowInPerson ?? false);
+  }
+
+  function openTutorProfile(t: Tutor) {
+    setProfileTutor(t); setEditingProfile(false);
+    setPfTutName(t.name); setPfTutEmail(t.email);
+    setPfTutSubjects(t.subjects.join(", ")); setPfTutPhone(t.phone ?? ""); setPfTutBio(t.bio ?? "");
+    setPfTutPhoto(t.photoUrl ?? "");
+  }
+
+  async function saveStudentProfile() {
+    if (!profileStudent) return;
+    setProfileSaving(true);
+    try {
+      const updated = await updateStudentProfile(profileStudent.id, {
+        name: pfName, email: pfEmail, grade: pfGrade,
+        subjects: pfSubjects.split(",").map((s) => s.trim()).filter(Boolean),
+        programs: pfPrograms,
+        phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
+        parentPhone: pfParentPhone, notes: pfNotes, allowInPerson: pfAllowInPerson,
+      });
+      // Sync auth email if it changed
+      if (pfEmail && pfEmail !== profileStudent.email) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const emailRes = await fetch("/api/admin/update-email", {
+            method: "POST",
+            headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+            body: JSON.stringify({ role: "student", linkedId: profileStudent.id, newEmail: pfEmail }),
+          });
+          const emailJson = await emailRes.json();
+          if (!emailRes.ok) {
+            alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
+          }
+        }
+      }
+      setStudents((prev) => prev.map((s) => s.id === updated.id ? updated : s));
+      setProfileStudent(updated); setEditingProfile(false);
+    } catch { /* silent */ } finally { setProfileSaving(false); }
+  }
+
+  async function saveTutorProfile() {
+    if (!profileTutor) return;
+    setProfileSaving(true);
+    try {
+      const updated = await updateTutorProfile(profileTutor.id, {
+        name: pfTutName, email: pfTutEmail,
+        subjects: pfTutSubjects.split(",").map((s) => s.trim()).filter(Boolean),
+        phone: pfTutPhone, bio: pfTutBio, photoUrl: pfTutPhoto,
+      });
+      // Sync auth email if it changed
+      if (pfTutEmail && pfTutEmail !== profileTutor.email) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const emailRes = await fetch("/api/admin/update-email", {
+            method: "POST",
+            headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+            body: JSON.stringify({ role: "tutor", linkedId: profileTutor.id, newEmail: pfTutEmail }),
+          });
+          const emailJson = await emailRes.json();
+          if (!emailRes.ok) {
+            alert(`Profile saved but login email update failed: ${emailJson.error ?? "unknown error"}`);
+          }
+        }
+      }
+      setTutors((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+      setProfileTutor(updated); setEditingProfile(false);
+    } catch { /* silent */ } finally { setProfileSaving(false); }
+  }
+
+  async function syncStudentAuthEmail(student: Student) {
+    setSyncEmailLoading(true);
+    setSyncEmailMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired — please refresh.");
+      const res = await fetch("/api/admin/update-email", {
+        method: "POST",
+        headers: { "content-type": "application/json", "authorization": `Bearer ${session.access_token}` },
+        body: JSON.stringify({ role: "student", linkedId: student.id, newEmail: student.email }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Sync failed");
+      setSyncEmailMsg({ ok: true, text: `✓ Login email synced to ${student.email}` });
+    } catch (e: unknown) {
+      setSyncEmailMsg({ ok: false, text: e instanceof Error ? e.message : "Sync failed" });
+    } finally {
+      setSyncEmailLoading(false);
+    }
+  }
+
+  const adminName = user?.fullName ?? "Jose Falconi";
+  const upcoming  = sessions.filter((s) => s.status === "upcoming");
+  const totalHoursSold = packages.reduce((sum, b) => sum + b.totalPurchased, 0);
+
+  if (!authLoaded || loading) {
+    return (
+      <DashboardShell role="admin" userName="Admin" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
+        <div className="flex items-center justify-center h-64 text-gray-400 text-sm">Loading dashboard…</div>
+      </DashboardShell>
+    );
+  }
+
+  return (
+    <>
+    <DashboardShell role="admin" userName={adminName} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
+      fullBleed={tab === "curriculum"}>
+
+      {/* ── OVERVIEW ── */}
+      {tab === "overview" && (() => {
+        const todayIso    = new Date().toISOString().slice(0, 10);
+        const tomorrowD   = new Date(); tomorrowD.setDate(tomorrowD.getDate() + 1);
+        const tomorrowIso = tomorrowD.toISOString().slice(0, 10);
+        const todaySess    = sessions.filter((s) => s.date === todayIso    && s.status === "upcoming");
+        const tomorrowSess = sessions.filter((s) => s.date === tomorrowIso && s.status === "upcoming");
+        const lowHours     = students.filter((s) => !s.archived && (packages.find((p) => p.studentId === s.id)?.remaining ?? 99) < 3);
+        const activeStudents = students.filter((s) => !s.archived);
+
+        return (
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Admin</p>
+              <h1 className="text-2xl font-bold text-gray-900">Welcome, {adminName.split(" ")[0]}</h1>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                { label: "Active Students",   value: activeStudents.length,                   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
+                { label: "Active Tutors",     value: tutors.filter((t) => !t.archived).length, Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
+                { label: "Upcoming Sessions", value: upcoming.length,                          Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
+                { label: "Hours Sold",        value: `${totalHoursSold}h`,                     Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+              ] as const).map((card) => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Today's Tasks */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-3">Today&apos;s Tasks</h2>
+              {todaySess.length === 0 && tomorrowSess.length === 0 && submittedHwCount === 0 && lowHours.length === 0 && purchaseRequests.length === 0 ? (
+                <div className="bg-green-50 border border-green-200 rounded-xl px-5 py-4 text-sm text-green-700 font-medium">
+                  All clear — nothing needs your attention right now.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {todaySess.length > 0 && (
+                    <button onClick={() => setTab("sessions")}
+                      className="w-full flex items-center gap-4 bg-white border border-blue-200 rounded-2xl px-5 py-4 text-left hover:border-blue-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 text-blue-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">{todaySess.length} session{todaySess.length > 1 ? "s" : ""} today</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          {todaySess.map((s) => `${getStudent(s.studentId)?.name ?? "?"} · ${s.time}`).join("  ·  ")}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
+                  )}
+                  {tomorrowSess.length > 0 && (
+                    <button onClick={() => setTab("sessions")}
+                      className="w-full flex items-center gap-4 bg-white border border-gray-200 rounded-2xl px-5 py-4 text-left hover:border-gray-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center shrink-0">
+                        <CalendarDays className="w-4 h-4 text-gray-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">{tomorrowSess.length} session{tomorrowSess.length > 1 ? "s" : ""} tomorrow</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          {tomorrowSess.map((s) => `${getStudent(s.studentId)?.name ?? "?"} at ${s.time}`).join("  ·  ")}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
+                  )}
+                  {submittedHwCount > 0 && (
+                    <div className="w-full flex items-center gap-4 bg-white border border-amber-200 rounded-2xl px-5 py-4 shadow-sm">
+                      <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center shrink-0">
+                        <BookOpen className="w-4 h-4 text-amber-500" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-gray-900 text-sm">{submittedHwCount} submission{submittedHwCount > 1 ? "s" : ""} waiting for tutor review</p>
+                        <p className="text-xs text-gray-500 mt-0.5">Tutors should grade these in their Homework tab</p>
+                      </div>
+                    </div>
+                  )}
+                  {purchaseRequests.length > 0 && (
+                    <button onClick={() => setTab("packages")}
+                      className="w-full flex items-center gap-4 bg-white border border-emerald-200 rounded-2xl px-5 py-4 text-left hover:border-emerald-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0">
+                        <Clock className="w-4 h-4 text-emerald-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">{purchaseRequests.length} hour purchase request{purchaseRequests.length > 1 ? "s" : ""} waiting</p>
+                        <p className="text-xs text-gray-500 mt-0.5 truncate">
+                          {purchaseRequests.map((r) => `${getStudent(r.studentId)?.name ?? "?"} — ${r.packageLabel}`).join("  ·  ")}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
+                  )}
+                  {lowHours.length > 0 && (
+                    <button onClick={() => setTab("packages")}
+                      className="w-full flex items-center gap-4 bg-white border border-red-200 rounded-2xl px-5 py-4 text-left hover:border-red-300 hover:shadow-sm transition-all shadow-sm">
+                      <div className="w-9 h-9 bg-red-50 rounded-xl flex items-center justify-center shrink-0">
+                        <AlertTriangle className="w-4 h-4 text-red-500" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-gray-900 text-sm">{lowHours.length} student{lowHours.length > 1 ? "s" : ""} running low on hours</p>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          {lowHours.map((s) => `${s.name} (${packages.find((p) => p.studentId === s.id)?.remaining ?? 0}h)`).join(", ")}
+                        </p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Upcoming sessions table */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Schedule</p>
+                <p className="text-base font-bold text-gray-900">All Upcoming Sessions</p>
+              </div>
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Student</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Tutor</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Subject</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Type</th>
+                    <th className="px-4 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Zoom</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {upcoming.map((s) => (
+                    <tr key={s.id} className={s.date === todayIso ? "bg-blue-50" : "hover:bg-gray-50 transition-colors"}>
+                      <td className="px-5 py-3.5 font-semibold text-gray-900">
+                        {getStudent(s.studentId)?.name ?? "—"}
+                        {s.date === todayIso && <span className="ml-2 text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide">Today</span>}
+                      </td>
+                      <td className="px-4 py-3.5 text-gray-600">{getTutor(s.tutorId)?.name ?? "—"}</td>
+                      <td className="px-4 py-3.5 text-gray-600">{formatDate(s.date)} {s.time}</td>
+                      <td className="px-4 py-3.5 text-gray-600">{s.subject}</td>
+                      <td className="px-4 py-3.5"><Badge status={s.sessionType} /></td>
+                      <td className="px-4 py-3.5">
+                        {s.zoomLink
+                          ? <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {upcoming.length === 0 && (
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 text-sm">No upcoming sessions.</td></tr>
+                  )}
+                </tbody>
+              </table>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── ANALYTICS ── */}
+      {tab === "analytics" && (() => {
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const activeStudents  = students.filter((s) => !s.archived);
+        const activeTutors    = tutors.filter((t) => !t.archived);
+        const completed       = sessions.filter((s) => s.status === "completed");
+        const thisMonthPfx    = new Date().toISOString().slice(0, 7);
+        const lastMonthDate   = new Date(); lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+        const lastMonthPfx    = lastMonthDate.toISOString().slice(0, 7);
+        const sessThisMonth   = sessions.filter((s) => s.date.startsWith(thisMonthPfx));
+        const sessLastMonth   = sessions.filter((s) => s.date.startsWith(lastMonthPfx));
+        const momDelta        = sessThisMonth.length - sessLastMonth.length;
+
+        // 6-month session bar chart
+        const chartMonths = Array.from({ length: 6 }, (_, i) => {
+          const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - (5 - i));
+          const pfx   = d.toISOString().slice(0, 7);
+          const label = d.toLocaleString("en-US", { month: "short" });
+          const count = sessions.filter((s) => s.date.startsWith(pfx)).length;
+          const hrs   = sessions.filter((s) => s.date.startsWith(pfx)).reduce((sum, s) => sum + s.durationHours, 0);
+          return { label, count, hrs };
+        });
+        const maxCount = Math.max(...chartMonths.map((m) => m.count), 1);
+
+        // Hours economy
+        const totalSold      = packages.reduce((sum, p) => sum + p.totalPurchased, 0);
+        const totalUsed      = packages.reduce((sum, p) => sum + p.totalUsed, 0);
+        const totalRemaining = packages.reduce((sum, p) => sum + p.remaining, 0);
+        const utilPct        = totalSold > 0 ? Math.round((totalUsed / totalSold) * 100) : 0;
+
+        // Last session per student
+        const lastSessMap: Record<number, string> = {};
+        completed.forEach((s) => {
+          if (!lastSessMap[s.studentId] || s.date > lastSessMap[s.studentId]) lastSessMap[s.studentId] = s.date;
+        });
+
+        // Student watchlist
+        const thirtyAgo = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+        const watchlist = activeStudents.map((s) => {
+          const bal       = packages.find((p) => p.studentId === s.id);
+          const remaining = bal?.remaining ?? 99;
+          const lastSess  = lastSessMap[s.id] ?? null;
+          const daysSince = lastSess ? Math.floor((Date.now() - new Date(lastSess).getTime()) / 86400000) : null;
+          const flags: string[] = [];
+          if (remaining < 3) flags.push("low");
+          if (!lastSess || lastSess < thirtyAgo) flags.push("inactive");
+          if (!s.assignedTutorId) flags.push("unassigned");
+          return { s, remaining, lastSess, daysSince, flags };
+        }).filter((w) => w.flags.length > 0).sort((a, b) => b.flags.length - a.flags.length);
+
+        // Subject distribution (completed sessions)
+        const subjectMap: Record<string, number> = {};
+        completed.forEach((s) => { subjectMap[s.subject] = (subjectMap[s.subject] ?? 0) + 1; });
+        const topSubjects = Object.entries(subjectMap).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        const maxSub = topSubjects[0]?.[1] ?? 1;
+
+        // Tutor workload
+        const tutorWork = activeTutors.map((t) => ({
+          t,
+          completedCount: completed.filter((s) => s.tutorId === t.id).length,
+          upcomingCount:  upcoming.filter((s) => s.tutorId === t.id).length,
+          studentCount:   t.assignedStudentIds.length,
+          hrsDelivered:   completed.filter((s) => s.tutorId === t.id).reduce((sum, s) => sum + s.durationHours, 0),
+        })).sort((a, b) => b.completedCount - a.completedCount);
+
+        // Session type split
+        const onlineCount    = completed.filter((s) => s.sessionType === "online").length;
+        const inPersonCount  = completed.filter((s) => s.sessionType === "in-person").length;
+        const totalCompleted = completed.length || 1;
+
+        return (
+          <div className="space-y-6">
+            <div>
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Analytics</p>
+              <h1 className="text-2xl font-bold text-gray-900">Business Overview</h1>
+            </div>
+
+            {/* ── Top metric cards ── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {([
+                { label: "Active Students",   value: activeStudents.length,   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
+                { label: "Active Tutors",     value: activeTutors.length,     Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
+                { label: "Sessions / Month",  value: sessThisMonth.length,    Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
+                { label: "Hours Sold",        value: `${totalSold}h`,         Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+                { label: "Hours Used",        value: `${totalUsed}h`,         Icon: Activity,     iconBg: "bg-orange-50",  iconColor: "text-orange-500"  },
+                { label: "Utilization",       value: `${utilPct}%`,           Icon: TrendingUp,   iconBg: utilPct >= 70 ? "bg-emerald-50" : "bg-gray-50", iconColor: utilPct >= 70 ? "text-emerald-500" : "text-gray-400" },
+              ] as const).map((card) => (
+                <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">{card.label}</p>
+                    <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                  </div>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${card.iconBg}`}>
+                    <card.Icon className={`w-4 h-4 ${card.iconColor}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ── Session trends + Hours economy ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+              {/* 6-month bar chart */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Session Volume</p>
+                    <p className="text-base font-bold text-gray-900">Last 6 Months</p>
+                  </div>
+                  <div className={`flex items-center gap-1 text-sm font-semibold px-2.5 py-1 rounded-full ${momDelta > 0 ? "bg-emerald-50 text-emerald-700" : momDelta < 0 ? "bg-red-50 text-red-600" : "bg-gray-50 text-gray-500"}`}>
+                    {momDelta > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : momDelta < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : null}
+                    {momDelta > 0 ? `+${momDelta}` : momDelta < 0 ? `${momDelta}` : "—"} vs last month
+                  </div>
+                </div>
+                <div className="flex items-end justify-between gap-2 h-36">
+                  {chartMonths.map((m, i) => {
+                    const isThisMonth = i === 5;
+                    const barPct = Math.max(4, Math.round((m.count / maxCount) * 100));
+                    return (
+                      <div key={m.label} className="flex flex-col items-center gap-1.5 flex-1 h-full justify-end">
+                        <span className="text-xs font-semibold text-gray-600">{m.count > 0 ? m.count : ""}</span>
+                        <div
+                          className={`w-full rounded-t-lg transition-all duration-700 ${isThisMonth ? "bg-blue-500" : "bg-blue-200"}`}
+                          style={{ height: `${barPct}%` }}
+                          title={`${m.label}: ${m.count} sessions, ${m.hrs}h`}
+                        />
+                        <span className="text-[10px] text-gray-400">{m.label}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
+                  <span>Total sessions: <strong className="text-gray-900">{completed.length}</strong></span>
+                  <span>Total hours: <strong className="text-gray-900">{completed.reduce((s, c) => s + c.durationHours, 0)}h</strong></span>
+                </div>
+              </div>
+
+              {/* Hours economy */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Hours Economy</p>
+                  <p className="text-base font-bold text-gray-900">Package Health</p>
+                </div>
+                {/* Aggregate bar */}
+                <div className="mb-5">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
+                    <span>{totalUsed}h used</span>
+                    <span>{totalRemaining}h remaining</span>
+                  </div>
+                  <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${utilPct}%` }} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">{utilPct}% of {totalSold}h total purchased used</p>
+                </div>
+                {/* Per-student bars — show active students with packages, sorted by remaining */}
+                <div className="space-y-2">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Per Student</p>
+                  {activeStudents
+                    .map((s) => ({ s, bal: packages.find((p) => p.studentId === s.id) }))
+                    .filter((x) => x.bal)
+                    .sort((a, b) => (a.bal!.remaining) - (b.bal!.remaining))
+                    .slice(0, 8)
+                    .map(({ s, bal }) => {
+                      const pct = bal!.totalPurchased > 0 ? Math.round((bal!.remaining / bal!.totalPurchased) * 100) : 0;
+                      const barColor = bal!.remaining < 3 ? "bg-red-400" : bal!.remaining < 6 ? "bg-amber-400" : "bg-emerald-400";
+                      return (
+                        <div key={s.id}>
+                          <div className="flex items-center justify-between text-xs mb-0.5">
+                            <span className="font-medium text-gray-700 truncate">{s.name}</span>
+                            <span className={`font-semibold shrink-0 ml-2 ${bal!.remaining < 3 ? "text-red-600" : bal!.remaining < 6 ? "text-amber-600" : "text-emerald-600"}`}>
+                              {bal!.remaining}h left
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.max(4, pct)}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── Student watchlist + Session type split ── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+              {/* Watchlist */}
+              <div className="lg:col-span-2 bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Watchlist</p>
+                    <p className="text-base font-bold text-gray-900">Students Needing Attention</p>
+                  </div>
+                  <span className={`text-sm font-bold px-2.5 py-1 rounded-full ${watchlist.length > 0 ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-700"}`}>
+                    {watchlist.length > 0 ? watchlist.length : "✓ All clear"}
+                  </span>
+                </div>
+                {watchlist.length === 0 ? (
+                  <div className="py-6 text-center text-sm text-gray-400">All active students are in good shape.</div>
+                ) : (
+                  <div className="divide-y divide-gray-50">
+                    {watchlist.map(({ s, remaining, lastSess, daysSince, flags }) => (
+                      <div key={s.id} className="py-3 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-xl bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-600 shrink-0">
+                          {s.name[0]}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 text-sm">{s.name}</p>
+                          <p className="text-xs text-gray-400">
+                            {lastSess ? `Last session ${daysSince}d ago` : "No sessions recorded"}
+                            {" · "}{remaining}h remaining
+                          </p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                          {flags.includes("low") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 uppercase tracking-wide">Low hours</span>
+                          )}
+                          {flags.includes("inactive") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 uppercase tracking-wide">Inactive</span>
+                          )}
+                          {flags.includes("unassigned") && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase tracking-wide">No tutor</span>
+                          )}
+                        </div>
+                        <button onClick={() => setTab("students")} className="shrink-0">
+                          <ChevronRight className="w-4 h-4 text-gray-300 hover:text-gray-500" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Session type split */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-5">
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Format</p>
+                  <p className="text-base font-bold text-gray-900">Online vs In-Person</p>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { label: "Online", count: onlineCount, color: "bg-blue-500", textColor: "text-blue-700", bg: "bg-blue-50" },
+                    { label: "In-Person", count: inPersonCount, color: "bg-violet-500", textColor: "text-violet-700", bg: "bg-violet-50" },
+                  ].map((item) => (
+                    <div key={item.label}>
+                      <div className="flex items-center justify-between text-sm mb-1.5">
+                        <span className="font-medium text-gray-700">{item.label}</span>
+                        <span className={`font-bold ${item.textColor}`}>{item.count} ({Math.round((item.count / totalCompleted) * 100)}%)</span>
+                      </div>
+                      <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${item.color}`} style={{ width: `${Math.max(0, Math.round((item.count / totalCompleted) * 100))}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-5 pt-4 border-t border-gray-100">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Top Subjects</p>
+                  <div className="space-y-2">
+                    {topSubjects.map(([subj, count]) => (
+                      <div key={subj} className="flex items-center gap-2">
+                        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${Math.round((count / maxSub) * 100)}%` }} />
+                        </div>
+                        <span className="text-xs text-gray-500 w-24 truncate text-right">{subj} ({count})</span>
+                      </div>
+                    ))}
+                    {topSubjects.length === 0 && <p className="text-xs text-gray-400">No completed sessions yet.</p>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Tutor workload table ── */}
+            <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-0.5">Workload</p>
+                <p className="text-base font-bold text-gray-900">Tutor Performance</p>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs">
+                  <tr>
+                    <th className="px-5 py-3 text-left text-gray-400 font-bold uppercase tracking-widest">Tutor</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Students</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Sessions Done</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Hours Delivered</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Upcoming</th>
+                    <th className="px-4 py-3 text-right text-gray-400 font-bold uppercase tracking-widest">Subjects</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {tutorWork.map(({ t, completedCount, upcomingCount, studentCount, hrsDelivered }) => (
+                    <tr key={t.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center text-xs font-bold text-violet-700 shrink-0">
+                            {t.name[0]}
+                          </div>
+                          <span className="font-semibold text-gray-900">{t.name}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{studentCount}</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{completedCount}</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{hrsDelivered}h</td>
+                      <td className="px-4 py-3.5 text-right">
+                        <span className={`font-semibold ${upcomingCount > 0 ? "text-blue-600" : "text-gray-400"}`}>{upcomingCount}</span>
+                      </td>
+                      <td className="px-4 py-3.5 text-right text-xs text-gray-500 max-w-32 truncate">{t.subjects.join(", ")}</td>
+                    </tr>
+                  ))}
+                  {tutorWork.length === 0 && (
+                    <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400">No active tutors.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── STUDENTS ── */}
+      {tab === "students" && (() => {
+        const archivedCount = students.filter((s) => s.archived).length;
+        const visibleStudents = students.filter((s) => showArchivedStudents ? true : !s.archived);
+        return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Students</h1>
+            <div className="flex items-center gap-2">
+              {archivedCount > 0 && (
+                <button
+                  onClick={() => setShowArchivedStudents((v) => !v)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${showArchivedStudents ? "bg-gray-700 text-white border-gray-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  {showArchivedStudents ? "Hide Archived" : `Show Archived (${archivedCount})`}
+                </button>
+              )}
+              <button
+                onClick={() => setShowStudentWizard(true)}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+              >
+                + Create Student
+              </button>
+            </div>
+          </div>
+
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Grade</th>
+                  <th className="px-4 py-3 text-left">Subjects</th>
+                  <th className="px-4 py-3 text-left">Tutor</th>
+                  <th className="px-4 py-3 text-left">Hrs Left</th>
+                  <th className="px-4 py-3 text-left"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visibleStudents.map((s) => {
+                  const balance = packages.find((b) => b.studentId === s.id);
+                  const tutor   = getTutor(s.assignedTutorId ?? 0);
+                  return (
+                    <React.Fragment key={s.id}>
+                      <tr className={s.archived ? "opacity-50 bg-gray-50" : ""}>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-blue-600 cursor-pointer hover:underline" onClick={() => openStudentProfile(s)}>{s.name}</span>
+                            {s.archived && <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium">Archived</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{s.grade || "—"}</td>
+                        <td className="px-4 py-3 text-gray-600">{s.subjects.join(", ") || "—"}</td>
+                        <td className="px-4 py-3 text-gray-600">{tutor?.name ?? <span className="text-gray-300">Unassigned</span>}</td>
+                        <td className="px-4 py-3">
+                          <span className={`font-medium ${(balance?.remaining ?? 0) <= 2 ? "text-red-500" : "text-blue-600"}`}>
+                            {balance?.remaining ?? 0}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            {!s.archived && (
+                              <>
+                                <button
+                                  onClick={() => { setAssignFor(assignFor === s.id ? null : s.id); setAssignTutorId(String(s.assignedTutorId ?? tutors[0]?.id ?? "")); }}
+                                  className="text-blue-600 text-xs font-medium hover:underline"
+                                >
+                                  {s.assignedTutorId ? "Change Tutor" : "Assign Tutor"}
+                                </button>
+                                <button
+                                  onClick={() => { setAddHoursFor(s.id); setAddHoursAmt("4"); setAddHoursExpiry(packages.find((b) => b.studentId === s.id)?.expiresAt ?? ""); setAddHoursError(""); }}
+                                  className="text-emerald-600 text-xs font-medium hover:underline"
+                                >
+                                  + Add Hours
+                                </button>
+                                <button
+                                  onClick={() => { setResendFor(resendFor === s.id ? null : s.id); setResendStudentEmail(s.email); setResendParentEmail(s.parentEmail ?? ""); setResendMsg(null); }}
+                                  className="text-violet-600 text-xs font-medium hover:underline"
+                                >
+                                  Resend Welcome
+                                </button>
+                              </>
+                            )}
+                            {s.archived ? (
+                              <>
+                                <button onClick={() => handleRestoreStudent(s.id)} disabled={archivingId === s.id}
+                                  className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
+                                  {archivingId === s.id ? "…" : "Restore"}
+                                </button>
+                                <button onClick={() => { setDeleteTarget({ id: s.id, name: s.name, type: "student" }); setDeletePassword(""); setDeleteError(""); setShowDeletePw(false); }}
+                                  className="text-xs text-red-500 hover:underline font-medium">
+                                  Delete
+                                </button>
+                              </>
+                            ) : (
+                              <button onClick={() => handleArchiveStudent(s.id)} disabled={archivingId === s.id}
+                                className="text-xs text-gray-400 hover:text-red-500 font-medium disabled:opacity-40 transition-colors">
+                                {archivingId === s.id ? "…" : "Archive"}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {assignFor === s.id && (
+                        <tr className="bg-blue-50">
+                          <td colSpan={6} className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <select
+                                value={assignTutorId}
+                                onChange={(e) => setAssignTutorId(e.target.value)}
+                                className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                              >
+                                {tutors.filter((t) => !t.archived).map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                              </select>
+                              <button
+                                onClick={() => submitAssign(s.id)}
+                                disabled={assignLoading}
+                                className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50"
+                              >
+                                {assignLoading ? "Saving…" : "Confirm"}
+                              </button>
+                              <button onClick={() => setAssignFor(null)} className="text-sm text-gray-500">Cancel</button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      {resendFor === s.id && (
+                        <tr className="bg-violet-50">
+                          <td colSpan={6} className="px-4 py-4">
+                            <div className="flex flex-col gap-3">
+                              <p className="text-xs text-violet-700 font-semibold uppercase tracking-wider">Resend Welcome Email — resets password &amp; sends login credentials</p>
+                              <div className="flex flex-wrap gap-4">
+                                {/* Student */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-14 shrink-0">Student</span>
+                                  <input
+                                    type="email"
+                                    value={resendStudentEmail}
+                                    onChange={(e) => setResendStudentEmail(e.target.value)}
+                                    placeholder="Student email"
+                                    className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                  />
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "student")}
+                                    disabled={!!resendLoading || !resendStudentEmail}
+                                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "student" ? "Sending…" : "Send"}
+                                  </button>
+                                </div>
+                                {/* Parent */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-gray-500 w-14 shrink-0">Parent</span>
+                                  <input
+                                    type="email"
+                                    value={resendParentEmail}
+                                    onChange={(e) => setResendParentEmail(e.target.value)}
+                                    placeholder="Parent email"
+                                    className="rounded-lg border border-violet-300 px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-violet-400"
+                                  />
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "parent")}
+                                    disabled={!!resendLoading || !resendParentEmail}
+                                    className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "parent" ? "Sending…" : "Send"}
+                                  </button>
+                                </div>
+                                {/* Both */}
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleResendWelcome(s.id, "both")}
+                                    disabled={!!resendLoading || (!resendStudentEmail && !resendParentEmail)}
+                                    className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resendLoading === "both" ? "Sending…" : "Send Both"}
+                                  </button>
+                                  <button onClick={() => { setResendFor(null); setResendMsg(null); }} className="text-sm text-gray-400 hover:text-gray-600">Cancel</button>
+                                </div>
+                              </div>
+                              {resendMsg && (
+                                <p className={`text-xs font-medium ${resendMsg.ok ? "text-emerald-600" : "text-red-500"}`}>{resendMsg.text}</p>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+                {visibleStudents.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    {showArchivedStudents ? "No archived students." : "No active students."}
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* ── TUTORS ── */}
+      {tab === "tutors" && (() => {
+        const archivedCount = tutors.filter((t) => t.archived).length;
+        const visibleTutors = tutors.filter((t) => showArchivedTutors ? true : !t.archived);
+        return (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Tutors</h1>
+            <div className="flex items-center gap-2">
+              {archivedCount > 0 && (
+                <button
+                  onClick={() => setShowArchivedTutors((v) => !v)}
+                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${showArchivedTutors ? "bg-gray-700 text-white border-gray-700" : "border-gray-300 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  {showArchivedTutors ? "Hide Archived" : `Show Archived (${archivedCount})`}
+                </button>
+              )}
+              <button
+                onClick={() => { setShowTutorForm(true); setTutFormError(""); }}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+              >
+                + Create Account
+              </button>
+            </div>
+          </div>
+
+          {showTutorForm && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-1">New Tutor Account</h3>
+              <p className="text-xs text-gray-500 mb-4">Creates the portal profile and a login account in one step.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                <input value={newTutName}     onChange={(e) => setNewTutName(e.target.value)}     placeholder="Full Name *"               className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
+                <input value={newTutEmail}    onChange={(e) => setNewTutEmail(e.target.value)}    placeholder="Email Address *" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
+                <input value={newTutPassword} onChange={(e) => setNewTutPassword(e.target.value)} placeholder="Temporary Password *" type="password" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
+                <input value={newTutSubjs}    onChange={(e) => setNewTutSubjs(e.target.value)}    placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
+              </div>
+              <p className="text-xs text-gray-400 mb-3">Share the email + temporary password with the tutor so they can log in.</p>
+              {tutFormSuccess && <p className="text-xs text-green-600 font-medium mb-2">✓ {tutFormSuccess}</p>}
+              {tutFormError   && <p className="text-xs text-red-500 mb-2">{tutFormError}</p>}
+              <div className="flex gap-3">
+                <button onClick={submitNewTutor} disabled={tutFormLoading} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {tutFormLoading ? "Creating…" : "Create Account"}
+                </button>
+                <button onClick={() => { setShowTutorForm(false); setTutFormError(""); setTutFormSuccess(""); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Email</th>
+                  <th className="px-4 py-3 text-left">Subjects</th>
+                  <th className="px-4 py-3 text-left">Students</th>
+                  <th className="px-4 py-3 text-left"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {visibleTutors.map((t) => (
+                  <tr key={t.id} className={t.archived ? "opacity-50 bg-gray-50" : ""}>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-blue-600 cursor-pointer hover:underline" onClick={() => openTutorProfile(t)}>{t.name}</span>
+                        {t.archived && <span className="text-xs bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded font-medium">Archived</span>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{t.email}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.subjects.join(", ")}</td>
+                    <td className="px-4 py-3 text-gray-600">{t.assignedStudentIds.length}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {!t.archived && (
+                          <button onClick={() => openTutorSchedule(t)} className="text-blue-600 text-xs font-medium hover:underline">
+                            View Schedule
+                          </button>
+                        )}
+                        {t.archived ? (
+                          <>
+                            <button onClick={() => handleRestoreTutor(t.id)} disabled={archivingId === t.id}
+                              className="text-xs text-green-600 hover:underline font-medium disabled:opacity-40">
+                              {archivingId === t.id ? "…" : "Restore"}
+                            </button>
+                            <button onClick={() => { setDeleteTarget({ id: t.id, name: t.name, type: "tutor" }); setDeletePassword(""); setDeleteError(""); setShowDeletePw(false); }}
+                              className="text-xs text-red-500 hover:underline font-medium">
+                              Delete
+                            </button>
+                          </>
+                        ) : (
+                          <button onClick={() => handleArchiveTutor(t.id)} disabled={archivingId === t.id}
+                            className="text-xs text-gray-400 hover:text-red-500 font-medium disabled:opacity-40 transition-colors">
+                            {archivingId === t.id ? "…" : "Archive"}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {visibleTutors.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">
+                    {showArchivedTutors ? "No archived tutors." : "No active tutors."}
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        );
+      })()}
+
+      {/* ── TUTOR SCHEDULE MODAL ── */}
+      {schedTutor && (
+        <Modal
+          onClose={() => setSchedTutor(null)}
+          title={`${schedTutor.name}'s Schedule`}
+          subtitle={schedTutor.subjects.join(", ")}
+          size="xl"
+        >
+          {schedLoading ? (
+            <div className="flex items-center justify-center h-32 text-gray-400 text-sm">Loading…</div>
+          ) : (
+            <div className="space-y-6">
+
+              {/* ── Upcoming booked sessions ── */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Upcoming Sessions ({schedSessions.filter((s) => s.status === "upcoming").length})
+                </h4>
+                {schedSessions.filter((s) => s.status === "upcoming").length === 0 ? (
+                  <p className="text-sm text-gray-400">No upcoming sessions.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {schedSessions
+                      .filter((s) => s.status === "upcoming")
+                      .sort((a, b) => a.date.localeCompare(b.date))
+                      .map((s) => {
+                        const st = students.find((x) => x.id === s.studentId);
+                        return (
+                          <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5">
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{st?.name ?? "—"}</span>
+                              <span className="text-sm text-gray-400 ml-1.5">· {s.subject} · {s.durationHours}h</span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                              {s.zoomLink && (
+                                <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">Zoom</a>
+                              )}
+                              <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(s.date)} · {s.time}</span>
+                              <Badge status={s.sessionType} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── Weekly availability pattern ── */}
+              <div>
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Weekly Availability
+                </h4>
+                {schedAvail.length === 0 ? (
+                  <p className="text-sm text-gray-400">No availability set.</p>
+                ) : (
+                  <AvailabilityGrid slots={schedAvail} />
+                )}
+              </div>
+
+            </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ── SESSIONS ── */}
+      {tab === "sessions" && (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Sessions</h1>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setShowBulkForm((v) => !v); setBulkError(""); setShowSessionForm(false); }}
+                className="px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg text-sm hover:bg-emerald-700"
+              >
+                Bulk Schedule
+              </button>
+              <button
+                onClick={() => { setShowSessionForm((v) => !v); setSessError(""); setShowBulkForm(false); }}
+                className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+              >
+                + Single Session
+              </button>
+            </div>
+          </div>
+
+          {(sessSuccess || bulkSuccess) && (
+            <div className="bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm mb-4">
+              {bulkSuccess ? `${getBulkDates().length || "All"} sessions scheduled!` : "Session created!"}
+            </div>
+          )}
+
+          {showBulkForm && (() => {
+            const previewDates = getBulkDates();
+            return (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-5 mb-6">
+                <h3 className="font-semibold text-gray-900 mb-1">Bulk Schedule — Weekly Recurring</h3>
+                <p className="text-xs text-gray-500 mb-4">Creates one session per week starting from the selected date.</p>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Student</label>
+                      <select value={bulkStudentId} onChange={(e) => setBulkStudentId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="">Select student…</option>
+                        {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Tutor</label>
+                      <select value={bulkTutorId} onChange={(e) => setBulkTutorId(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="">Select tutor…</option>
+                        {tutors.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <input value={bulkSubject} onChange={(e) => setBulkSubject(e.target.value)} placeholder="Subject (e.g. Algebra)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="col-span-1">
+                      <label className="block text-xs text-gray-500 mb-1">Start date</label>
+                      <input type="date" value={bulkStartDate} onChange={(e) => setBulkStartDate(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Time</label>
+                      <input type="time" value={bulkTime} onChange={(e) => setBulkTime(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Duration</label>
+                      <select value={bulkDuration} onChange={(e) => setBulkDuration(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="1">1 hr</option>
+                        <option value="1.5">1.5 hrs</option>
+                        <option value="2">2 hrs</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1"># of sessions</label>
+                      <input type="number" min="1" max="52" value={bulkCount} onChange={(e) => setBulkCount(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm w-fit">
+                    {(["online", "in-person"] as const).map((type, i) => (
+                      <button key={type} type="button" onClick={() => setBulkType(type)}
+                        className={`px-4 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${bulkType === type ? "bg-emerald-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        {type === "online" ? "Online" : "In-Person"}
+                      </button>
+                    ))}
+                  </div>
+                  <input value={bulkZoom} onChange={(e) => setBulkZoom(e.target.value)} placeholder="Zoom link (optional — same for all sessions)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+
+                  {/* Preview */}
+                  {previewDates.length > 0 && (
+                    <div className="bg-white border border-emerald-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">Preview — {previewDates.length} sessions, every week starting {previewDates[0]}:</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {previewDates.map((d) => (
+                          <span key={d} className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded">{d}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkError && <p className="text-xs text-red-500">{bulkError}</p>}
+                  <div className="flex gap-3">
+                    <button onClick={submitBulkSchedule} disabled={bulkSaving || !bulkStartDate || !bulkTime || !bulkSubject || !bulkStudentId || !bulkTutorId}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-40">
+                      {bulkSaving ? `Scheduling ${previewDates.length} sessions…` : `Schedule ${previewDates.length || "All"} Sessions`}
+                    </button>
+                    <button onClick={() => setShowBulkForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {showSessionForm && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-5 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-4">Create Session</h3>
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <select value={sessStudentId} onChange={(e) => setSessStudentId(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    {students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  <select value={sessTutorId}   onChange={(e) => setSessTutorId(e.target.value)}   className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    {tutors.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <input value={sessSubject} onChange={(e) => setSessSubject(e.target.value)} placeholder="Subject" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="date" value={sessDate} onChange={(e) => setSessDate(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  <input type="time" value={sessTime} onChange={(e) => setSessTime(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <select value={sessDuration} onChange={(e) => setSessDuration(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="1">1 hour</option>
+                    <option value="1.5">1.5 hours</option>
+                    <option value="2">2 hours</option>
+                  </select>
+                  <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                    {(["online", "in-person"] as const).map((type, i) => (
+                      <button key={type} type="button" onClick={() => setSessType(type)}
+                        className={`flex-1 px-3 py-2 font-medium transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${sessType === type ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                      >{type === "online" ? "Online" : "In-Person"}</button>
+                    ))}
+                  </div>
+                </div>
+                <input value={sessZoom} onChange={(e) => setSessZoom(e.target.value)} placeholder="Zoom link (optional)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                  {(["upcoming", "completed"] as const).map((s, i) => (
+                    <button key={s} type="button" onClick={() => setSessStatus(s)}
+                      className={`flex-1 px-3 py-2 font-medium capitalize transition-colors ${i > 0 ? "border-l border-gray-200" : ""} ${
+                        sessStatus === s
+                          ? s === "completed" ? "bg-emerald-600 text-white" : "bg-blue-600 text-white"
+                          : "bg-white text-gray-600 hover:bg-gray-50"
+                      }`}
+                    >{s === "completed" ? "Log as Completed" : "Schedule (Upcoming)"}</button>
+                  ))}
+                </div>
+                {sessError && <p className="text-xs text-red-500">{sessError}</p>}
+                <div className="flex gap-3">
+                  <button onClick={submitSession} disabled={!sessDate || !sessTime || !sessSubject} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed">Create</button>
+                  <button onClick={() => setShowSessionForm(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Student</th>
+                  <th className="px-4 py-3 text-left">Tutor</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Subject</th>
+                  <th className="px-4 py-3 text-left">Dur</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-left">Zoom</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {sessions.map((s) => (
+                  <React.Fragment key={s.id}>
+                    <tr className={s.status === "cancelled" ? "opacity-50" : ""}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{getStudent(s.studentId)?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{getTutor(s.tutorId)?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(s.date)} {s.time}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.subject}</td>
+                      <td className="px-4 py-3 text-gray-600">{s.durationHours}h</td>
+                      <td className="px-4 py-3"><Badge status={s.sessionType} /></td>
+                      <td className="px-4 py-3">
+                        {zoomEditId === s.id ? (
+                          <div className="flex gap-1">
+                            <input value={zoomEditVal} onChange={(e) => setZoomEditVal(e.target.value)} placeholder="https://zoom.us/j/..." className="rounded border border-gray-300 px-2 py-1 text-xs w-36" />
+                            <button onClick={() => saveZoomLink(s.id)} disabled={zoomSaving} className="text-xs text-blue-600 hover:underline">Save</button>
+                            <button onClick={() => setZoomEditId(null)} className="text-xs text-gray-400">✕</button>
+                          </div>
+                        ) : s.zoomLink ? (
+                          <div className="flex items-center gap-1">
+                            <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
+                            <button onClick={() => { setZoomEditId(s.id); setZoomEditVal(s.zoomLink ?? ""); }} className="text-gray-400 text-xs hover:text-gray-600">✎</button>
+                          </div>
+                        ) : (
+                          <button onClick={() => { setZoomEditId(s.id); setZoomEditVal(""); }} className="text-gray-400 text-xs hover:text-blue-600">+ Add</button>
+                        )}
+                      </td>
+                      <td className="px-4 py-3"><Badge status={s.status} /></td>
+                      <td className="px-4 py-3">
+                        {s.status === "upcoming" && (
+                          <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id} className="text-xs text-red-500 hover:underline disabled:opacity-40">
+                            {cancellingId === s.id ? "…" : "Cancel"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                ))}
+                {sessions.length === 0 && (
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400 text-sm">No sessions yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── PACKAGES ── */}
+      {tab === "packages" && (
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Packages & Hours</h1>
+            <button
+              onClick={() => setAddHoursFor(students[0]?.id ?? null)}
+              className="px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700"
+            >
+              + Add Hours
+            </button>
+          </div>
+
+          {purchaseRequests.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 mb-6 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-100 bg-emerald-50">
+                <h2 className="text-sm font-semibold text-emerald-800">
+                  Pending Purchase Requests ({purchaseRequests.length})
+                </h2>
+              </div>
+              <div className="divide-y divide-gray-100">
+                {purchaseRequests.map((req) => (
+                  <div key={req.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {getStudent(req.studentId)?.name ?? "Unknown student"}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        {req.packageLabel} · ${req.price} · requested {formatDate(req.createdAt.slice(0, 10))}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => dismissPurchaseRequest(req.id)}
+                        disabled={resolvingRequestId === req.id}
+                        className="px-3 py-1.5 text-xs font-medium text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        onClick={() => openFulfillRequest(req)}
+                        className="px-3 py-1.5 text-xs font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+                      >
+                        Fulfill
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                <tr>
+                  <th className="px-4 py-3 text-left">Student</th>
+                  <th className="px-4 py-3 text-left">Purchased</th>
+                  <th className="px-4 py-3 text-left">Used</th>
+                  <th className="px-4 py-3 text-left">Remaining</th>
+                  <th className="px-4 py-3 text-left">Expires</th>
+                  <th className="px-4 py-3 text-left">Progress</th>
+                  <th className="px-4 py-3 text-left"></th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {packages.map((b) => {
+                  const student = getStudent(b.studentId);
+                  const pct = b.totalPurchased > 0 ? Math.min(100, (b.totalUsed / b.totalPurchased) * 100) : 0;
+                  return (
+                    <tr key={b.studentId}>
+                      <td className="px-4 py-3 font-medium text-gray-900">{student?.name ?? "—"}</td>
+                      <td className="px-4 py-3 text-gray-600">{b.totalPurchased} hr</td>
+                      <td className="px-4 py-3 text-gray-600">{b.totalUsed} hr</td>
+                      <td className="px-4 py-3">
+                        <span className={`font-medium ${b.remaining <= 2 ? "text-red-500" : "text-blue-600"}`}>{b.remaining} hr</span>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{b.expiresAt}</td>
+                      <td className="px-4 py-3">
+                        <div className="w-24 bg-gray-200 rounded-full h-2">
+                          <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => { setAddHoursFor(b.studentId); setAddHoursAmt("4"); setAddHoursExpiry(b.expiresAt); setAddHoursError(""); }} className="text-blue-600 text-xs font-medium hover:underline">+ Add Hours</button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Students without packages */}
+                {students.filter((s) => !s.archived && !packages.find((b) => b.studentId === s.id)).map((s) => (
+                  <tr key={s.id} className="opacity-60">
+                    <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
+                    <td className="px-4 py-3 text-gray-400" colSpan={5}>No package</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => { setAddHoursFor(s.id); setAddHoursAmt("4"); setAddHoursExpiry(""); setAddHoursError(""); }} className="text-blue-600 text-xs font-medium hover:underline">+ Create Package</button>
+                    </td>
+                  </tr>
+                ))}
+                {packages.length === 0 && students.length === 0 && (
+                  <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400 text-sm">No packages yet.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── ADD HOURS MODAL ── */}
+      {addHoursFor && (
+        <Modal
+          onClose={() => { setAddHoursFor(null); setFulfillingRequestId(null); }}
+          title="Add Package Hours"
+          subtitle={getStudent(addHoursFor)?.name}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Hours to add</label>
+              <select value={addHoursAmt} onChange={(e) => setAddHoursAmt(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
+                <option value="1">1 hour</option>
+                <option value="4">4 hours</option>
+                <option value="8">8 hours</option>
+                <option value="20">20 hours</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Expiry date</label>
+              <input type="date" value={addHoursExpiry} onChange={(e) => setAddHoursExpiry(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
+            </div>
+            {addHoursError && <p className="text-xs text-red-500">{addHoursError}</p>}
+            <button onClick={submitAddHours} disabled={addHoursLoading} className="w-full py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-50">
+              {addHoursLoading ? "Saving…" : "Confirm"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── CURRICULUM ── */}
+      {tab === "curriculum" && (() => {
+        const isReady = skillLibCount !== null && skillLibCount >= SAT_SKILL_TOTAL;
+        return (
+          <>
+            {/* Skill Library init banner */}
+            <div className="shrink-0 bg-white border-b border-gray-200 px-5 py-3 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2 mr-2">
+                <span className={`w-2 h-2 rounded-full shrink-0 ${isReady ? "bg-emerald-400" : "bg-amber-400"}`} />
+                <span className="text-xs font-semibold text-gray-700">SAT Skill Library</span>
+                {skillLibCount !== null && (
+                  <span className="text-xs text-gray-400">{skillLibCount} / {SAT_SKILL_TOTAL} nodes</span>
+                )}
+              </div>
+              {isReady ? (
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
+                  Ready
+                </span>
+              ) : (
+                <button
+                  onClick={initSkillLib}
+                  disabled={skillLibIniting}
+                  className="text-xs font-semibold bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {skillLibIniting ? "Initializing…" : "Initialize SAT Skill Library"}
+                </button>
+              )}
+              {skillLibResult && (
+                <span className="text-xs text-gray-500">
+                  {skillLibResult.inserted} inserted · {skillLibResult.skipped} skipped
+                  {skillLibResult.errors.length > 0 && ` · ${skillLibResult.errors.length} errors`}
+                </span>
+              )}
+            </div>
+            <div className="flex-1 min-h-0">
+              <CurriculumBuilder />
+            </div>
+          </>
+        );
+      })()}
+
+    </DashboardShell>
+
+    {/* ── STUDENT PROFILE MODAL ── */}
+    {profileStudent && (() => {
+      const ps = profileStudent;
+      const balance = packages.find((b) => b.studentId === ps.id);
+      const assignedTutor = getTutor(ps.assignedTutorId ?? 0);
+      return (
+        <Modal onClose={() => { setProfileStudent(null); setEditingProfile(false); }} title={ps.name} subtitle={`${ps.grade} Grade`} size="xl">
+          {!editingProfile ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
+                  <ProfileRow label="Email" value={ps.email} />
+                  <ProfileRow label="Phone" value={ps.phone} />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>
+                  <div className="flex flex-wrap gap-1">
+                    {ps.subjects.map((sub) => <span key={sub} className="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full">{sub}</span>)}
+                  </div>
+                </div>
+              </div>
+              {(ps.parentName || ps.parentEmail || ps.parentPhone) && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Parent / Guardian</p>
+                  <ProfileRow label="Name"  value={ps.parentName} />
+                  <ProfileRow label="Email" value={ps.parentEmail} />
+                  <ProfileRow label="Phone" value={ps.parentPhone} />
+                </div>
+              )}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Hours Left</p>
+                  <p className="text-xl font-bold text-blue-600">{balance?.remaining ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tutor</p>
+                  <p className="text-sm font-medium text-gray-800">{assignedTutor?.name ?? <span className="text-gray-400">Unassigned</span>}</p>
+                </div>
+              </div>
+              {ps.notes && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{ps.notes}</p>
+                </div>
+              )}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={() => { setEditingProfile(true); setSyncEmailMsg(null); }} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+                <button
+                  onClick={() => syncStudentAuthEmail(ps)}
+                  disabled={syncEmailLoading}
+                  className="px-4 py-2 border border-gray-300 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {syncEmailLoading ? "Syncing…" : "Resync Login Email"}
+                </button>
+                <button
+                  onClick={() => openStudentPreview(ps.id, "student")}
+                  disabled={previewLoading}
+                  className="px-4 py-2 border border-violet-200 text-violet-700 bg-violet-50 rounded-lg text-sm font-medium hover:bg-violet-100 disabled:opacity-50 transition-colors"
+                >
+                  {previewLoading ? "Opening…" : "View as Student"}
+                </button>
+                <button
+                  onClick={() => openStudentPreview(ps.id, "parent")}
+                  disabled={previewLoading}
+                  className="px-4 py-2 border border-emerald-200 text-emerald-700 bg-emerald-50 rounded-lg text-sm font-medium hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                >
+                  {previewLoading ? "Opening…" : "View as Parent"}
+                </button>
+              </div>
+              {previewError && (
+                <p className="text-xs text-red-500 font-medium">{previewError}</p>
+              )}
+              {syncEmailMsg && (
+                <p className={`text-xs font-medium ${syncEmailMsg.ok ? "text-green-600" : "text-red-500"}`}>
+                  {syncEmailMsg.text}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input value={pfName}  onChange={(e) => setPfName(e.target.value)}  placeholder="Full name"        className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfEmail} onChange={(e) => setPfEmail(e.target.value)} placeholder="Email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfGrade} onChange={(e) => setPfGrade(e.target.value)} placeholder="Grade (e.g. 10th)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfPhone} onChange={(e) => setPfPhone(e.target.value)} placeholder="Student phone"    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfSubjects} onChange={(e) => setPfSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
+              </div>
+              {/* Programs */}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">Programs <span className="font-normal text-gray-400">— select all that apply</span></p>
+                <div className="space-y-2 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                  {Object.entries(PROGRAM_CATALOG).map(([cat, items]) => (
+                    <div key={cat}>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest mb-1">{cat}</p>
+                      <div className="flex flex-wrap gap-1">
+                        {items.map((p) => {
+                          const sel = pfPrograms.includes(p);
+                          return (
+                            <button key={p} type="button"
+                              onClick={() => setPfPrograms((prev) => sel ? prev.filter((x) => x !== p) : [...prev, p])}
+                              className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-all ${sel ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}
+                            >{p}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {pfPrograms.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">{pfPrograms.length} program{pfPrograms.length !== 1 ? "s" : ""} selected</p>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-gray-500 mt-2">Parent / Guardian</p>
+              <div className="grid grid-cols-2 gap-3">
+                <input value={pfParentName}  onChange={(e) => setPfParentName(e.target.value)}  placeholder="Parent name"  className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfParentPhone} onChange={(e) => setPfParentPhone(e.target.value)} placeholder="Parent phone" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfParentEmail} onChange={(e) => setPfParentEmail(e.target.value)} placeholder="Parent email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
+              </div>
+              <textarea value={pfNotes} onChange={(e) => setPfNotes(e.target.value)} placeholder="Internal notes about this student…" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
+              <label className="flex items-center justify-between gap-4 bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 cursor-pointer select-none">
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">Allow In-Person Sessions</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Only enable if a tutor is available in this student&apos;s area.</p>
+                </div>
+                <button type="button" onClick={() => setPfAllowInPerson((v) => !v)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${pfAllowInPerson ? "bg-blue-600" : "bg-gray-300"}`}>
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm ring-0 transition-transform ${pfAllowInPerson ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </label>
+              <div className="flex gap-3">
+                <button onClick={saveStudentProfile} disabled={profileSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {profileSaving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setEditingProfile(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      );
+    })()}
+
+    {/* ── DELETE CONFIRMATION MODAL ── */}
+    {deleteTarget && (
+      <Modal
+        onClose={() => { setDeleteTarget(null); setDeletePassword(""); setDeleteError(""); }}
+        title="Permanently Delete"
+        subtitle={deleteTarget.name}
+      >
+        <div className="space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-sm text-red-700">
+            <strong>This cannot be undone.</strong> The {deleteTarget.type} account and all associated data will be permanently removed.
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Enter your admin password to confirm</label>
+            <div className="relative">
+              <input
+                type={showDeletePw ? "text" : "password"}
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Admin password"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 pr-14 text-sm"
+                onKeyDown={(e) => { if (e.key === "Enter") submitDelete(); }}
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={() => setShowDeletePw((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium"
+              >
+                {showDeletePw ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          {deleteError && <p className="text-xs text-red-500">{deleteError}</p>}
+          <div className="flex gap-3">
+            <button
+              onClick={submitDelete}
+              disabled={deleteLoading || !deletePassword}
+              className="flex-1 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+            >
+              {deleteLoading ? "Deleting…" : "Permanently Delete"}
+            </button>
+            <button
+              onClick={() => { setDeleteTarget(null); setDeletePassword(""); setDeleteError(""); }}
+              className="px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </Modal>
+    )}
+
+    {/* ── STUDENT ONBOARDING WIZARD ── */}
+    {showStudentWizard && (
+      <OnboardStudentWizard
+        tutors={tutors}
+        onSuccess={handleWizardSuccess}
+        onClose={() => setShowStudentWizard(false)}
+      />
+    )}
+
+    {/* ── TUTOR PROFILE MODAL ── */}
+    {profileTutor && (() => {
+      const pt = profileTutor;
+      const assignedStudents = students.filter((s) => pt.assignedStudentIds.includes(s.id));
+      return (
+        <Modal onClose={() => { setProfileTutor(null); setEditingProfile(false); }} title={pt.name} subtitle="Tutor" size="xl">
+          {!editingProfile ? (
+            <div className="space-y-4">
+              {/* Photo + contact side by side */}
+              <div className="flex items-start gap-4">
+                {pt.photoUrl ? (
+                  <img src={pt.photoUrl} alt={pt.name} className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shrink-0" />
+                ) : (
+                  <div className="w-16 h-16 rounded-full bg-blue-600 flex items-center justify-center text-white text-xl font-bold shrink-0 select-none">
+                    {pt.name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
+                      <ProfileRow label="Email" value={pt.email} />
+                      <ProfileRow label="Phone" value={pt.phone} />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>
+                      <div className="flex flex-wrap gap-1">
+                        {pt.subjects.map((sub) => <span key={sub} className="text-xs bg-green-50 text-green-700 px-2 py-0.5 rounded-full">{sub}</span>)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              {pt.bio && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Bio</p>
+                  <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">{pt.bio}</p>
+                </div>
+              )}
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Students ({assignedStudents.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {assignedStudents.map((s) => <span key={s.id} className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded-lg">{s.name}</span>)}
+                  {assignedStudents.length === 0 && <span className="text-xs text-gray-400">None assigned</span>}
+                </div>
+              </div>
+              <button onClick={() => setEditingProfile(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <input value={pfTutName}  onChange={(e) => setPfTutName(e.target.value)}  placeholder="Full name"   className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfTutEmail} onChange={(e) => setPfTutEmail(e.target.value)} placeholder="Email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfTutPhone} onChange={(e) => setPfTutPhone(e.target.value)} placeholder="Phone"       className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={pfTutSubjects} onChange={(e) => setPfTutSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+              </div>
+              <textarea value={pfTutBio} onChange={(e) => setPfTutBio(e.target.value)} placeholder="Tutor bio / background…" rows={3} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none" />
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Photo URL (paste a link to a headshot image)</label>
+                <input value={pfTutPhoto} onChange={(e) => setPfTutPhoto(e.target.value)} placeholder="https://example.com/photo.jpg" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                {pfTutPhoto && (
+                  <div className="mt-2 flex items-center gap-3">
+                    <img src={pfTutPhoto} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-gray-200" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                    <span className="text-xs text-gray-400">Preview</span>
+                  </div>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button onClick={saveTutorProfile} disabled={profileSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50">
+                  {profileSaving ? "Saving…" : "Save"}
+                </button>
+                <button onClick={() => setEditingProfile(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-600">Cancel</button>
+              </div>
+            </div>
+          )}
+        </Modal>
+      );
+    })()}
+    </>
+  );
+}
+
+function ProfileRow({ label, value }: { label: string; value?: string }) {
+  if (!value) return null;
+  return (
+    <div className="flex gap-2 text-sm mb-1">
+      <span className="text-gray-400 w-24 shrink-0">{label}</span>
+      <span className="text-gray-800">{value}</span>
+    </div>
+  );
+}
