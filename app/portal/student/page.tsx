@@ -5,7 +5,7 @@ import DashboardShell from "@/components/DashboardShell";
 import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
-import { purchaseOptions, formatDate, resolveZoomUrl } from "@/lib/portal/utils";
+import { purchaseOptions, formatDate, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
 import WeeklyCalendar, { parseTimeToHour } from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
 import {
@@ -361,6 +361,7 @@ export default function StudentPortal() {
       });
       setMySessions((prev) => [...prev, newSession]);
       setTutorSessions((prev) => [...prev, newSession]);
+      sendSessionConfirmationEmail(newSession.id);
       setBalance((prev) => prev ? {
         ...prev,
         totalUsed: prev.totalUsed + bookDuration,

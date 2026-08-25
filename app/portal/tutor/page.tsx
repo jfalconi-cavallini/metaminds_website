@@ -7,7 +7,7 @@ import CourseLibrary from "@/components/curriculum/CourseLibrary";
 import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
-import { formatDate, formatTime24to12, resolveZoomUrl } from "@/lib/portal/utils";
+import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import WeeklyCalendar from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
@@ -197,6 +197,10 @@ export default function TutorPortal() {
 
   // ── CANCEL SESSION ──────────────────────────────────────────────
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+
+  // ── RESEND SESSION EMAIL ──────────────────────────────────────────
+  const [resendingSessionId, setResendingSessionId] = useState<number | null>(null);
+  const [resentSessionId,    setResentSessionId]    = useState<number | null>(null);
 
   // ── AVAILABILITY EDITOR ─────────────────────────────────────────
   const [availSlots,  setAvailSlots]  = useState<{ dayOfWeek: number; startTime: string; endTime: string }[]>([]);
@@ -505,6 +509,7 @@ export default function TutorPortal() {
       });
       if (schedZoom) await updateSessionZoomLink(newSession.id, schedZoom);
       setLocalSessions((prev) => [...prev, { ...newSession, zoomLink: schedZoom || undefined }]);
+      sendSessionConfirmationEmail(newSession.id);
       setSchedSuccess(true);
       setSelectedSlot(null); setSchedSubject(""); setSchedDuration("1"); setSchedSessionType("online"); setSchedZoom("");
       setTimeout(() => setSchedSuccess(false), 4000);
@@ -540,6 +545,26 @@ export default function TutorPortal() {
           : b
       ));
     } catch { /* silent */ } finally { setCancellingId(null); }
+  }
+
+  async function resendSessionEmail(sessionId: number) {
+    setResendingSessionId(sessionId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/portal/send-session-confirmation", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+      const json = await res.json();
+      if (json.sent) {
+        setResentSessionId(sessionId);
+        setTimeout(() => setResentSessionId(null), 3000);
+      }
+    } catch { /* silent */ } finally { setResendingSessionId(null); }
   }
 
   function openSessionEdit(sd: Session) {
@@ -2407,6 +2432,7 @@ export default function TutorPortal() {
             onSessionClick={(s) => {
               setSelectedSlot(null);
               setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink(""); setSdNoteError(""); setSdNoteSuccess(false);
+              setResentSessionId(null);
               setSessionDetail(s);
             }}
           />
@@ -3930,6 +3956,12 @@ export default function TutorPortal() {
                   <button onClick={() => openSessionEdit(sd)}
                     className="text-xs text-blue-600 hover:text-blue-800 border border-blue-200 rounded-lg px-3 py-1.5">
                     Edit Session
+                  </button>
+                )}
+                {!editingSession && (
+                  <button onClick={() => resendSessionEmail(sd.id)} disabled={resendingSessionId === sd.id}
+                    className="text-xs text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-40">
+                    {resendingSessionId === sd.id ? "Sending…" : resentSessionId === sd.id ? "Sent ✓" : "Email Confirmation"}
                   </button>
                 )}
                 {!editingSession && (
