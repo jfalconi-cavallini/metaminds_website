@@ -7,7 +7,7 @@ import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
 import Modal from "@/components/portal/Modal";
-import { formatDate, formatTime24to12, DISPLAY_GROUP_ORDER, displayGroupFor } from "@/lib/portal/utils";
+import { formatDate, formatTime24to12, DISPLAY_GROUP_ORDER, displayGroupFor, sendSessionConfirmationEmail } from "@/lib/portal/utils";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
@@ -293,6 +293,7 @@ export default function AdminPortal() {
         : await insertSession({ ...payload });
       if (sessZoom) await updateSessionZoomLink(newSession.id, sessZoom);
       setSessions((prev) => [{ ...newSession, zoomLink: sessZoom || undefined }, ...prev]);
+      if (sessStatus !== "completed") sendSessionConfirmationEmail(newSession.id);
       setSessSuccess(true); setShowSessionForm(false);
       setSessSubject(""); setSessDate(""); setSessTime(""); setSessZoom(""); setSessStatus("upcoming");
       setTimeout(() => setSessSuccess(false), 4000);
@@ -476,6 +477,30 @@ export default function AdminPortal() {
       ));
     } catch { /* silent */ }
     finally { setCancellingId(null); }
+  }
+
+  // ── RESEND SESSION EMAIL ──────────────────────────────────────────
+  const [resendingSessionId, setResendingSessionId] = useState<number | null>(null);
+  const [resentSessionId,    setResentSessionId]    = useState<number | null>(null);
+
+  async function resendSessionEmail(sessionId: number) {
+    setResendingSessionId(sessionId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/portal/send-session-confirmation", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: JSON.stringify({ sessionId }),
+      });
+      const json = await res.json();
+      if (json.sent) {
+        setResentSessionId(sessionId);
+        setTimeout(() => setResentSessionId(null), 3000);
+      }
+    } catch { /* silent */ } finally { setResendingSessionId(null); }
   }
 
   // ── ZOOM LINK EDIT ──────────────────────────────────────────────
@@ -1750,9 +1775,14 @@ export default function AdminPortal() {
                       <td className="px-4 py-3"><Badge status={s.status} /></td>
                       <td className="px-4 py-3">
                         {s.status === "upcoming" && (
-                          <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id} className="text-xs text-red-500 hover:underline disabled:opacity-40">
-                            {cancellingId === s.id ? "…" : "Cancel"}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => resendSessionEmail(s.id)} disabled={resendingSessionId === s.id} className="text-xs text-blue-600 hover:underline disabled:opacity-40">
+                              {resendingSessionId === s.id ? "…" : resentSessionId === s.id ? "Sent ✓" : "Email"}
+                            </button>
+                            <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id} className="text-xs text-red-500 hover:underline disabled:opacity-40">
+                              {cancellingId === s.id ? "…" : "Cancel"}
+                            </button>
+                          </div>
                         )}
                       </td>
                     </tr>

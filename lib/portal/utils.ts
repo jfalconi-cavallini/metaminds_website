@@ -1,4 +1,5 @@
 import type { PurchaseOption } from "./types";
+import { supabase } from "@/lib/supabase";
 
 /**
  * Course Offerings (the `courses` table) are the canonical catalog — see
@@ -58,6 +59,22 @@ export function resolveZoomUrl(raw: string): string {
   }
   // Bare domain
   return `https://${raw}`;
+}
+
+/** Fire-and-forget: emails the student/parent their session details + Zoom
+ * link. Failures are logged, not thrown — callers should not await this to
+ * gate their own success UI. */
+export function sendSessionConfirmationEmail(sessionId: number): void {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    fetch("/api/portal/send-session-confirmation", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+      },
+      body: JSON.stringify({ sessionId }),
+    }).then((r) => r.json()).then((j) => console.log("[email]", j)).catch(console.error);
+  });
 }
 
 export const purchaseOptions: PurchaseOption[] = [
