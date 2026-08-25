@@ -23,22 +23,22 @@ export default function HeroTutoring() {
                     >
                         <div className="mb-5">
                             <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">
-                                REAL ENGINEERS &amp; SCIENTISTS · NOT GRAD STUDENTS
+                                ONE DEDICATED MENTOR · A PLAN YOU CAN SEE
                             </span>
                         </div>
 
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
-                            A mentor who does<br />
-                            this for a living —<br />
-                            <span className="text-blue-400">not between classes.</span>
+                            A mentor who stays<br />
+                            with your kid, and<br />
+                            <span className="text-blue-400">a plan you can actually see.</span>
                         </h1>
 
                         <p className="text-base md:text-lg text-blue-100 mb-7 leading-relaxed max-w-xl">
-                            MetaMinds pairs your child with one dedicated tutor — a working
-                            engineer or scientist, not a grad student filling hours — who builds
-                            a personalized plan, sends session notes after every session, and
+                            MetaMinds pairs your child with one dedicated mentor who builds a
+                            personalized plan, sends session notes after every session, and
                             tracks skill growth you can actually see. SAT &amp; ACT, AP classes,
-                            K–12 math, coding, and robotics.
+                            K–12 math, coding, and robotics. Every tier runs on the same system —
+                            the difference is who sits with your child.
                         </p>
 
                         {/* CTA Buttons */}
