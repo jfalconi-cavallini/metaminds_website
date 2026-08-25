@@ -5,7 +5,8 @@ import type { Session, TutorAvailability } from "@/lib/portal/types";
 
 const ROW_H      = 36;   // px per 30-min slot — spacious, Google-Calendar feel
 const SLOT_START = 8;    // 8 AM
-const SLOTS      = Array.from({ length: 28 }, (_, i) => SLOT_START + i * 0.5); // 8:00–21:30
+const SPAN_HOURS = 16;   // 8 AM through midnight
+const SLOTS      = Array.from({ length: SPAN_HOURS * 2 }, (_, i) => SLOT_START + i * 0.5); // 8:00 AM–11:30 PM
 
 const DAY_FULL  = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -131,7 +132,7 @@ export default function WeeklyCalendar({
 
   const nowH       = now.getHours() + now.getMinutes() / 60;
   const nowTopPx   = (nowH - SLOT_START) * 2 * ROW_H;
-  const showNowBar = nowH >= SLOT_START && nowH <= SLOT_START + 14;
+  const showNowBar = nowH >= SLOT_START && nowH <= SLOT_START + SPAN_HOURS;
 
   const blockMode = !!onSlotBlock;
 
@@ -410,7 +411,7 @@ export default function WeeklyCalendar({
                     {/* ── Session event blocks ── */}
                     {daySessions.map((session) => {
                       const startH = parseTimeToHour(session.time);
-                      if (startH < SLOT_START || startH > SLOT_START + 14) return null;
+                      if (startH < SLOT_START || startH > SLOT_START + SPAN_HOURS) return null;
 
                       const topPx    = (startH - SLOT_START) * 2 * ROW_H;
                       const heightPx = Math.max(ROW_H - 2, session.durationHours * 2 * ROW_H - 2);
