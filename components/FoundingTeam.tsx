@@ -97,8 +97,8 @@ export default function FoundingTeam() {
                 >
                     <p className="text-blue-300 text-xs font-bold uppercase tracking-widest mb-3">Our Mission</p>
                     <p className="text-white text-lg md:text-xl font-semibold leading-relaxed">
-                        &ldquo;Between us, we&apos;ve tutored thousands of hours for companies that charged families $200/hr and paid the tutor
-                        a fraction of it. MetaMinds is what we built once we could do it our way — direct to your tutor, built around your kid, not a script.&rdquo;
+                        &ldquo;Between us, we&apos;ve tutored thousands of hours through other platforms.
+                        MetaMinds is what we built once we could do it our way — direct to your tutor, built around your kid, not a script.&rdquo;
                     </p>
                     <p className="text-slate-400 text-sm mt-4">— The MetaMinds Founding Team</p>
                 </motion.div>
