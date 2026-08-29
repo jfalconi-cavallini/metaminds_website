@@ -19,7 +19,7 @@ import {
   updateTutorLeadTime, upsertTutorAvailability,
   fetchSessionNotesByTutor, insertSessionNote,
   fetchHomeworkByTutor, insertHomework, deleteHomework,
-  addHomeworkFeedback, markHomeworkComplete,
+  addHomeworkFeedback, markHomeworkComplete, unsubmitHomework,
   updateSessionZoomLink, updateSession,
   fetchBlockedDates, addBlockedDate, removeBlockedDate,
   fetchParentUpdatesByTutor, insertParentUpdate,
@@ -42,19 +42,21 @@ import {
   logCompletedHomework,
   fetchSatPracticeTestConfig, upsertSatPracticeTestConfig,
   fetchSatPracticeTestSubmission, fetchSatPracticeTestAnswers,
+  fetchStudentSkills, recalculateDomainSkillsFromPracticeTest,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
 import SkillPicker from "@/components/portal/SkillPicker";
 import StudentSkillPanel from "@/components/portal/StudentSkillPanel";
 import SkillDetailDrawer from "@/components/portal/SkillDetailDrawer";
-import { getSubskills } from "@/lib/portal/planConfig";
+import { getSubskills, STATUS_LABEL, studentStatusToSkillStatus } from "@/lib/portal/planConfig";
 import type {
   Student, Tutor, Session, HoursBalance, TutorAvailability,
   SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, StudyLog,
   StudentPlanFull, Course, CourseCatalogFull, SkillBaseline, SkillNode,
   VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult,
   SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryScore,
+  StudentSkill,
 } from "@/lib/portal/types";
 import { ExternalLink, ChevronRight, CheckCircle, FileText, Upload, Search, Trash2, BookOpen, Plus, X, Users, CalendarDays, Clock, Bell, AlertCircle, Video, ChevronDown } from "lucide-react";
 
@@ -221,6 +223,8 @@ export default function TutorPortal() {
   const [noteSaving,    setNoteSaving]    = useState(false);
   const [noteSkillIds,  setNoteSkillIds]  = useState<number[]>([]);
   const [allSkillNodes, setAllSkillNodes] = useState<SkillNode[]>([]);
+  const [panelStudentSkills, setPanelStudentSkills] = useState<StudentSkill[]>([]);
+  const [roadmapUpdateBanner, setRoadmapUpdateBanner] = useState<string | null>(null);
   const [noteSuccess,   setNoteSuccess]   = useState(false);
   const [noteError,     setNoteError]     = useState("");
 
@@ -280,6 +284,13 @@ export default function TutorPortal() {
   const [hwGradeText,      setHwGradeText]      = useState("");
   const [hwFeedbackSaving, setHwFeedbackSaving] = useState(false);
   const [hwOpeningId,      setHwOpeningId]      = useState<number | null>(null);
+
+  // ── HOMEWORK UNSUBMIT (send back to student) ─────────────────────
+  const [hwUnsubmitId,      setHwUnsubmitId]      = useState<number | null>(null);
+  const [hwUnsubmitNote,    setHwUnsubmitNote]    = useState("");
+  const [hwUnsubmitDue,     setHwUnsubmitDue]     = useState("");
+  const [hwUnsubmitSaving,  setHwUnsubmitSaving]  = useState(false);
+  const [hwUnsubmitError,   setHwUnsubmitError]   = useState("");
 
   // ── STUDENT PROFILE MODAL ───────────────────────────────────────
   const [profileStudent, setProfileStudent] = useState<Student | null>(null);
@@ -430,6 +441,8 @@ export default function TutorPortal() {
     setPanelCatalog(null);
     setPanelShowPicker(false);
     setPanelPlanSuccess("");
+    setPanelStudentSkills([]);
+    fetchStudentSkills(selectedStudentId, "SAT").then(setPanelStudentSkills).catch(() => {});
     (async () => {
       try {
         const [plans, courses] = await Promise.all([
@@ -812,7 +825,63 @@ export default function TutorPortal() {
       setHwFeedbackId(null);
       setHwFeedbackText("");
       setHwGradeText("");
+      if (updated.assignmentType === "sat_practice_test") {
+        void applyPracticeTestToRoadmap(hwId, updated.studentId);
+      }
     } catch { /* silent */ } finally { setHwFeedbackSaving(false); }
+  }
+
+  async function saveUnsubmit(hwId: number) {
+    if (!hwUnsubmitNote.trim() || !hwUnsubmitDue) {
+      setHwUnsubmitError("A note and a new due date are required.");
+      return;
+    }
+    setHwUnsubmitSaving(true);
+    setHwUnsubmitError("");
+    try {
+      const updated = await unsubmitHomework(hwId, hwUnsubmitNote.trim(), hwUnsubmitDue);
+      setHomework((prev) => prev.map((h) => h.id === hwId ? updated : h));
+      setHwUnsubmitId(null);
+      setHwUnsubmitNote("");
+      setHwUnsubmitDue("");
+    } catch {
+      setHwUnsubmitError("Failed to send assignment back. Please try again.");
+    } finally {
+      setHwUnsubmitSaving(false);
+    }
+  }
+
+  /** Grading a sat_practice_test homework is the tutor's review step — recalculate the
+   *  8 domain-level student_skills from its category breakdown when that happens. */
+  async function applyPracticeTestToRoadmap(hwId: number, studentId: number) {
+    try {
+      let ptData = satPtReview[hwId];
+      if (ptData === undefined) {
+        const config = await fetchSatPracticeTestConfig(hwId);
+        const sub = config ? await fetchSatPracticeTestSubmission(hwId, studentId) : null;
+        ptData = sub && config ? { config, sub, answers: [] } : null;
+      }
+      if (!ptData || ptData.sub.isDraft || !ptData.sub.categoryBreakdown) return;
+
+      const changes = await recalculateDomainSkillsFromPracticeTest(
+        studentId,
+        ptData.sub.categoryBreakdown,
+        {
+          testLabel: ptData.sub.submittedTestName ?? ptData.config.assignedTestName ?? "Practice Test",
+          testDate:  ptData.sub.completedDate,
+        },
+      );
+      if (changes.length === 0) return;
+
+      if (selectedStudentId === studentId) {
+        fetchStudentSkills(studentId, "SAT").then(setPanelStudentSkills).catch(() => {});
+      }
+      const summary = changes
+        .map((c) => `${c.title}: ${STATUS_LABEL[studentStatusToSkillStatus(c.before)]} → ${STATUS_LABEL[studentStatusToSkillStatus(c.after)]}`)
+        .join(", ");
+      setRoadmapUpdateBanner(`Roadmap updated — ${summary}`);
+      setTimeout(() => setRoadmapUpdateBanner(null), 8000);
+    } catch { /* non-critical — grading itself already succeeded */ }
   }
 
   async function completeHomework(hwId: number) {
@@ -1089,6 +1158,12 @@ export default function TutorPortal() {
 
   return (
     <>
+    {roadmapUpdateBanner && (
+      <div className="fixed bottom-5 right-5 z-[100] max-w-sm bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm rounded-2xl shadow-lg px-4 py-3 flex items-start gap-2">
+        <CheckCircle className="w-4 h-4 mt-0.5 shrink-0 text-emerald-600" />
+        <span>{roadmapUpdateBanner}</span>
+      </div>
+    )}
     <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
       fullBleed={tab === "library" || tab === "notes"}>
 
@@ -2113,6 +2188,7 @@ export default function TutorPortal() {
                                                 skillBaseline={panelPlanFull.skillBaseline}
                                                 planLessonMap={plMap}
                                                 skillNodes={allSkillNodes}
+                                                studentSkills={panelStudentSkills}
                                                 onSkillClick={(id) => setTutorSkillId(id)}
                                               />
                                             </div>
@@ -3106,9 +3182,11 @@ export default function TutorPortal() {
 
         const mkStatusBadge = (h: Homework) => {
           const isOv = h.status === "pending" && !!h.dueDate && h.dueDate < today;
+          const isReturned = h.status === "pending" && !!h.returnedNote;
           if (h.status === "submitted") return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />Needs Review</span>;
           if (h.status === "completed") return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />Graded</span>;
           if (isOv) return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />Overdue</span>;
+          if (isReturned) return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />Returned</span>;
           return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-gray-500 bg-gray-100 border border-gray-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-gray-400 shrink-0" />Pending</span>;
         };
 
@@ -3214,7 +3292,7 @@ export default function TutorPortal() {
                   return (
                     <div
                       key={h.id}
-                      onClick={() => { setHwReviewId(h.id); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
+                      onClick={() => { setHwReviewId(h.id); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); setHwUnsubmitId(null); setHwUnsubmitNote(""); setHwUnsubmitDue(""); setHwUnsubmitError(""); }}
                       className={`bg-white border rounded-xl px-4 py-3.5 flex items-center gap-3 cursor-pointer transition-colors ${
                         h.status === "submitted" ? "border-blue-200 hover:border-blue-300"
                         : isOverdue              ? "border-red-200 hover:border-red-300"
@@ -3534,13 +3612,14 @@ export default function TutorPortal() {
               const h  = reviewItem;
               const st = reviewStudent;
               const isFeedbackOpen   = hwFeedbackId === h.id;
+              const isUnsubmitOpen   = hwUnsubmitId === h.id;
               const vocabReview      = h.assignmentType === "sat_vocabulary" ? vocabReviewData[h.id]    : undefined;
               const vocabLoadingFlag = h.assignmentType === "sat_vocabulary" ? !!vocabReviewLoading[h.id] : false;
               return (
                 <Modal
                   title={h.task}
                   subtitle={st?.name}
-                  onClose={() => { setHwReviewId(null); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); }}
+                  onClose={() => { setHwReviewId(null); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); setHwUnsubmitId(null); setHwUnsubmitNote(""); setHwUnsubmitDue(""); setHwUnsubmitError(""); }}
                   size="xl"
                 >
                   <div className="space-y-5">
@@ -3567,6 +3646,16 @@ export default function TutorPortal() {
                       <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
                         <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest mb-1">Instructions</p>
                         <p className="text-sm text-amber-900 whitespace-pre-wrap">{h.instructions}</p>
+                      </div>
+                    )}
+
+                    {/* Sent back to student */}
+                    {h.returnedNote && h.status !== "completed" && (
+                      <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+                        <p className="text-[10px] font-bold text-orange-700 uppercase tracking-widest mb-1">
+                          Sent Back to Student{h.returnedAt ? ` · ${formatDate(h.returnedAt.slice(0, 10))}` : ""}
+                        </p>
+                        <p className="text-sm text-orange-900 whitespace-pre-wrap">{h.returnedNote}</p>
                       </div>
                     )}
 
@@ -3862,12 +3951,20 @@ export default function TutorPortal() {
                     {/* Grade form */}
                     {(h.status === "submitted" || (h.status === "completed" && isFeedbackOpen)) && (
                       <div className="border-t border-gray-100 pt-4">
-                        {!isFeedbackOpen ? (
-                          <button onClick={() => { setHwFeedbackId(h.id); setHwGradeText(""); setHwFeedbackText(""); }}
-                            className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
-                            + Grade This Assignment
-                          </button>
-                        ) : (
+                        {!isFeedbackOpen && !isUnsubmitOpen ? (
+                          <div className="flex items-center gap-4">
+                            <button onClick={() => { setHwFeedbackId(h.id); setHwGradeText(""); setHwFeedbackText(""); }}
+                              className="text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors">
+                              + Grade This Assignment
+                            </button>
+                            {h.status === "submitted" && (
+                              <button onClick={() => { setHwUnsubmitId(h.id); setHwUnsubmitNote(""); setHwUnsubmitDue(h.dueDate ?? ""); setHwUnsubmitError(""); }}
+                                className="text-sm font-semibold text-orange-600 hover:text-orange-700 transition-colors">
+                                ↩ Send Back to Student
+                              </button>
+                            )}
+                          </div>
+                        ) : isFeedbackOpen ? (
                           <div className="space-y-3">
                             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Grade &amp; Feedback</p>
                             <input type="text" value={hwGradeText} onChange={(e) => setHwGradeText(e.target.value)}
@@ -3886,7 +3983,35 @@ export default function TutorPortal() {
                                 className="text-sm text-gray-400 hover:text-gray-600 transition-colors">Cancel</button>
                             </div>
                           </div>
-                        )}
+                        ) : null}
+                      </div>
+                    )}
+
+                    {/* Unsubmit / send back form */}
+                    {h.status === "submitted" && isUnsubmitOpen && (
+                      <div className="border-t border-gray-100 pt-4 space-y-3">
+                        <p className="text-[10px] font-bold text-orange-600 uppercase tracking-widest">Send Back to Student</p>
+                        <p className="text-xs text-gray-400">
+                          This reverts the assignment to Pending so the student can finish and resubmit it.
+                        </p>
+                        <textarea value={hwUnsubmitNote} onChange={(e) => setHwUnsubmitNote(e.target.value)}
+                          placeholder="What still needs to be finished or fixed…"
+                          rows={3}
+                          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">New Due Date</label>
+                          <input type="date" value={hwUnsubmitDue} onChange={(e) => setHwUnsubmitDue(e.target.value)}
+                            className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500" />
+                        </div>
+                        {hwUnsubmitError && <p className="text-sm text-red-500">{hwUnsubmitError}</p>}
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => saveUnsubmit(h.id)} disabled={hwUnsubmitSaving || !hwUnsubmitNote.trim() || !hwUnsubmitDue}
+                            className="px-5 py-2.5 bg-orange-600 text-white rounded-xl text-sm font-semibold hover:bg-orange-700 disabled:opacity-40 transition-colors">
+                            {hwUnsubmitSaving ? "Sending Back…" : "Send Back to Student"}
+                          </button>
+                          <button onClick={() => { setHwUnsubmitId(null); setHwUnsubmitNote(""); setHwUnsubmitDue(""); setHwUnsubmitError(""); }}
+                            className="text-sm text-gray-400 hover:text-gray-600 transition-colors">Cancel</button>
+                        </div>
                       </div>
                     )}
 
@@ -3925,6 +4050,8 @@ export default function TutorPortal() {
         skillId={tutorSkillId}
         studentId={selectedStudentId}
         skillNodes={allSkillNodes}
+        editable
+        onSaved={(updated) => setPanelStudentSkills((prev) => [...prev.filter((s) => s.skillId !== updated.skillId), updated])}
         onClose={() => setTutorSkillId(null)}
       />
     )}

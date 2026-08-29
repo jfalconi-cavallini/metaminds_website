@@ -18,7 +18,7 @@ import {
   autoCompletePastSessions,
   fetchStudyLog,
   fetchStudentPlans, fetchStudentPlanFull, fetchFullCatalog,
-  fetchSkillNodes, fetchSkillLinkedNotes, fetchSkillLinkedHomework,
+  fetchSkillNodes, fetchSkillLinkedNotes, fetchSkillLinkedHomework, fetchStudentSkills,
   fetchVocabularyConfig, fetchVocabularySubmissions,
   upsertVocabularySubmissions, markHomeworkSubmitted,
   fetchPracticeTestResults,
@@ -27,7 +27,7 @@ import {
   upsertSatPracticeTestAnswer,
 } from "@/lib/portal/db";
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatCategoryBreakdown } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, PurchaseOption, StudyLog, StudentPlanFull, StudentPlanLessonFull, CourseCatalogFull, SkillNode, SkillNoteLink, HomeworkSkillLink, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatCategoryBreakdown, StudentSkill } from "@/lib/portal/types";
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
@@ -110,6 +110,7 @@ export default function StudentPortal() {
   const [planExpIds,      setPlanExpIds]      = useState<Set<number>>(new Set());
   const [planSectionIdx,  setPlanSectionIdx]  = useState(0);
   const [pathSkillNodes,     setPathSkillNodes]     = useState<SkillNode[]>([]);
+  const [pathStudentSkills,  setPathStudentSkills]  = useState<StudentSkill[]>([]);
   const [skillNoteLinks,     setSkillNoteLinks]     = useState<SkillNoteLink[]>([]);
   const [skillHomeworkLinks, setSkillHomeworkLinks] = useState<HomeworkSkillLink[]>([]);
   const [expandedSkills,     setExpandedSkills]     = useState<Set<number>>(new Set());
@@ -171,17 +172,19 @@ export default function StudentPortal() {
     setPlanLoading(true);
     (async () => {
       try {
-        const [plans, skillNodes, noteLinks, hwLinks, testResults] = await Promise.all([
+        const [plans, skillNodes, noteLinks, hwLinks, testResults, studentSkills] = await Promise.all([
           fetchStudentPlans(student.id),
           fetchSkillNodes("SAT"),
           fetchSkillLinkedNotes(student.id),
           fetchSkillLinkedHomework(student.id),
           fetchPracticeTestResults(student.id),
+          fetchStudentSkills(student.id, "SAT"),
         ]);
         setPathSkillNodes(skillNodes);
         setSkillNoteLinks(noteLinks);
         setSkillHomeworkLinks(hwLinks);
         setPracticeTests(testResults);
+        setPathStudentSkills(studentSkills);
         const active = plans.find(p => p.status === "active") ?? plans[0] ?? null;
         if (active) {
           const [full, catalog] = await Promise.all([
@@ -2698,6 +2701,8 @@ export default function StudentPortal() {
             return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />Graded</span>;
           if (h.status === "submitted")
             return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />Submitted</span>;
+          if (h.status === "pending" && h.returnedNote)
+            return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-orange-700 bg-orange-50 border border-orange-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0" />Returned</span>;
           if (isOv)
             return <span className="inline-flex items-center gap-1 text-[11px] font-bold text-red-700 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full whitespace-nowrap"><span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />Overdue</span>;
           if (isDT)
@@ -2712,6 +2717,16 @@ export default function StudentPortal() {
           const currentDiff = hwDiffInputs[h.id] ?? (h.difficultyRating ?? "");
           const currentNote = hwNoteInputs[h.id] ?? (h.studentNote ?? "");
           const diffLabels: Record<string, string> = { easy: "Easy", appropriate: "Appropriate", difficult: "Difficult" };
+
+          const returnedBanner = h.returnedNote && h.status !== "completed" ? (
+            <div className="bg-orange-50 border border-orange-200 rounded-xl px-4 py-3">
+              <p className="text-[10px] font-bold text-orange-700 uppercase tracking-widest mb-1">
+                Sent Back by Your Tutor{h.returnedAt ? ` · ${formatDate(h.returnedAt.slice(0, 10))}` : ""}
+              </p>
+              <p className="text-sm text-orange-900 whitespace-pre-wrap leading-relaxed">{h.returnedNote}</p>
+              {h.dueDate && <p className="text-xs text-orange-700 font-semibold mt-2">New due date: {formatDate(h.dueDate)}</p>}
+            </div>
+          ) : null;
 
           // ── SAT Practice Test assignment: custom form ──────────────
           if (h.assignmentType === "sat_practice_test") {
@@ -2807,6 +2822,7 @@ export default function StudentPortal() {
             return (
               <div className="px-5 py-5 bg-blue-50/30 border-t border-gray-100">
                 <div className="max-w-3xl mx-auto">
+                  {returnedBanner && <div className="mb-4">{returnedBanner}</div>}
                   {/* Header */}
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -3140,6 +3156,7 @@ export default function StudentPortal() {
             const error   = vocabErrors[h.id];
             return (
               <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-4">
+                {returnedBanner}
                 {/* Tutor instructions */}
                 {h.instructions && (
                   <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
@@ -3278,6 +3295,7 @@ export default function StudentPortal() {
 
           return (
             <div className="px-5 py-4 bg-gray-50/60 border-t border-gray-100 space-y-3">
+              {returnedBanner}
               {/* Tutor-provided resources */}
               {(h.attachmentUrl || h.kamiLink) && (
                 <div className="flex flex-wrap gap-2">
@@ -4287,6 +4305,7 @@ export default function StudentPortal() {
                       skillBaseline={studentPlanFull.skillBaseline}
                       planLessonMap={planLessonMap}
                       skillNodes={pathSkillNodes}
+                      studentSkills={pathStudentSkills}
                       onSkillClick={(id) => setSelectedSkillId(id)}
                     />
                   </div>
