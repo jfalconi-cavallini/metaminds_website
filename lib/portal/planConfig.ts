@@ -1,6 +1,8 @@
 // Skill baseline configuration for the plan wizard.
 // Maps SAT/ACT category names → subskills and defines score → status mapping.
 
+import type { SatCategoryScore, StudentSkillStatus } from "./types";
+
 /** Subskills grouped by SAT category name (case-insensitive match). */
 export const SAT_SUBSKILLS: Record<string, string[]> = {
   "Information and Ideas": [
@@ -66,6 +68,32 @@ export function getSubskills(categoryTitle: string): string[] {
     }
   }
   return [];
+}
+
+/**
+ * Maps each SAT_SUBSKILLS category key to its canonical domain-level skill_node slug
+ * (the 8 top-level nodes in satSkillSeed.ts — parentSlug: null).
+ */
+export const DOMAIN_SLUG_MAP: Record<string, string> = {
+  "Algebra":                           "sat-math-algebra",
+  "Advanced Math":                     "sat-math-advanced",
+  "Problem Solving and Data Analysis": "sat-math-data",
+  "Geometry and Trigonometry":         "sat-math-geometry",
+  "Information and Ideas":             "sat-rw-information-ideas",
+  "Craft and Structure":               "sat-rw-craft-structure",
+  "Expression of Ideas":               "sat-rw-expression-ideas",
+  "Standard English Conventions":      "sat-rw-standard-english",
+};
+
+/** Returns the domain skill_node slug for a given category title (case-insensitive, partial match). */
+export function getDomainSlug(categoryTitle: string): string | null {
+  const lower = categoryTitle.toLowerCase();
+  for (const [key, slug] of Object.entries(DOMAIN_SLUG_MAP)) {
+    if (lower.includes(key.toLowerCase()) || key.toLowerCase().includes(lower)) {
+      return slug;
+    }
+  }
+  return null;
 }
 
 /**
@@ -154,6 +182,40 @@ export const STATUS_BADGE: Record<SkillStatus, string> = {
   "proficient":      "bg-blue-50 text-blue-600",
   "strong":          "bg-emerald-50 text-emerald-600",
 };
+
+// ── Practice Test Category Score → student_skills ───────────────────────────────
+
+/**
+ * Converts a practice-test category score ({correct, total} or {bars, maxBars}) into
+ * the 0–6 mastery scale used by student_skills. Returns null when there's no usable data
+ * (e.g. the student left that category blank).
+ */
+export function categoryScoreToMastery(cat: SatCategoryScore | undefined): number | null {
+  if (!cat) return null;
+  const num = cat.correct ?? cat.bars;
+  const den = cat.total   ?? cat.maxBars;
+  if (num == null || den == null || den <= 0) return null;
+  return Math.max(0, Math.min(6, Math.round((num / den) * 6)));
+}
+
+/** Same thresholds as scoreToStatus, mapped to the student_skills DB enum. */
+export function masteryScoreToStudentStatus(score: number): StudentSkillStatus {
+  if (score <= 1) return "needs_work";
+  if (score <= 3) return "developing";
+  if (score <= 5) return "proficient";
+  return "strong";
+}
+
+/** Maps the student_skills DB enum to the display-only SkillStatus used by STATUS_LABEL etc. */
+export function studentStatusToSkillStatus(status: StudentSkillStatus | null | undefined): SkillStatus {
+  switch (status) {
+    case "needs_work":  return "needs-attention";
+    case "developing":  return "developing";
+    case "proficient":  return "proficient";
+    case "strong":      return "strong";
+    default:            return "not-assessed";
+  }
+}
 
 // ── ACT Section Fields ────────────────────────────────────────────────────────
 

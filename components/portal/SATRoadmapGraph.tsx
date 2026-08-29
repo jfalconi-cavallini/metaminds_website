@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { CatalogSection, SkillBaseline, StudentPlanLessonFull, SkillNode } from "@/lib/portal/types";
-import { getSubskills, SUBSKILL_SLUG_MAP } from "@/lib/portal/planConfig";
+import type { CatalogSection, SkillBaseline, StudentPlanLessonFull, SkillNode, StudentSkill } from "@/lib/portal/types";
+import { getSubskills, SUBSKILL_SLUG_MAP, getDomainSlug } from "@/lib/portal/planConfig";
 
 // ── Layout constants (top → bottom) ──────────────────────────────────────────
 
@@ -76,10 +76,12 @@ function buildLayout(
   baseline:      SkillBaseline | undefined,
   planLessonMap: Record<number, StudentPlanLessonFull>,
   skillNodes:    SkillNode[],
+  studentSkills: StudentSkill[],
 ) {
   const nodes: NodeSpec[] = [];
   const edges: EdgeSpec[] = [];
   const slugIndex = new Map(skillNodes.map(n => [n.slug, n.id]));
+  const studentSkillByNodeId = new Map(studentSkills.map(s => [s.skillId, s]));
 
   const groups = section.categories.map(cat => ({ cat, subskills: getSubskills(cat.title) }));
   const nCats  = groups.length;
@@ -104,7 +106,14 @@ function buildLayout(
 
     const catId       = String(cat.id);
     const catEntry    = baseline?.[catId];
-    const catScore    = catEntry?.score;
+
+    // Resolve to the canonical domain-level skill_node — prefer its student_skills
+    // mastery score (auto-updated from practice tests) over the legacy plan baseline.
+    const domainSlug   = getDomainSlug(cat.title);
+    const domainNodeId = domainSlug ? slugIndex.get(domainSlug) : undefined;
+    const domainSkill  = domainNodeId !== undefined ? studentSkillByNodeId.get(domainNodeId) : undefined;
+    const catScore     = domainSkill?.masteryScore ?? catEntry?.score;
+
     const catPlanLessons = cat.lessons.filter(l => l.id in planLessonMap);
     const catDone     = catPlanLessons.filter(l => planLessonMap[l.id]?.status === "completed").length;
     const catStatus   =
@@ -118,6 +127,8 @@ function buildLayout(
       lines: wrap(cat.title, 13, 2),
       sublabel: catScore !== undefined ? scoreLabel(catScore) ?? undefined : undefined,
       fill: cc.fill, stroke: cc.stroke, textColor: cc.text,
+      skillNodeId: domainNodeId,
+      skillLabel:  cat.title,
     });
 
     edges.push({ key: `h-c-${cat.id}`, x1: hubX, y1: HUB_Y + HUB_R, x2: catX, y2: CAT_Y - CAT_R });
@@ -171,16 +182,17 @@ interface Props {
   skillBaseline?: SkillBaseline;
   planLessonMap: Record<number, StudentPlanLessonFull>;
   skillNodes?:   SkillNode[];
+  studentSkills?: StudentSkill[];
   onSkillClick?: (skillNodeId: number) => void;
 }
 
 export default function SATRoadmapGraph({
   section, skillBaseline, planLessonMap,
-  skillNodes = [], onSkillClick,
+  skillNodes = [], studentSkills = [], onSkillClick,
 }: Props) {
   const { nodes, edges, svgW, svgH } = useMemo(
-    () => buildLayout(section, skillBaseline, planLessonMap, skillNodes),
-    [section, skillBaseline, planLessonMap, skillNodes],
+    () => buildLayout(section, skillBaseline, planLessonMap, skillNodes, studentSkills),
+    [section, skillBaseline, planLessonMap, skillNodes, studentSkills],
   );
 
   const [activeId, setActiveId] = useState<string | null>(null);

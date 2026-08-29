@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown, SatCategoryScore } from "./types";
+import { categoryScoreToMastery, masteryScoreToStudentStatus } from "./planConfig";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -106,6 +107,8 @@ function rowToHomework(r: any): Homework {
     studentTimeMinutes: r.student_time_minutes ?? undefined,
     studentNote:        r.student_note        ?? undefined,
     difficultyRating:   r.difficulty_rating   ?? undefined,
+    returnedNote:       r.returned_note       ?? undefined,
+    returnedAt:         r.returned_at         ?? undefined,
   };
 }
 
@@ -526,6 +529,28 @@ export async function addHomeworkFeedback(
       feedback_at: new Date().toISOString(),
       grade:       grade ?? null,
       status:      "completed",
+    })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return rowToHomework(data);
+}
+
+/** Tutor sends a submitted assignment back to the student — e.g. it was
+ *  incomplete — with a note explaining why and a new due date to finish it. */
+export async function unsubmitHomework(
+  id: number,
+  note: string,
+  newDueDate: string,
+): Promise<Homework> {
+  const { data, error } = await supabase
+    .from("homework")
+    .update({
+      status:        "pending",
+      returned_note: note,
+      returned_at:   new Date().toISOString(),
+      due_date:      newDueDate,
     })
     .eq("id", id)
     .select()
@@ -2024,6 +2049,67 @@ export async function deleteStudentSkill(
     .eq("student_id", studentId)
     .eq("skill_id",   skillId);
   if (error) throw error;
+}
+
+// ── PRACTICE TEST → SKILL ROADMAP AUTO-UPDATE ───────────────────────────────────
+
+const DOMAIN_BREAKDOWN_SLUGS: { slug: string; getScore: (bd: SatCategoryBreakdown) => SatCategoryScore | undefined }[] = [
+  { slug: "sat-rw-craft-structure",   getScore: (bd) => bd.rw.craftAndStructure },
+  { slug: "sat-rw-information-ideas", getScore: (bd) => bd.rw.informationAndIdeas },
+  { slug: "sat-rw-expression-ideas",  getScore: (bd) => bd.rw.expressionOfIdeas },
+  { slug: "sat-rw-standard-english",  getScore: (bd) => bd.rw.standardEnglishConventions },
+  { slug: "sat-math-algebra",         getScore: (bd) => bd.math.algebra },
+  { slug: "sat-math-advanced",        getScore: (bd) => bd.math.advancedMath },
+  { slug: "sat-math-data",            getScore: (bd) => bd.math.problemSolvingDataAnalysis },
+  { slug: "sat-math-geometry",        getScore: (bd) => bd.math.geometryTrigonometry },
+];
+
+export interface DomainSkillChange {
+  slug:   string;
+  title:  string;
+  before: StudentSkillStatus | null;
+  after:  StudentSkillStatus;
+}
+
+/**
+ * Recalculates the 8 SAT domain-level student_skills from a practice test's category
+ * breakdown. Called when a tutor grades a sat_practice_test homework submission.
+ * Categories the student left blank are skipped rather than downgraded to 0.
+ */
+export async function recalculateDomainSkillsFromPracticeTest(
+  studentId: number,
+  categoryBreakdown: SatCategoryBreakdown,
+  meta: { testLabel: string; testDate?: string },
+): Promise<DomainSkillChange[]> {
+  const domains = (await fetchSkillNodes("SAT")).filter((n) => n.parentId === null);
+  const bySlug  = new Map(domains.map((n) => [n.slug, n]));
+  const changes: DomainSkillChange[] = [];
+
+  for (const { slug, getScore } of DOMAIN_BREAKDOWN_SLUGS) {
+    const node = bySlug.get(slug);
+    if (!node) continue;
+
+    const catScore = getScore(categoryBreakdown);
+    const score    = categoryScoreToMastery(catScore);
+    if (score === null) continue;
+
+    const existing = await fetchStudentSkill(studentId, node.id);
+    const status    = masteryScoreToStudentStatus(score);
+    const total     = catScore?.total   ?? catScore?.maxBars;
+    const correct   = catScore?.correct ?? catScore?.bars;
+    const pctLabel  = total ? ` (${Math.round(((correct ?? 0) / total) * 100)}%)` : "";
+
+    await upsertStudentSkill(studentId, node.id, {
+      masteryScore: score,
+      status,
+      lastAssessed: meta.testDate,
+      tutorNotes:   `Auto-updated from ${meta.testLabel}: ${correct ?? "?"}/${total ?? "?"}${pctLabel}`,
+    });
+
+    changes.push({ slug, title: node.title, before: existing?.status ?? null, after: status });
+  }
+
+  return changes;
 }
 
 // ── SESSION NOTE SKILLS ───────────────────────────────────────────────────────

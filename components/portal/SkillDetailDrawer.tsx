@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { X, FileText, BookOpen, Clock, Star, AlertCircle } from "lucide-react";
 import type { SkillNode, SkillNoteLink, HomeworkSkillLink, StudentSkill } from "@/lib/portal/types";
-import { fetchStudentSkill, fetchSkillLinkedNotes, fetchSkillLinkedHomework } from "@/lib/portal/db";
+import { fetchStudentSkill, fetchSkillLinkedNotes, fetchSkillLinkedHomework, upsertStudentSkill } from "@/lib/portal/db";
 import { formatDate } from "@/lib/portal/utils";
-import { scoreToStatus, STATUS_LABEL, STATUS_BADGE } from "@/lib/portal/planConfig";
+import { scoreToStatus, STATUS_LABEL, STATUS_BADGE, masteryScoreToStudentStatus } from "@/lib/portal/planConfig";
 
 interface Props {
   skillId:    number | null;
@@ -13,14 +13,43 @@ interface Props {
   skillNodes: SkillNode[];
   noteLinks?: SkillNoteLink[];    // if omitted, fetched internally
   hwLinks?:   HomeworkSkillLink[]; // if omitted, fetched internally
+  editable?:  boolean;            // tutor-only: shows the manual mastery editor
+  onSaved?:   (updated: StudentSkill) => void; // fires after a manual save, so the parent can refresh its roadmap
   onClose:    () => void;
 }
 
 export default function SkillDetailDrawer({
-  skillId, studentId, skillNodes, noteLinks, hwLinks, onClose,
+  skillId, studentId, skillNodes, noteLinks, hwLinks, editable = false, onSaved, onClose,
 }: Props) {
   const [mastery,    setMastery]    = useState<StudentSkill | null>(null);
   const [mastLoaded, setMastLoaded] = useState<number | null>(null);
+
+  // Manual editor (tutor-only)
+  const [editScore,   setEditScore]   = useState(0);
+  const [editNote,    setEditNote]    = useState("");
+  const [savingSkill, setSavingSkill] = useState(false);
+
+  useEffect(() => {
+    if (mastLoaded === skillId) {
+      setEditScore(mastery?.masteryScore ?? 0);
+      setEditNote(mastery?.tutorNotes ?? "");
+    }
+  }, [mastLoaded, skillId, mastery]);
+
+  async function saveMastery() {
+    if (skillId === null) return;
+    setSavingSkill(true);
+    try {
+      const updated = await upsertStudentSkill(studentId, skillId, {
+        masteryScore: editScore,
+        status:       masteryScoreToStudentStatus(editScore),
+        tutorNotes:   editNote.trim() || undefined,
+      });
+      setMastery(updated);
+      onSaved?.(updated);
+    } catch { /* silent — tutor can retry */ }
+    finally { setSavingSkill(false); }
+  }
 
   // Self-fetch mode: when noteLinks/hwLinks are not pre-loaded by the parent
   const selfLoad = noteLinks === undefined || hwLinks === undefined;
@@ -147,11 +176,49 @@ export default function SkillDetailDrawer({
               <span className="text-xs text-gray-400">Loading mastery…</span>
             </div>
           )}
-          {mastery?.tutorNotes && (
+          {mastery?.tutorNotes && !editable && (
             <p className="text-xs text-gray-600 mt-2 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 leading-relaxed">
               <span className="font-semibold text-amber-700">Tutor note: </span>
               {mastery.tutorNotes}
             </p>
+          )}
+
+          {editable && mastLoaded === skillId && (
+            <div className="mt-3 space-y-2">
+              <div className="flex items-center gap-1">
+                {[0, 1, 2, 3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    onClick={() => setEditScore(n)}
+                    className={`w-7 h-7 rounded-lg text-xs font-bold transition-colors ${
+                      editScore === n
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-500 hover:bg-gray-200"
+                    }`}
+                    aria-label={`Set mastery score to ${n} of 6`}
+                    aria-pressed={editScore === n}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <span className={`ml-2 text-xs font-bold px-2 py-1 rounded-full ${STATUS_BADGE[scoreToStatus(editScore)]}`}>
+                  {STATUS_LABEL[scoreToStatus(editScore)]}
+                </span>
+              </div>
+              <input
+                value={editNote}
+                onChange={(e) => setEditNote(e.target.value)}
+                placeholder="Optional tutor note…"
+                className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => void saveMastery()}
+                disabled={savingSkill}
+                className="text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg px-3 py-1.5 transition-colors"
+              >
+                {savingSkill ? "Saving…" : "Save Assessment"}
+              </button>
+            </div>
           )}
         </div>
 

@@ -91,6 +91,8 @@ export interface Homework {
   studentTimeMinutes?: number;
   studentNote?:        string;
   difficultyRating?:   "easy" | "appropriate" | "difficult";
+  returnedNote?:       string;
+  returnedAt?:         string;
 }
 
 export interface StudyLog {
