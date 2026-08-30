@@ -204,6 +204,10 @@ export async function POST(request: Request) {
   const studentTempPassword = generateTempPassword();
   const sameEmail = parentEmail.toLowerCase() === email.toLowerCase();
   const parentTempPassword = sameEmail ? studentTempPassword : generateTempPassword();
+  // True when parentEmail belongs to an existing parent account gaining an
+  // additional child — set inside step 4; read in step 5 to skip the
+  // duplicate welcome email, since the account's password isn't changing.
+  let linkAdditionalChild = false;
 
   const results = {
     studentCreated:     false,
@@ -346,11 +350,25 @@ export async function POST(request: Request) {
 
     if (existingParentUser) {
       parentAuthId = existingParentUser.id;
-      await admin.auth.admin.updateUserById(existingParentUser.id, {
-        password: parentTempPassword,
-        user_metadata: { role: "parent", full_name: parentName, force_password_reset: true, is_parent: true },
-      });
-      results.errors.push("Parent login: email already existed — credentials reset and re-linked.");
+
+      const { data: existingParentProfile } = await admin
+        .from("profiles")
+        .select("role")
+        .eq("id", existingParentUser.id)
+        .single();
+
+      if (existingParentProfile?.role === "parent") {
+        linkAdditionalChild = true;
+        results.errors.push(`Parent login: linked to existing parent account (${parentEmail.trim()}) as an additional child — no new email sent, password unchanged.`);
+      } else {
+        // Edge case: email belongs to a non-parent account — fall back to
+        // the original reset-and-relink safety net.
+        await admin.auth.admin.updateUserById(existingParentUser.id, {
+          password: parentTempPassword,
+          user_metadata: { role: "parent", full_name: parentName, force_password_reset: true, is_parent: true },
+        });
+        results.errors.push("Parent login: email already existed under a different role — credentials reset and re-linked.");
+      }
     } else {
       const { data: parentAuth, error: parentAuthError } = await admin.auth.admin.createUser({
         email:         parentEmail.trim(),
@@ -371,12 +389,25 @@ export async function POST(request: Request) {
     }
 
     if (parentAuthId) {
-      const { error: parentProfileErr } = await admin
-        .from("profiles")
-        .update({ linked_id: studentId, role: "parent", force_password_reset: true })
-        .eq("id", parentAuthId);
-      if (parentProfileErr) {
-        results.errors.push(`Parent profile link: ${parentProfileErr.message}`);
+      // Only (re)point profiles.linked_id at this student for a brand-new
+      // parent account, or the non-parent-email-reuse edge case above —
+      // never for an existing parent gaining an additional child, since
+      // that would silently break their access to the sibling they already had.
+      if (!linkAdditionalChild) {
+        const { error: parentProfileErr } = await admin
+          .from("profiles")
+          .update({ linked_id: studentId, role: "parent", force_password_reset: true })
+          .eq("id", parentAuthId);
+        if (parentProfileErr) {
+          results.errors.push(`Parent profile link: ${parentProfileErr.message}`);
+        }
+      }
+
+      const { error: parentStudentErr } = await admin
+        .from("parent_students")
+        .upsert({ parent_profile_id: parentAuthId, student_id: studentId }, { onConflict: "parent_profile_id,student_id" });
+      if (parentStudentErr) {
+        results.errors.push(`Parent-student link: ${parentStudentErr.message}`);
       } else {
         results.parentAuthCreated = true;
       }
@@ -405,8 +436,11 @@ export async function POST(request: Request) {
       results.errors.push(`Student email: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // Parent email (skip if same address — student email already sent)
-    if (!sameEmail) {
+    // Parent email (skip if same address — student email already sent.
+    // Skip also when linking an additional child to an existing parent
+    // account — their password isn't changing, so a new welcome email
+    // with a fresh temp password would be actively wrong.)
+    if (!sameEmail && !linkAdditionalChild) {
       try {
         await resend.emails.send({
           from:    FROM,
@@ -435,7 +469,7 @@ export async function POST(request: Request) {
     studentName,
     studentEmail:        email.trim(),
     studentTempPassword,
-    parentTempPassword:  sameEmail ? null : parentTempPassword,
+    parentTempPassword:  (sameEmail || linkAdditionalChild) ? null : parentTempPassword,
     results,
   });
 }
