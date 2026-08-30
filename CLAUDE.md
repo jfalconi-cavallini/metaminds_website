@@ -225,6 +225,7 @@ Before implementing any new tab, always check `public/images/template/` for a ma
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 RESEND_API_KEY
+CRON_SECRET   # required in Vercel prod for /api/cron/send-reminders — not yet set as of this writing, see PR that added the reminders cron
 ```
 
 ---
