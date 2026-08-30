@@ -32,13 +32,22 @@ interface OnboardResult {
   };
 }
 
+interface ParentLookup {
+  exists:     boolean;
+  parentName?: string;
+  students?:  { id: number; name: string }[];
+}
+
 interface Props {
   tutors: Tutor[];
   onSuccess: () => void;
   onClose: () => void;
+  // Pre-fills the Parent / Guardian fields — used when the admin jumps
+  // straight into "add a sibling" from an existing student's profile.
+  seedParent?: { name: string; email: string; phone?: string };
 }
 
-export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Props) {
+export default function OnboardStudentWizard({ tutors, onSuccess, onClose, seedParent }: Props) {
   const [step, setStep] = useState<1 | 2 | 3 | "success">(1);
 
   // ── Step 1 fields ────────────────────────────────────────────────
@@ -49,10 +58,44 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
   const [grade,          setGrade]          = useState("");
   const [school,         setSchool]         = useState("");
   const [graduationYear, setGraduationYear] = useState("");
-  const [parentName,     setParentName]     = useState("");
-  const [parentEmail,    setParentEmail]    = useState("");
-  const [parentPhone,    setParentPhone]    = useState("");
+  const [parentName,     setParentName]     = useState(seedParent?.name ?? "");
+  const [parentEmail,    setParentEmail]    = useState(seedParent?.email ?? "");
+  const [parentPhone,    setParentPhone]    = useState(seedParent?.phone ?? "");
   const [step1Error,     setStep1Error]     = useState("");
+
+  // ── Parent email lookup (existing-parent detection) ────────────────
+  const [parentLookup,        setParentLookup]        = useState<ParentLookup | null>(null);
+  const [parentLookupLoading, setParentLookupLoading] = useState(false);
+
+  useEffect(() => {
+    const trimmed = parentEmail.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setParentLookup(null);
+      return;
+    }
+    setParentLookupLoading(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const res = await fetch(`/api/admin/check-parent-email?email=${encodeURIComponent(trimmed)}`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (!res.ok) { setParentLookup(null); return; }
+        const data = await res.json() as ParentLookup;
+        setParentLookup(data);
+        if (data.exists && data.parentName && !parentName.trim()) {
+          setParentName(data.parentName);
+        }
+      } catch {
+        setParentLookup(null);
+      } finally {
+        setParentLookupLoading(false);
+      }
+    }, 500);
+    return () => { clearTimeout(timer); setParentLookupLoading(false); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parentEmail]);
 
   // ── Step 2 fields ────────────────────────────────────────────────
   const [packageHours,  setPackageHours]  = useState("4");
@@ -137,6 +180,19 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Loops back to step 1 for a second (or third…) child under the same
+  // parent — keeps parentName/parentEmail/parentPhone as-is, clears
+  // everything student- and package-specific.
+  function handleAddSibling() {
+    setFirstName(""); setLastName(""); setEmail(""); setPhone("");
+    setGrade(""); setSchool(""); setGraduationYear("");
+    setStep1Error("");
+    setPackageHours("4"); setPackageExpiry(""); setTutorId("");
+    setCourseIds([]); setStatus("active"); setStep2Error("");
+    setSubmitError(""); setResult(null);
+    setStep(1);
   }
 
   function copyCredentials(text: string, which: "student" | "parent") {
@@ -248,6 +304,18 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
                 <input type="tel" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} placeholder="(555) 000-0000"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+              {parentLookupLoading && (
+                <p className="col-span-2 text-xs text-gray-400">Checking…</p>
+              )}
+              {!parentLookupLoading && parentLookup?.exists && (
+                <div className="col-span-2 bg-violet-50 border border-violet-200 rounded-lg px-3 py-2.5 text-xs text-violet-700">
+                  <strong>{parentLookup.parentName || "This parent"}</strong> already has a MetaMinds account
+                  {parentLookup.students && parentLookup.students.length > 0 && (
+                    <> — linked to {parentLookup.students.map((s) => s.name).join(", ")}</>
+                  )}
+                  . This student will be added as a sibling — same password, no new welcome email.
+                </div>
+              )}
             </div>
           </div>
 
@@ -417,7 +485,11 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
           </div>
 
           <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 text-xs text-blue-700 leading-relaxed">
-            Two accounts will be created (student + parent). Both will receive welcome emails with temporary credentials and be required to set a new password on first login.
+            {parentLookup?.exists ? (
+              <>A student account will be created and linked to <strong>{parentLookup.parentName || parentName}</strong>&apos;s existing parent account. The student gets a welcome email with temporary credentials; the parent&apos;s existing login is unchanged — no new email sent.</>
+            ) : (
+              <>Two accounts will be created (student + parent). Both will receive welcome emails with temporary credentials and be required to set a new password on first login.</>
+            )}
           </div>
 
           {submitError && (
@@ -523,7 +595,11 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose }: Pro
             </div>
           )}
 
-          <div className="flex justify-end pt-1">
+          <div className="flex justify-between pt-1">
+            <button onClick={handleAddSibling}
+              className="px-4 py-2.5 border border-blue-200 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-50">
+              + Add Another Child for {parentName || "This Parent"}
+            </button>
             <button onClick={onClose}
               className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-semibold hover:bg-blue-700">
               Done
