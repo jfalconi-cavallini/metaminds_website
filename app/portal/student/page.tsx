@@ -957,6 +957,22 @@ export default function StudentPortal() {
         </div>
       )}
 
+      {/* ── CHILD SWITCHER (parent with more than one linked student) ── */}
+      {ctx.viewerRole === "parent" && ctx.parentStudents.length > 1 && (
+        <div className="flex items-center gap-3 px-5 py-3 bg-blue-50 border-b-2 border-blue-100">
+          <span className="shrink-0 text-xs font-semibold text-blue-700 uppercase tracking-widest">Viewing</span>
+          <select
+            value={ctx.activeStudentId ?? ""}
+            onChange={(e) => ctx.switchStudent(Number(e.target.value))}
+            className="text-sm font-semibold text-blue-900 bg-white border border-blue-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            {ctx.parentStudents.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
         const sessionToday = upcoming.find((s) => s.date === todayIso);

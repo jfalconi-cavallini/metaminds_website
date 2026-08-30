@@ -215,7 +215,7 @@ Before implementing any new tab, always check `public/images/template/` for a ma
 
 ## Supabase Tables (current)
 
-`students`, `tutors`, `sessions`, `homework`, `session_notes`, `parent_updates`, `hours_packages`, `tutor_availability`, `blocked_dates`, `blocked_slots`
+`students`, `tutors`, `sessions`, `homework`, `session_notes`, `parent_updates`, `hours_packages`, `tutor_availability`, `blocked_dates`, `blocked_slots`, `parent_students` (parent→children linking table, supports multi-child parent accounts)
 
 ---
 
