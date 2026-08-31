@@ -224,6 +224,17 @@ export async function POST(request: Request) {
   // ── 1. Create student DB record ──────────────────────────────────
   let studentId: number | null = null;
 
+  // The wizard's course-selection step enrolls the student in
+  // student_course_enrollments (step 3b below) — that's a separate table
+  // from students.subjects, the free-text field the admin students list
+  // displays. Seed subjects from the selected courses' titles so a new
+  // student doesn't show up with a blank "Subjects" column.
+  let subjectsFromCourses: string[] = [];
+  if (courseIds && courseIds.length > 0) {
+    const { data: selectedCourses } = await admin.from("courses").select("title").in("id", courseIds);
+    subjectsFromCourses = (selectedCourses ?? []).map((c) => c.title as string);
+  }
+
   const studentInsert: Record<string, unknown> = {
     name:             studentName,
     email:            email.trim(),
@@ -235,6 +246,7 @@ export async function POST(request: Request) {
     school:           school        || null,
     graduation_year:  graduationYear || null,
     assigned_tutor_id: tutorId      || null,
+    subjects:         subjectsFromCourses,
   };
 
   // status column added in migration 014 — include it if the value is not default
