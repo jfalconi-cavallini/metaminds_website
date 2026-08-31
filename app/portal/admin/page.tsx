@@ -338,6 +338,7 @@ export default function AdminPortal() {
 
   // ── STUDENT ONBOARDING WIZARD ────────────────────────────────────
   const [showStudentWizard, setShowStudentWizard] = useState(false);
+  const [wizardSeedParent,  setWizardSeedParent]  = useState<{ name: string; email: string; phone?: string } | undefined>(undefined);
 
   async function handleWizardSuccess() {
     // Refresh both students and packages after successful onboarding
@@ -2006,7 +2007,19 @@ export default function AdminPortal() {
               </div>
               {(ps.parentName || ps.parentEmail || ps.parentPhone) && (
                 <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Parent / Guardian</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Parent / Guardian</p>
+                    <button
+                      onClick={() => {
+                        setWizardSeedParent({ name: ps.parentName ?? "", email: ps.parentEmail ?? "", phone: ps.parentPhone });
+                        setProfileStudent(null);
+                        setShowStudentWizard(true);
+                      }}
+                      className="text-xs font-semibold text-blue-600 hover:underline"
+                    >
+                      + Add Sibling
+                    </button>
+                  </div>
                   <ProfileRow label="Name"  value={ps.parentName} />
                   <ProfileRow label="Email" value={ps.parentEmail} />
                   <ProfileRow label="Phone" value={ps.parentPhone} />
@@ -2181,7 +2194,8 @@ export default function AdminPortal() {
       <OnboardStudentWizard
         tutors={tutors}
         onSuccess={handleWizardSuccess}
-        onClose={() => setShowStudentWizard(false)}
+        onClose={() => { setShowStudentWizard(false); setWizardSeedParent(undefined); }}
+        seedParent={wizardSeedParent}
       />
     )}
 
