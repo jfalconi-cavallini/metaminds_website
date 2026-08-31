@@ -22,6 +22,8 @@ export interface Student {
   successPlan?: string;
   successPlanUrl?: string;
   weeklyStudyGoalMinutes?: number;
+  /** IANA zone id, e.g. "America/Los_Angeles". Null/undefined = platform default. */
+  timezone?: string;
 }
 
 export interface Tutor {

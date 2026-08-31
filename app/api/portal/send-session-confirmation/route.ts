@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 import { resolveZoomUrl, formatDate } from "@/lib/portal/utils";
+import { convertSessionDisplay } from "@/lib/portal/timezone";
 
 const admin = adminClient();
 
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
 
     const [tutorRes, studentRes] = await Promise.all([
       admin.from("tutors").select("name, zoom_link").eq("id", sessionRow.tutor_id).single(),
-      admin.from("students").select("name, email, parent_email").eq("id", sessionRow.student_id).single(),
+      admin.from("students").select("name, email, parent_email, timezone").eq("id", sessionRow.student_id).single(),
     ]);
 
     if (tutorRes.error || studentRes.error) {
@@ -125,17 +126,24 @@ export async function POST(req: NextRequest) {
     const rawZoom = (sessionRow.zoom_link ?? tutorRes.data.zoom_link ?? "") as string;
     const zoomUrl = sessionRow.session_type === "online" && rawZoom ? resolveZoomUrl(rawZoom) : null;
 
+    const converted = convertSessionDisplay(
+      sessionRow.session_date as string,
+      sessionRow.session_time as string,
+      studentRes.data.timezone as string | null,
+    );
+    const shiftNote = converted.dayShift === 1 ? " (+1 day)" : converted.dayShift === -1 ? " (-1 day)" : "";
+
     const html    = buildEmail({
       studentName,
       tutorName,
       subject:       sessionRow.subject as string,
-      dateLabel:     formatDate(sessionRow.session_date as string),
-      time:          sessionRow.session_time as string,
+      dateLabel:     formatDate(converted.dateISO),
+      time:          `${converted.time12h} ${converted.zoneAbbrev}${shiftNote}`,
       durationHours: Number(sessionRow.duration_hours),
       sessionType:   sessionRow.session_type as string,
       zoomUrl,
     });
-    const subject = `Session confirmed: ${sessionRow.subject} on ${formatDate(sessionRow.session_date as string)}`;
+    const subject = `Session confirmed: ${sessionRow.subject} on ${formatDate(converted.dateISO)}`;
 
     if (recipients.length === 0) {
       return NextResponse.json({ sent: false, reason: "no_recipients" });

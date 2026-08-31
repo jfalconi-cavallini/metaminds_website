@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { adminClient } from "@/lib/apiAuth";
 import { resolveZoomUrl, formatDate } from "@/lib/portal/utils";
+import { convertSessionDisplay } from "@/lib/portal/timezone";
 
 const admin = adminClient();
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
@@ -131,7 +132,7 @@ export async function GET(req: NextRequest) {
   for (const s of sessions ?? []) {
     const [{ data: tutor }, { data: student }] = await Promise.all([
       admin.from("tutors").select("name, zoom_link").eq("id", s.tutor_id).single(),
-      admin.from("students").select("name, email, parent_email").eq("id", s.student_id).single(),
+      admin.from("students").select("name, email, parent_email, timezone").eq("id", s.student_id).single(),
     ]);
     if (!tutor || !student) continue;
 
@@ -140,6 +141,10 @@ export async function GET(req: NextRequest) {
 
     const rawZoom = (s.zoom_link ?? tutor.zoom_link ?? "") as string;
     const zoomUrl = s.session_type === "online" && rawZoom ? resolveZoomUrl(rawZoom) : null;
+
+    const converted   = convertSessionDisplay(s.session_date, s.session_time, student.timezone as string | null);
+    const shiftNote   = converted.dayShift === 1 ? " (+1 day)" : converted.dayShift === -1 ? " (-1 day)" : "";
+    const displayTime = `${converted.time12h} ${converted.zoneAbbrev}${shiftNote}`;
 
     if (dryRun) {
       dryRunDetails.push(`session #${s.id} (${s.subject}) → ${recipients.join(", ")}`);
@@ -151,13 +156,13 @@ export async function GET(req: NextRequest) {
       await resend!.emails.send({
         from:    FROM,
         to:      recipients,
-        subject: `Reminder: ${s.subject} tomorrow at ${s.session_time}`,
+        subject: `Reminder: ${s.subject} tomorrow at ${displayTime}`,
         html:    buildSessionReminderEmail({
           studentName:   student.name,
           tutorName:     tutor.name,
           subject:       s.subject,
-          dateLabel:     tomorrowLabel,
-          time:          s.session_time,
+          dateLabel:     formatDate(converted.dateISO),
+          time:          displayTime,
           durationHours: Number(s.duration_hours),
           sessionType:   s.session_type,
           zoomUrl,
