@@ -204,6 +204,11 @@ export default function TutorPortal() {
   const [resendingSessionId, setResendingSessionId] = useState<number | null>(null);
   const [resentSessionId,    setResentSessionId]    = useState<number | null>(null);
 
+  // ── DUPLICATE SESSION (next week, same day/time) ────────────────
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
+  const [duplicatedId,  setDuplicatedId]  = useState<number | null>(null);
+  const [duplicateError, setDuplicateError] = useState("");
+
   // ── AVAILABILITY EDITOR ─────────────────────────────────────────
   const [availSlots,  setAvailSlots]  = useState<{ dayOfWeek: number; startTime: string; endTime: string }[]>([]);
   const [availDay,    setAvailDay]    = useState("1");
@@ -558,6 +563,26 @@ export default function TutorPortal() {
           : b
       ));
     } catch { /* silent */ } finally { setCancellingId(null); }
+  }
+
+  async function handleDuplicateSession(session: Session) {
+    setDuplicatingId(session.id); setDuplicateError(""); setDuplicatedId(null);
+    try {
+      const [y, m, d] = session.date.split("-").map(Number);
+      const nextDate = new Date(Date.UTC(y, m - 1, d + 7)).toISOString().slice(0, 10);
+      const newSession = await insertSession({
+        studentId: session.studentId, tutorId,
+        subject: session.subject, sessionDate: nextDate,
+        sessionTime: session.time, durationHours: session.durationHours,
+        sessionType: session.sessionType,
+      });
+      setLocalSessions((prev) => [...prev, newSession]);
+      sendSessionConfirmationEmail(newSession.id);
+      setDuplicatedId(session.id);
+      setTimeout(() => setDuplicatedId(null), 4000);
+    } catch (e: unknown) {
+      setDuplicateError(e instanceof Error ? e.message : "Failed to duplicate session.");
+    } finally { setDuplicatingId(null); }
   }
 
   async function resendSessionEmail(sessionId: number) {
@@ -4092,6 +4117,12 @@ export default function TutorPortal() {
                   </button>
                 )}
                 {!editingSession && (
+                  <button onClick={() => handleDuplicateSession(sd)} disabled={duplicatingId === sd.id}
+                    className="text-xs text-gray-600 hover:text-gray-800 border border-gray-200 rounded-lg px-3 py-1.5 disabled:opacity-40">
+                    {duplicatingId === sd.id ? "Duplicating…" : duplicatedId === sd.id ? "Booked ✓" : "Duplicate to Next Week"}
+                  </button>
+                )}
+                {!editingSession && (
                   <button onClick={() => { handleCancelSession(sd); setSessionDetail(null); }} disabled={cancellingId === sd.id}
                     className="text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-lg px-3 py-1.5 disabled:opacity-40">
                     {cancellingId === sd.id ? "Cancelling…" : "Cancel Session"}
@@ -4099,6 +4130,9 @@ export default function TutorPortal() {
                 )}
               </div>
             </div>
+            {duplicateError && (
+              <p className="text-xs text-red-500 -mt-3">{duplicateError}</p>
+            )}
 
             {/* ── EDIT FORM ── */}
             {editingSession && (
