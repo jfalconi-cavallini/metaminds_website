@@ -27,6 +27,7 @@ function rowToStudent(r: any): Student {
     successPlan:            r.success_plan             ?? undefined,
     successPlanUrl:         r.success_plan_url         ?? undefined,
     weeklyStudyGoalMinutes: r.weekly_study_goal_minutes ?? 180,
+    timezone:               r.timezone                 ?? undefined,
   };
 }
 

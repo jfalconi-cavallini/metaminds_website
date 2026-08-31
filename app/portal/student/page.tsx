@@ -6,6 +6,7 @@ import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { purchaseOptions, formatDate, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { convertSessionDisplay } from "@/lib/portal/timezone";
 import WeeklyCalendar, { parseTimeToHour } from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
 import {
@@ -70,6 +71,23 @@ const ALL_NAV_ITEMS = [
 
 // Tabs parents are allowed to see (read-only view of their child's portal)
 const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path"]);
+
+const COMMON_TIMEZONES = [
+  { value: "America/New_York",    label: "Eastern Time (ET)" },
+  { value: "America/Chicago",     label: "Central Time (CT)" },
+  { value: "America/Denver",      label: "Mountain Time (MT)" },
+  { value: "America/Phoenix",     label: "Arizona (no DST)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Anchorage",   label: "Alaska Time" },
+  { value: "Pacific/Honolulu",    label: "Hawaii Time" },
+  { value: "America/Puerto_Rico", label: "Atlantic Time (Puerto Rico)" },
+  { value: "Europe/London",       label: "London" },
+  { value: "Europe/Paris",        label: "Central Europe" },
+  { value: "Asia/Kolkata",        label: "India" },
+  { value: "Asia/Shanghai",       label: "China" },
+  { value: "Asia/Tokyo",          label: "Japan" },
+  { value: "Australia/Sydney",    label: "Sydney" },
+];
 
 /** Returns hours from now until the session starts (negative if past) */
 function hoursUntilSession(session: Session): number {
@@ -165,6 +183,45 @@ export default function StudentPortal() {
     }
     load();
   }, [previewReady, effectiveStudentId, isAdminPreview]);
+
+  // Auto-detect and persist the student's timezone on first visit — never
+  // during an admin/tutor preview, where "the viewer's own location" would
+  // be the previewer's, not the real student's.
+  useEffect(() => {
+    if (isAnyPreview || !student || student.timezone) return;
+    let detected: string;
+    try {
+      detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    } catch {
+      return;
+    }
+    if (!detected) return;
+    void saveTimezone(student.id, detected);
+  }, [isAnyPreview, student]);
+
+  async function saveTimezone(studentId: number, timezone: string) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await fetch("/api/portal/update-timezone", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body:    JSON.stringify({ studentId, timezone }),
+      });
+      setStudent((prev) => (prev && prev.id === studentId ? { ...prev, timezone } : prev));
+    } catch { /* best-effort — falls back to platform time next render */ }
+  }
+
+  // Sessions are stored in platform time (America/New_York) — these render
+  // a booked session's date/time in the viewer's own zone when known.
+  function fmtSessionDate(dateISO: string, time: string): string {
+    return formatDate(convertSessionDisplay(dateISO, time, student?.timezone).dateISO);
+  }
+  function fmtSessionTime(dateISO: string, time: string): string {
+    const dt = convertSessionDisplay(dateISO, time, student?.timezone);
+    const shift = dt.dayShift === 1 ? " (+1 day)" : dt.dayShift === -1 ? " (-1 day)" : "";
+    return `${dt.time12h} ${dt.zoneAbbrev}${shift}`;
+  }
 
   // Learning Path lazy load
   useEffect(() => {
@@ -281,6 +338,8 @@ export default function StudentPortal() {
   const [settingsPrivProfile,   setSettingsPrivProfile]   = useState(true);
   const [settingsPrivProgress,  setSettingsPrivProgress]  = useState(false);
   const [settingsSaved,         setSettingsSaved]         = useState(false);
+  const [timezoneSaving,        setTimezoneSaving]        = useState(false);
+  const [timezoneSaved,         setTimezoneSaved]         = useState(false);
 
   // Force password reset state
   const [forceResetDone,    setForceResetDone]    = useState(false);
@@ -1003,8 +1062,8 @@ export default function StudentPortal() {
               {nextSession && (
                 <div className="shrink-0 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl p-4 sm:min-w-[210px] shadow-lg shadow-blue-200">
                   <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1.5">Upcoming Session</p>
-                  <p className="font-bold text-sm leading-snug">{formatDate(nextSession.date)}</p>
-                  <p className="text-blue-100 text-sm mt-0.5">{nextSession.time} · {nextSession.subject}</p>
+                  <p className="font-bold text-sm leading-snug">{fmtSessionDate(nextSession.date, nextSession.time)}</p>
+                  <p className="text-blue-100 text-sm mt-0.5">{fmtSessionTime(nextSession.date, nextSession.time)} · {nextSession.subject}</p>
                   <p className="text-blue-200 text-xs mt-0.5">{nextSession.durationHours} hr · {nextSession.sessionType}</p>
                   <div className="mt-3 space-y-1.5">
                     {(nextSession.zoomLink ?? tutor?.zoomLink) ? (
@@ -1072,7 +1131,7 @@ export default function StudentPortal() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{sessionToday.subject} Session</p>
-                        <p className="text-xs text-gray-400">{sessionToday.time} · {sessionToday.durationHours} hr</p>
+                        <p className="text-xs text-gray-400">{fmtSessionTime(sessionToday.date, sessionToday.time)} · {sessionToday.durationHours} hr</p>
                       </div>
                       <div className="flex flex-col items-end gap-0.5 shrink-0">
                         {(sessionToday.zoomLink ?? tutor?.zoomLink) && (
@@ -1426,7 +1485,7 @@ export default function StudentPortal() {
                 },
                 {
                   label: "Today's Session",
-                  value: sessionToday ? sessionToday.time : "—",
+                  value: sessionToday ? fmtSessionTime(sessionToday.date, sessionToday.time) : "—",
                   sub: sessionToday ? sessionToday.subject : "Free today",
                   Icon: Clock,
                   iconBg: sessionToday ? "bg-emerald-50" : "bg-gray-50",
@@ -1445,7 +1504,7 @@ export default function StudentPortal() {
                 {
                   label: "Next Session",
                   value: nextLabel,
-                  sub: nextSession ? `${nextSession.subject} · ${nextSession.time}` : "No sessions yet",
+                  sub: nextSession ? `${nextSession.subject} · ${fmtSessionTime(nextSession.date, nextSession.time)}` : "No sessions yet",
                   Icon: RotateCcw,
                   iconBg: nextSession ? "bg-purple-50" : "bg-gray-50",
                   iconColor: nextSession ? "text-purple-600" : "text-gray-400",
@@ -1554,11 +1613,12 @@ export default function StudentPortal() {
                 </div>
                 <div className="space-y-2">
                   {upcoming.map((s, i) => {
-                    const isToday  = s.date === todayIso;
                     const hrs      = hoursUntilSession(s);
                     const locked   = hrs < CANCEL_LOCK_HOURS;
                     const inPerson = s.sessionType === "in-person";
-                    const sessionDate = new Date(s.date + "T12:00:00");
+                    const converted = convertSessionDisplay(s.date, s.time, student?.timezone);
+                    const isToday  = converted.dateISO === todayIso;
+                    const sessionDate = new Date(converted.dateISO + "T12:00:00");
                     const dayName = sessionDate.toLocaleDateString("en-US", { weekday: "short" });
                     const monthName = sessionDate.toLocaleDateString("en-US", { month: "short" });
                     const dayNum = sessionDate.getDate();
@@ -1590,7 +1650,7 @@ export default function StudentPortal() {
                           <p className="font-bold text-gray-900 text-sm truncate">{s.subject}</p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <Clock className="w-3 h-3 text-gray-400 shrink-0" />
-                            <p className="text-xs text-gray-500">{s.time} · {s.durationHours} hr</p>
+                            <p className="text-xs text-gray-500">{fmtSessionTime(s.date, s.time)} · {s.durationHours} hr</p>
                           </div>
                         </div>
 
@@ -1667,7 +1727,7 @@ export default function StudentPortal() {
                             className="hover:bg-gray-50/60 cursor-pointer transition-colors"
                             onClick={() => setPastSessionDetail(s)}
                           >
-                            <td className="px-5 py-3 text-gray-600 font-medium whitespace-nowrap">{formatDate(s.date)}</td>
+                            <td className="px-5 py-3 text-gray-600 font-medium whitespace-nowrap">{fmtSessionDate(s.date, s.time)}</td>
                             <td className="px-5 py-3 text-gray-900 font-semibold">{s.subject}</td>
                             <td className="px-5 py-3 text-gray-400 hidden sm:table-cell">{s.durationHours} hr</td>
                             <td className="px-5 py-3 text-right">
@@ -1965,7 +2025,7 @@ export default function StudentPortal() {
                             <Star className="w-3.5 h-3.5 text-blue-500" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-gray-800 truncate">{s.subject} · {formatDate(s.date)}</p>
+                            <p className="text-xs font-bold text-gray-800 truncate">{s.subject} · {fmtSessionDate(s.date, s.time)}</p>
                             <p className="text-[11px] text-gray-500 mt-0.5 leading-relaxed" style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                               {note ? `${note.topic}${note.notes ? ` — ${note.notes.slice(0, 80)}${note.notes.length > 80 ? "…" : ""}` : ""}` : "Session completed"}
                             </p>
@@ -3799,7 +3859,7 @@ export default function StudentPortal() {
                   )}
                   {[...completed].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 6).map((s) => (
                     <tr key={s.id}>
-                      <td className="px-6 py-3 text-gray-700">{formatDate(s.date)}</td>
+                      <td className="px-6 py-3 text-gray-700">{fmtSessionDate(s.date, s.time)}</td>
                       <td className="px-6 py-3 text-gray-700">{s.subject}</td>
                       <td className="px-6 py-3 text-gray-700">{s.durationHours} hr</td>
                     </tr>
@@ -3823,7 +3883,7 @@ export default function StudentPortal() {
                   <div key={s.id} className="flex items-center justify-between gap-3 py-2 border-b border-gray-50 last:border-0">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
-                      <p className="text-xs text-gray-400">{tutor?.name ?? "Your tutor"} · {formatDate(s.date)} · {s.time}</p>
+                      <p className="text-xs text-gray-400">{tutor?.name ?? "Your tutor"} · {fmtSessionDate(s.date, s.time)} · {fmtSessionTime(s.date, s.time)}</p>
                     </div>
                     <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{s.durationHours} hr</span>
                   </div>
@@ -4533,7 +4593,7 @@ export default function StudentPortal() {
 
       return (
         <Modal onClose={() => setPastSessionDetail(null)} title="Session Details" size="xl"
-          subtitle={`${formatDate(ps.date)} at ${ps.time}`}>
+          subtitle={`${fmtSessionDate(ps.date, ps.time)} at ${fmtSessionTime(ps.date, ps.time)}`}>
           <div className="space-y-5">
             {/* Header */}
             <div>
@@ -4794,8 +4854,9 @@ export default function StudentPortal() {
                   ) : (
                     <div className="space-y-3">
                       {upcoming.slice(0, 3).map((s) => {
-                        const d = new Date(s.date + "T12:00:00");
-                        const isToday = s.date === todayIso;
+                        const converted = convertSessionDisplay(s.date, s.time, student?.timezone);
+                        const d = new Date(converted.dateISO + "T12:00:00");
+                        const isToday = converted.dateISO === todayIso;
                         return (
                           <div key={s.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
                             <div className={`w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0 ${isToday ? "bg-blue-600" : "bg-white border border-gray-200"}`}>
@@ -4808,7 +4869,7 @@ export default function StudentPortal() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
-                              <p className="text-xs text-gray-400">{s.time} · {s.durationHours}h</p>
+                              <p className="text-xs text-gray-400">{fmtSessionTime(s.date, s.time)} · {s.durationHours}h</p>
                             </div>
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${s.sessionType === "in-person" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
                               {s.sessionType === "in-person" ? "In-Person" : "Online"}
@@ -4830,7 +4891,7 @@ export default function StudentPortal() {
                       {daysUntilNext === 0 ? "Today!" : daysUntilNext === 1 ? "Tomorrow" : `${daysUntilNext} days`}
                     </p>
                     <p className="text-sm text-blue-100 mt-1 font-medium">{nextSession.subject}</p>
-                    <p className="text-xs text-blue-200 mt-0.5">{formatDate(nextSession.date)} · {nextSession.time}</p>
+                    <p className="text-xs text-blue-200 mt-0.5">{fmtSessionDate(nextSession.date, nextSession.time)} · {fmtSessionTime(nextSession.date, nextSession.time)}</p>
                   </div>
                 )}
 
@@ -4847,7 +4908,7 @@ export default function StudentPortal() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{s.subject} session</p>
-                            <p className="text-xs text-gray-400">{formatDate(s.date)} · {s.durationHours}h</p>
+                            <p className="text-xs text-gray-400">{fmtSessionDate(s.date, s.time)} · {s.durationHours}h</p>
                           </div>
                         </div>
                       ))}
@@ -5007,6 +5068,34 @@ export default function StudentPortal() {
                         rows={3}
                         className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 placeholder-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                       />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-500 block mb-1.5">Time Zone</label>
+                      <select
+                        value={student.timezone ?? ""}
+                        disabled={timezoneSaving}
+                        onChange={async (e) => {
+                          const tz = e.target.value;
+                          setTimezoneSaving(true);
+                          setTimezoneSaved(false);
+                          await saveTimezone(student.id, tz);
+                          setTimezoneSaving(false);
+                          setTimezoneSaved(true);
+                          setTimeout(() => setTimezoneSaved(false), 3000);
+                        }}
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
+                      >
+                        {!student.timezone && <option value="" disabled>Detecting…</option>}
+                        {COMMON_TIMEZONES.some((z) => z.value === student.timezone) || !student.timezone
+                          ? null
+                          : <option value={student.timezone}>{student.timezone}</option>}
+                        {COMMON_TIMEZONES.map((z) => (
+                          <option key={z.value} value={z.value}>{z.label}</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {timezoneSaving ? "Saving…" : timezoneSaved ? "Saved — your sessions now show in this time zone." : "Sessions throughout the portal are shown in this time zone. We auto-detected it, but you can correct it here."}
+                      </p>
                     </div>
                     <div className="flex items-center justify-between pt-2">
                       {settingsSaved ? (
