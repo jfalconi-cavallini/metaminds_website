@@ -480,6 +480,28 @@ export default function AdminPortal() {
     finally { setCancellingId(null); }
   }
 
+  // ── DUPLICATE SESSION (next week, same day/time) ────────────────
+  const [duplicatingId, setDuplicatingId] = useState<number | null>(null);
+  const [duplicatedId,  setDuplicatedId]  = useState<number | null>(null);
+
+  async function handleDuplicateSession(s: Session) {
+    setDuplicatingId(s.id); setDuplicatedId(null);
+    try {
+      const [y, m, d] = s.date.split("-").map(Number);
+      const nextDate = new Date(Date.UTC(y, m - 1, d + 7)).toISOString().slice(0, 10);
+      const newSession = await insertSession({
+        studentId: s.studentId, tutorId: s.tutorId,
+        subject: s.subject, sessionDate: nextDate,
+        sessionTime: s.time, durationHours: s.durationHours,
+        sessionType: s.sessionType,
+      });
+      setSessions((prev) => [newSession, ...prev]);
+      sendSessionConfirmationEmail(newSession.id);
+      setDuplicatedId(s.id);
+      setTimeout(() => setDuplicatedId(null), 3000);
+    } catch { /* silent */ } finally { setDuplicatingId(null); }
+  }
+
   // ── RESEND SESSION EMAIL ──────────────────────────────────────────
   const [resendingSessionId, setResendingSessionId] = useState<number | null>(null);
   const [resentSessionId,    setResentSessionId]    = useState<number | null>(null);
@@ -1779,6 +1801,9 @@ export default function AdminPortal() {
                           <div className="flex items-center gap-2">
                             <button onClick={() => resendSessionEmail(s.id)} disabled={resendingSessionId === s.id} className="text-xs text-blue-600 hover:underline disabled:opacity-40">
                               {resendingSessionId === s.id ? "…" : resentSessionId === s.id ? "Sent ✓" : "Email"}
+                            </button>
+                            <button onClick={() => handleDuplicateSession(s)} disabled={duplicatingId === s.id} className="text-xs text-gray-600 hover:underline disabled:opacity-40">
+                              {duplicatingId === s.id ? "…" : duplicatedId === s.id ? "Booked ✓" : "Duplicate +1wk"}
                             </button>
                             <button onClick={() => handleCancelSession(s)} disabled={cancellingId === s.id} className="text-xs text-red-500 hover:underline disabled:opacity-40">
                               {cancellingId === s.id ? "…" : "Cancel"}
