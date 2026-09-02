@@ -1190,7 +1190,8 @@ export default function TutorPortal() {
       </div>
     )}
     <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
-      fullBleed={tab === "library" || tab === "notes"}>
+      fullBleed={tab === "library" || tab === "notes"}
+      contentMaxWidthClassName={tab === "schedule" ? "max-w-none md:px-[72px]" : undefined}>
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
