@@ -20,6 +20,7 @@ interface Props {
   onTabChange: (id: string) => void;
   children: React.ReactNode;
   fullBleed?: boolean; // removes max-width + padding so content fills the shell
+  contentMaxWidthClassName?: string; // overrides the default "max-w-5xl mx-auto" wrapper (ignored when fullBleed)
 }
 
 const roleMeta = {
@@ -29,7 +30,7 @@ const roleMeta = {
   parent:  { label: "Parent / Guardian", badge: "bg-blue-100 text-blue-700"   },
 };
 
-export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children, fullBleed }: Props) {
+export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children, fullBleed, contentMaxWidthClassName }: Props) {
   const meta   = roleMeta[role];
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -195,7 +196,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         <main className={`flex-1 min-w-0 overflow-hidden flex flex-col ${fullBleed ? "" : "p-4 md:p-6 overflow-auto"}`}>
           {fullBleed
             ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-            : <div className="max-w-5xl mx-auto">{children}</div>
+            : <div className={contentMaxWidthClassName ?? "max-w-5xl mx-auto"}>{children}</div>
           }
         </main>
       </div>
