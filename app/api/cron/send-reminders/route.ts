@@ -62,7 +62,7 @@ function buildSessionReminderEmail(opts: {
     : "";
   return emailShell("Session Reminder", `
     <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#111827;">
-      Hi ${opts.studentName}, you have a session tomorrow
+      Hi ${opts.studentName}, you have a session in two days on ${opts.dateLabel}
     </p>
     <p style="margin:0 0 20px;font-size:13px;color:#6b7280;">With ${opts.tutorName}</p>
     <div style="padding:16px 18px;background:#f0f9ff;border-left:3px solid #3b82f6;border-radius:4px;">
@@ -89,10 +89,11 @@ function buildHomeworkReminderEmail(opts: {
   `);
 }
 
-/** Daily cron (see vercel.json) — emails a 24h-before session reminder and a
- *  due-tomorrow homework reminder. Runs once/day, so both windows are simply
- *  "tomorrow" in America/New_York; each row is marked reminder_sent_at so a
- *  re-run (or a slightly-late cron trigger) never double-sends. */
+/** Daily cron (see vercel.json) — emails a 48h-before session reminder and a
+ *  due-tomorrow homework reminder. Session window is two days ahead in
+ *  America/New_York; homework stays +1 day. Each row is marked
+ *  reminder_sent_at so a re-run (or a slightly-late cron trigger) never
+ *  double-sends. */
 export async function GET(req: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = req.headers.get("authorization");
@@ -111,8 +112,14 @@ export async function GET(req: NextRequest) {
   }
   const resend = apiKey ? new Resend(apiKey) : null;
 
-  const tomorrow = easternToday();
-  tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
+  const today = easternToday();
+
+  const inTwoDays = new Date(today);
+  inTwoDays.setUTCDate(today.getUTCDate() + 2);
+  const inTwoDaysStr = isoDate(inTwoDays);
+
+  const tomorrow = new Date(today);
+  tomorrow.setUTCDate(today.getUTCDate() + 1);
   const tomorrowStr = isoDate(tomorrow);
   const tomorrowLabel = formatDate(tomorrowStr);
 
@@ -120,11 +127,11 @@ export async function GET(req: NextRequest) {
   let homeworkReminded = 0;
   const dryRunDetails: string[] = [];
 
-  // ── Session reminders (24h before) ──────────────────────────────
+  // ── Session reminders (48h before) ──────────────────────────────
   const { data: sessions, error: sessionsErr } = await admin
     .from("sessions")
     .select("id, student_id, tutor_id, subject, session_date, session_time, duration_hours, session_type, zoom_link")
-    .eq("session_date", tomorrowStr)
+    .eq("session_date", inTwoDaysStr)
     .eq("status", "upcoming")
     .is("reminder_sent_at", null);
   if (sessionsErr) console.error("[send-reminders] sessions query", sessionsErr);
@@ -156,7 +163,7 @@ export async function GET(req: NextRequest) {
       await resend!.emails.send({
         from:    FROM,
         to:      recipients,
-        subject: `Reminder: ${s.subject} tomorrow at ${displayTime}`,
+        subject: `Reminder: ${s.subject} in two days at ${displayTime}`,
         html:    buildSessionReminderEmail({
           studentName:   student.name,
           tutorName:     tutor.name,
