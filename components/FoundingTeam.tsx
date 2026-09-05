@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { Star } from "lucide-react";
-import Section from "./Section";
 import { siteData } from "@/lib/data";
 
 export default function FoundingTeam() {
