@@ -28,8 +28,10 @@ export default function HeroTutoring() {
                         </div>
 
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
-                            A mentor who stays<br />
-                            with your kid, and<br />
+                            A mentor who stays{" "}
+                            <br />
+                            with your kid, and{" "}
+                            <br />
                             <span className="text-blue-400">a plan you can actually see.</span>
                         </h1>
 

@@ -26,9 +26,7 @@ export default function PrivacyPage() {
                             Our Commitment to Privacy
                         </h2>
                         <p>
-                            At {siteData.brand.name}, we take the privacy and safety of your
-                            children seriously. This policy outlines how we collect, use, and
-                            protect information.
+                            We collect only what we need to run safe, effective 1-on-1 tutoring: parent contact info, student name/grade/goals, and scheduling details. We do not sell your data.
                         </p>
                     </section>
 
@@ -37,14 +35,12 @@ export default function PrivacyPage() {
                             Information We Collect
                         </h2>
                         <p>
-                            We collect only the information necessary to run a safe and
-                            effective camp program:
+                            At {siteData.brand.name}, we collect only what is needed to deliver tutoring and mentoring:
                         </p>
                         <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
                             <li>Parent/guardian contact information</li>
-                            <li>Child&apos;s name, age, and emergency contacts</li>
-                            <li>Medical information and allergies</li>
-                            <li>Photo/video consent preferences</li>
+                            <li>Student name, grade, and learning goals</li>
+                            <li>Scheduling details</li>
                         </ul>
                     </section>
 
@@ -54,10 +50,9 @@ export default function PrivacyPage() {
                         </h2>
                         <p>Your information is used exclusively to:</p>
                         <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
-                            <li>Communicate about camp schedules and updates</li>
-                            <li>Ensure child safety during activities</li>
+                            <li>Communicate about sessions, scheduling, and updates</li>
+                            <li>Deliver 1-on-1 tutoring and mentoring</li>
                             <li>Process registration and payments</li>
-                            <li>Share photos/videos (only with explicit consent)</li>
                         </ul>
                     </section>
 
@@ -74,24 +69,6 @@ export default function PrivacyPage() {
 
                     <section>
                         <h2 className="text-2xl font-semibold text-gray-900 mb-3">
-                            Photo & Video Policy
-                        </h2>
-                        <p>
-                            We love celebrating student achievements! Photos and videos may be
-                            taken during camp for:
-                        </p>
-                        <ul className="list-disc list-inside space-y-2 mt-2 ml-4">
-                            <li>Sharing with parents via secure platforms</li>
-                            <li>Marketing materials (only with explicit consent)</li>
-                            <li>Social media (only with explicit consent)</li>
-                        </ul>
-                        <p className="mt-2">
-                            Parents can opt out of photo/video sharing at any time.
-                        </p>
-                    </section>
-
-                    <section>
-                        <h2 className="text-2xl font-semibold text-gray-900 mb-3">
                             Your Rights
                         </h2>
                         <p>You have the right to:</p>
@@ -99,7 +76,6 @@ export default function PrivacyPage() {
                             <li>Request a copy of your data</li>
                             <li>Request corrections to your data</li>
                             <li>Request deletion of your data</li>
-                            <li>Withdraw photo/video consent</li>
                         </ul>
                     </section>
 
@@ -119,7 +95,7 @@ export default function PrivacyPage() {
                     </section>
 
                     <p className="text-sm text-gray-500 pt-6 border-t border-gray-200">
-                        Last updated: February 2026
+                        Last updated: September 2026
                     </p>
                 </div>
             </div>
