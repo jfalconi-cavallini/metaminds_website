@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 import { resolveZoomUrl, formatDate } from "@/lib/portal/utils";
 import { convertSessionDisplay } from "@/lib/portal/timezone";
+import { logEmail } from "@/lib/emailLog";
 
 const admin = adminClient();
 
@@ -156,12 +157,27 @@ export async function POST(req: NextRequest) {
     }
 
     const resend = new Resend(apiKey);
-    await resend.emails.send({
-      from:    FROM,
-      to:      recipients,
-      subject,
-      html,
-    });
+    try {
+      await resend.emails.send({
+        from:    FROM,
+        to:      recipients,
+        subject,
+        html,
+      });
+      await logEmail(admin, {
+        emailType: "session_confirmation", recipients, subject, html,
+        relatedStudentId: sessionRow.student_id as number,
+        relatedTutorId:   sessionRow.tutor_id   as number,
+      });
+    } catch (sendErr) {
+      await logEmail(admin, {
+        emailType: "session_confirmation", recipients, subject, html,
+        relatedStudentId: sessionRow.student_id as number,
+        relatedTutorId:   sessionRow.tutor_id   as number,
+        status: "failed", error: sendErr instanceof Error ? sendErr.message : String(sendErr),
+      });
+      throw sendErr;
+    }
 
     return NextResponse.json({ sent: true });
   } catch (err) {

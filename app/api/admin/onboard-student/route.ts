@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { logEmail } from "@/lib/emailLog";
 
 function adminClient() {
   return createClient(
@@ -445,16 +446,24 @@ export async function POST(request: Request) {
     const resend = new Resend(apiKey);
 
     // Student email
-    try {
-      await resend.emails.send({
-        from:    FROM,
-        to:      [email.trim()],
-        subject: "Welcome to MetaMinds STEM Academy!",
-        html:    studentWelcomeHtml({ firstName, email: email.trim(), tempPassword: studentTempPassword }),
-      });
-      results.studentEmailSent = true;
-    } catch (e) {
-      results.errors.push(`Student email: ${e instanceof Error ? e.message : String(e)}`);
+    {
+      const subject = "Welcome to MetaMinds STEM Academy!";
+      const html = studentWelcomeHtml({ firstName, email: email.trim(), tempPassword: studentTempPassword });
+      try {
+        await resend.emails.send({ from: FROM, to: [email.trim()], subject, html });
+        await logEmail(admin, {
+          emailType: "welcome_student", recipients: [email.trim()], subject, html,
+          relatedStudentId: studentId ?? undefined, relatedTutorId: tutorId,
+        });
+        results.studentEmailSent = true;
+      } catch (e) {
+        results.errors.push(`Student email: ${e instanceof Error ? e.message : String(e)}`);
+        await logEmail(admin, {
+          emailType: "welcome_student", recipients: [email.trim()], subject, html,
+          relatedStudentId: studentId ?? undefined, relatedTutorId: tutorId,
+          status: "failed", error: e instanceof Error ? e.message : String(e),
+        });
+      }
     }
 
     // Parent email (skip if same address — student email already sent.
@@ -462,21 +471,27 @@ export async function POST(request: Request) {
     // account — their password isn't changing, so a new welcome email
     // with a fresh temp password would be actively wrong.)
     if (!sameEmail && !linkAdditionalChild) {
+      const subject = "Welcome to MetaMinds STEM Academy";
+      const html = parentWelcomeHtml({
+        parentFirstName: parentName.split(" ")[0],
+        parentEmail:     parentEmail.trim(),
+        tempPassword:    parentTempPassword,
+        studentName,
+      });
       try {
-        await resend.emails.send({
-          from:    FROM,
-          to:      [parentEmail.trim()],
-          subject: "Welcome to MetaMinds STEM Academy",
-          html:    parentWelcomeHtml({
-            parentFirstName: parentName.split(" ")[0],
-            parentEmail:     parentEmail.trim(),
-            tempPassword:    parentTempPassword,
-            studentName,
-          }),
+        await resend.emails.send({ from: FROM, to: [parentEmail.trim()], subject, html });
+        await logEmail(admin, {
+          emailType: "welcome_parent", recipients: [parentEmail.trim()], subject, html,
+          relatedStudentId: studentId ?? undefined, relatedTutorId: tutorId,
         });
         results.parentEmailSent = true;
       } catch (e) {
         results.errors.push(`Parent email: ${e instanceof Error ? e.message : String(e)}`);
+        await logEmail(admin, {
+          emailType: "welcome_parent", recipients: [parentEmail.trim()], subject, html,
+          relatedStudentId: studentId ?? undefined, relatedTutorId: tutorId,
+          status: "failed", error: e instanceof Error ? e.message : String(e),
+        });
       }
     } else {
       results.parentEmailSent = true;

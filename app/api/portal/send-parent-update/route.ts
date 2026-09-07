@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
+import { logEmail } from "@/lib/emailLog";
 
 const admin = adminClient();
 
@@ -117,12 +118,25 @@ export async function POST(req: NextRequest) {
     }
 
     const resend = new Resend(apiKey);
-    await resend.emails.send({
-      from:    FROM,
-      to:      recipients,
-      subject,
-      html,
-    });
+    try {
+      await resend.emails.send({
+        from:    FROM,
+        to:      recipients,
+        subject,
+        html,
+      });
+      await logEmail(admin, {
+        emailType: "parent_update", recipients, subject, html,
+        relatedStudentId: studentId, relatedTutorId: tutorId,
+      });
+    } catch (sendErr) {
+      await logEmail(admin, {
+        emailType: "parent_update", recipients, subject, html,
+        relatedStudentId: studentId, relatedTutorId: tutorId,
+        status: "failed", error: sendErr instanceof Error ? sendErr.message : String(sendErr),
+      });
+      throw sendErr;
+    }
 
     return NextResponse.json({ sent: true });
   } catch (err) {

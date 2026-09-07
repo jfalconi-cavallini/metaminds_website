@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { logEmail } from "@/lib/emailLog";
 
 function adminClient() {
   return createClient(
@@ -182,21 +183,23 @@ export async function POST(request: Request) {
         await admin.from("profiles").update({ force_password_reset: true }).eq("id", studentAuthId);
 
         if (resend) {
+          const subject = "Welcome to MetaMinds STEM Academy!";
+          const html = studentWelcomeHtml({
+            firstName: studentName.split(" ")[0],
+            email: studentEmail,
+            tempPassword,
+          });
           try {
-            await resend.emails.send({
-              from:    FROM,
-              to:      [studentEmail],
-              subject: "Welcome to MetaMinds STEM Academy!",
-              html:    studentWelcomeHtml({
-                firstName: studentName.split(" ")[0],
-                email: studentEmail,
-                tempPassword,
-              }),
-            });
+            await resend.emails.send({ from: FROM, to: [studentEmail], subject, html });
+            await logEmail(admin, { emailType: "welcome_student", recipients: [studentEmail], subject, html, relatedStudentId: studentId });
             results.studentEmailSent = true;
           } catch (e) {
             results.studentEmailError = e instanceof Error ? e.message : String(e);
             results.studentTempPassword = tempPassword;
+            await logEmail(admin, {
+              emailType: "welcome_student", recipients: [studentEmail], subject, html, relatedStudentId: studentId,
+              status: "failed", error: e instanceof Error ? e.message : String(e),
+            });
           }
         } else {
           results.studentEmailSent    = false;
@@ -277,22 +280,24 @@ export async function POST(request: Request) {
 
       if (parentAuthId && !results.parentError) {
         if (resend) {
+          const subject = "Welcome to MetaMinds STEM Academy";
+          const html = parentWelcomeHtml({
+            parentFirstName: parentName.split(" ")[0],
+            parentEmail,
+            tempPassword,
+            studentName,
+          });
           try {
-            await resend.emails.send({
-              from:    FROM,
-              to:      [parentEmail],
-              subject: "Welcome to MetaMinds STEM Academy",
-              html:    parentWelcomeHtml({
-                parentFirstName: parentName.split(" ")[0],
-                parentEmail,
-                tempPassword,
-                studentName,
-              }),
-            });
+            await resend.emails.send({ from: FROM, to: [parentEmail], subject, html });
+            await logEmail(admin, { emailType: "welcome_parent", recipients: [parentEmail], subject, html, relatedStudentId: studentId });
             results.parentEmailSent = true;
           } catch (e) {
             results.parentEmailError = e instanceof Error ? e.message : String(e);
             results.parentTempPassword = tempPassword;
+            await logEmail(admin, {
+              emailType: "welcome_parent", recipients: [parentEmail], subject, html, relatedStudentId: studentId,
+              status: "failed", error: e instanceof Error ? e.message : String(e),
+            });
           }
         } else {
           results.parentEmailSent    = false;

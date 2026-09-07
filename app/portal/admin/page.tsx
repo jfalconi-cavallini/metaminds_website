@@ -25,8 +25,9 @@ import {
   countHomeworkByStatus,
   fetchPendingPurchaseRequests, resolvePurchaseRequest,
   fetchCourses, fetchEnrollmentsForStudent, setStudentEnrollments,
+  fetchEmailLog,
 } from "@/lib/portal/db";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest, Course } from "@/lib/portal/types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest, Course, EmailLogEntry, EmailType } from "@/lib/portal/types";
 
 const navItems = [
   { id: "overview",   label: "Overview"   },
@@ -37,6 +38,7 @@ const navItems = [
   { id: "packages",   label: "Packages"   },
   { id: "courses",    label: "Courses"    },
   { id: "curriculum", label: "Curriculum" },
+  { id: "emails",     label: "Emails"     },
 ];
 
 
@@ -124,6 +126,28 @@ export default function AdminPortal() {
   useEffect(() => {
     if (tab === "curriculum" && skillLibCount === null) checkSkillLib();
   }, [tab, skillLibCount]);
+
+  // ── EMAIL LOG ───────────────────────────────────────────────────
+  const [emailLog,        setEmailLog]        = useState<EmailLogEntry[] | null>(null);
+  const [emailLogLoading, setEmailLogLoading] = useState(false);
+  const [emailLogError,   setEmailLogError]   = useState("");
+  const [emailLogFilter,  setEmailLogFilter]  = useState<"" | EmailType>("");
+  const [emailPreview,    setEmailPreview]    = useState<EmailLogEntry | null>(null);
+
+  async function loadEmailLog() {
+    setEmailLogLoading(true); setEmailLogError("");
+    try {
+      setEmailLog(await fetchEmailLog());
+    } catch {
+      setEmailLogError("Failed to load email log.");
+    } finally {
+      setEmailLogLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab === "emails" && emailLog === null) loadEmailLog();
+  }, [tab, emailLog]);
 
   async function initSkillLib() {
     setSkillLibIniting(true);
@@ -2009,6 +2033,111 @@ export default function AdminPortal() {
           </>
         );
       })()}
+
+      {/* ── EMAILS ── */}
+      {tab === "emails" && (() => {
+        const typeLabels: Record<EmailType, string> = {
+          session_confirmation: "Session Confirmation",
+          session_reminder:     "Session Reminder",
+          homework_reminder:    "Homework Reminder",
+          parent_update:        "Parent Update",
+          welcome_student:      "Welcome (Student)",
+          welcome_parent:       "Welcome (Parent)",
+          test:                 "Test",
+        };
+        const filtered = (emailLog ?? []).filter((e) => !emailLogFilter || e.emailType === emailLogFilter);
+        return (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h1 className="text-2xl font-bold text-gray-900">Emails</h1>
+              <select
+                value={emailLogFilter}
+                onChange={(e) => setEmailLogFilter(e.target.value as "" | EmailType)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+              >
+                <option value="">All types</option>
+                {(Object.keys(typeLabels) as EmailType[]).map((t) => (
+                  <option key={t} value={t}>{typeLabels[t]}</option>
+                ))}
+              </select>
+            </div>
+
+            {emailLogLoading && <p className="text-sm text-gray-400">Loading…</p>}
+            {emailLogError && <p className="text-sm text-red-500">{emailLogError}</p>}
+
+            {!emailLogLoading && !emailLogError && (
+              filtered.length === 0 ? (
+                <p className="text-sm text-gray-400">No emails logged yet.</p>
+              ) : (
+                <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                      <tr>
+                        <th className="text-left px-4 py-2.5">Sent</th>
+                        <th className="text-left px-4 py-2.5">Type</th>
+                        <th className="text-left px-4 py-2.5">Student</th>
+                        <th className="text-left px-4 py-2.5">Recipients</th>
+                        <th className="text-left px-4 py-2.5">Subject</th>
+                        <th className="text-left px-4 py-2.5">Status</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filtered.map((e) => {
+                        const student = e.relatedStudentId ? getStudent(e.relatedStudentId) : undefined;
+                        return (
+                          <tr key={e.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">
+                              {new Date(e.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-700">{typeLabels[e.emailType] ?? e.emailType}</td>
+                            <td className="px-4 py-2.5 text-gray-700">{student?.name ?? "—"}</td>
+                            <td className="px-4 py-2.5 text-gray-500 max-w-[220px] truncate" title={e.recipients.join(", ")}>
+                              {e.recipients.join(", ")}
+                            </td>
+                            <td className="px-4 py-2.5 text-gray-700 max-w-[260px] truncate" title={e.subject}>{e.subject}</td>
+                            <td className="px-4 py-2.5">
+                              {e.status === "sent" ? (
+                                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">Sent</span>
+                              ) : (
+                                <span className="text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full" title={e.error}>Failed</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-2.5 text-right">
+                              <button onClick={() => setEmailPreview(e)} className="text-blue-600 hover:underline font-medium">
+                                Preview
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── EMAIL PREVIEW MODAL ── */}
+      {emailPreview && (
+        <Modal onClose={() => setEmailPreview(null)} title={emailPreview.subject} subtitle={`To: ${emailPreview.recipients.join(", ")}`} size="xl">
+          <div className="space-y-3">
+            {emailPreview.status === "failed" && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                Send failed: {emailPreview.error ?? "unknown error"}
+              </p>
+            )}
+            <iframe
+              title="Email preview"
+              srcDoc={emailPreview.html}
+              sandbox=""
+              className="w-full h-[70vh] border border-gray-200 rounded-lg"
+            />
+          </div>
+        </Modal>
+      )}
 
     </DashboardShell>
 

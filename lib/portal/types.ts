@@ -574,3 +574,25 @@ export interface SatPracticeTestAnswer {
   createdAt: string;
   updatedAt: string;
 }
+
+export type EmailType =
+  | "session_confirmation"
+  | "session_reminder"
+  | "homework_reminder"
+  | "parent_update"
+  | "welcome_student"
+  | "welcome_parent"
+  | "test";
+
+export interface EmailLogEntry {
+  id: number;
+  emailType: EmailType;
+  recipients: string[];
+  subject: string;
+  html: string;
+  relatedStudentId?: number;
+  relatedTutorId?: number;
+  status: "sent" | "failed";
+  error?: string;
+  sentAt: string;
+}

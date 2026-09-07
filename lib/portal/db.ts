@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown, SatCategoryScore } from "./types";
+import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown, SatCategoryScore, EmailLogEntry, EmailType } from "./types";
 import { categoryScoreToMastery, masteryScoreToStudentStatus } from "./planConfig";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
@@ -2664,4 +2664,39 @@ export async function upsertSatPracticeTestAnswer(payload: {
     .single();
   if (error) throw error;
   return rowToSatPtAnswer(data);
+}
+
+// ── EMAIL LOG ───────────────────────────────────────────────────────────────
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToEmailLogEntry(r: any): EmailLogEntry {
+  return {
+    id:               r.id,
+    emailType:        r.email_type as EmailType,
+    recipients:       r.recipients ?? [],
+    subject:          r.subject,
+    html:             r.html,
+    relatedStudentId: r.related_student_id ?? undefined,
+    relatedTutorId:   r.related_tutor_id   ?? undefined,
+    status:           r.status,
+    error:            r.error ?? undefined,
+    sentAt:           r.sent_at,
+  };
+}
+
+/** Admins see every sent email; RLS scopes tutors to their own tutor_id. */
+export async function fetchEmailLog(filters?: {
+  emailType?: EmailType;
+  studentId?: number;
+  tutorId?:   number;
+  limit?:     number;
+}): Promise<EmailLogEntry[]> {
+  let query = supabase.from("email_log").select("*").order("sent_at", { ascending: false });
+  if (filters?.emailType) query = query.eq("email_type", filters.emailType);
+  if (filters?.studentId) query = query.eq("related_student_id", filters.studentId);
+  if (filters?.tutorId)   query = query.eq("related_tutor_id", filters.tutorId);
+  query = query.limit(filters?.limit ?? 200);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map(rowToEmailLogEntry);
 }

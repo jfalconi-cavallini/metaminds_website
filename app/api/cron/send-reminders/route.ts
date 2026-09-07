@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { adminClient } from "@/lib/apiAuth";
 import { resolveZoomUrl, formatDate } from "@/lib/portal/utils";
 import { convertSessionDisplay } from "@/lib/portal/timezone";
+import { logEmail } from "@/lib/emailLog";
 
 const admin = adminClient();
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
@@ -159,26 +160,32 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    const subject = `Reminder: ${s.subject} in two days at ${displayTime}`;
+    const html = buildSessionReminderEmail({
+      studentName:   student.name,
+      tutorName:     tutor.name,
+      subject:       s.subject,
+      dateLabel:     formatDate(converted.dateISO),
+      time:          displayTime,
+      durationHours: Number(s.duration_hours),
+      sessionType:   s.session_type,
+      zoomUrl,
+    });
     try {
-      await resend!.emails.send({
-        from:    FROM,
-        to:      recipients,
-        subject: `Reminder: ${s.subject} in two days at ${displayTime}`,
-        html:    buildSessionReminderEmail({
-          studentName:   student.name,
-          tutorName:     tutor.name,
-          subject:       s.subject,
-          dateLabel:     formatDate(converted.dateISO),
-          time:          displayTime,
-          durationHours: Number(s.duration_hours),
-          sessionType:   s.session_type,
-          zoomUrl,
-        }),
-      });
+      await resend!.emails.send({ from: FROM, to: recipients, subject, html });
       await admin.from("sessions").update({ reminder_sent_at: new Date().toISOString() }).eq("id", s.id);
+      await logEmail(admin, {
+        emailType: "session_reminder", recipients, subject, html,
+        relatedStudentId: s.student_id, relatedTutorId: s.tutor_id,
+      });
       sessionsReminded++;
     } catch (err) {
       console.error(`[send-reminders] session ${s.id}`, err);
+      await logEmail(admin, {
+        emailType: "session_reminder", recipients, subject, html,
+        relatedStudentId: s.student_id, relatedTutorId: s.tutor_id,
+        status: "failed", error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
@@ -207,22 +214,28 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
+    const subject = `Reminder: "${h.task}" is due tomorrow`;
+    const html = buildHomeworkReminderEmail({
+      studentName: student.name,
+      tutorName:   tutor.name,
+      task:        h.task,
+      dateLabel:   tomorrowLabel,
+    });
     try {
-      await resend!.emails.send({
-        from:    FROM,
-        to:      recipients,
-        subject: `Reminder: "${h.task}" is due tomorrow`,
-        html:    buildHomeworkReminderEmail({
-          studentName: student.name,
-          tutorName:   tutor.name,
-          task:        h.task,
-          dateLabel:   tomorrowLabel,
-        }),
-      });
+      await resend!.emails.send({ from: FROM, to: recipients, subject, html });
       await admin.from("homework").update({ reminder_sent_at: new Date().toISOString() }).eq("id", h.id);
+      await logEmail(admin, {
+        emailType: "homework_reminder", recipients, subject, html,
+        relatedStudentId: h.student_id, relatedTutorId: h.tutor_id,
+      });
       homeworkReminded++;
     } catch (err) {
       console.error(`[send-reminders] homework ${h.id}`, err);
+      await logEmail(admin, {
+        emailType: "homework_reminder", recipients, subject, html,
+        relatedStudentId: h.student_id, relatedTutorId: h.tutor_id,
+        status: "failed", error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
