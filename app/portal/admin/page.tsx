@@ -8,6 +8,7 @@ import StatCard from "@/components/portal/StatCard";
 import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
 import Modal from "@/components/portal/Modal";
 import { formatDate, formatTime24to12, DISPLAY_GROUP_ORDER, displayGroupFor, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { US_TIMEZONES } from "@/lib/portal/timezone";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
@@ -78,6 +79,7 @@ export default function AdminPortal() {
   const [pfParentPhone,  setPfParentPhone]  = useState("");
   const [pfNotes,          setPfNotes]          = useState("");
   const [pfAllowInPerson,  setPfAllowInPerson]  = useState(false);
+  const [pfTimezone,       setPfTimezone]       = useState("");
   // Tutor edit fields
   const [pfTutName,      setPfTutName]      = useState("");
   const [pfTutEmail,     setPfTutEmail]     = useState("");
@@ -619,6 +621,7 @@ export default function AdminPortal() {
     setPfParentName(s.parentName ?? ""); setPfParentEmail(s.parentEmail ?? "");
     setPfParentPhone(s.parentPhone ?? ""); setPfNotes(s.notes ?? "");
     setPfAllowInPerson(s.allowInPerson ?? false);
+    setPfTimezone(s.timezone ?? "");
     fetchEnrollmentsForStudent(s.id).then((enrollments) => {
       setPfCourseIds(enrollments.map((e) => e.courseId));
     }).catch(console.error);
@@ -640,6 +643,7 @@ export default function AdminPortal() {
         subjects: pfSubjects.split(",").map((s) => s.trim()).filter(Boolean),
         phone: pfPhone, parentName: pfParentName, parentEmail: pfParentEmail,
         parentPhone: pfParentPhone, notes: pfNotes, allowInPerson: pfAllowInPerson,
+        timezone: pfTimezone,
       });
       await setStudentEnrollments(profileStudent.id, pfCourseIds);
       // Sync auth email if it changed
@@ -2022,6 +2026,12 @@ export default function AdminPortal() {
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
                   <ProfileRow label="Email" value={ps.email} />
                   <ProfileRow label="Phone" value={ps.phone} />
+                  <ProfileRow
+                    label="Time Zone"
+                    value={ps.timezone
+                      ? `${US_TIMEZONES.find((z) => z.value === ps.timezone)?.label ?? ps.timezone}${ps.timezoneConfirmed ? "" : " (unconfirmed guess)"}`
+                      : "Not set yet"}
+                  />
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>
@@ -2106,8 +2116,15 @@ export default function AdminPortal() {
                 <input value={pfEmail} onChange={(e) => setPfEmail(e.target.value)} placeholder="Email" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <input value={pfGrade} onChange={(e) => setPfGrade(e.target.value)} placeholder="Grade (e.g. 10th)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <input value={pfPhone} onChange={(e) => setPfPhone(e.target.value)} placeholder="Student phone"    className="rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <select value={pfTimezone} onChange={(e) => setPfTimezone(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                  <option value="">Time zone unknown</option>
+                  {US_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
                 <input value={pfSubjects} onChange={(e) => setPfSubjects(e.target.value)} placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm col-span-2" />
               </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                Used for session-confirmation emails until the family logs in and we detect their time zone automatically.
+              </p>
               {/* Courses */}
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">Courses <span className="font-normal text-gray-400">— select all that apply</span></p>

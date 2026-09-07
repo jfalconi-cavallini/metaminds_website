@@ -186,9 +186,12 @@ export default function StudentPortal() {
 
   // Auto-detect and persist the student's timezone on first visit — never
   // during an admin/tutor preview, where "the viewer's own location" would
-  // be the previewer's, not the real student's.
+  // be the previewer's, not the real student's. Runs even if `timezone` is
+  // already set from the admin onboarding wizard's guess (a family's
+  // stated location, used only until this real detection confirms it) —
+  // `timezoneConfirmed` is what actually gates re-running this.
   useEffect(() => {
-    if (isAnyPreview || !student || student.timezone) return;
+    if (isAnyPreview || !student || student.timezoneConfirmed) return;
     let detected: string;
     try {
       detected = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -208,7 +211,7 @@ export default function StudentPortal() {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
         body:    JSON.stringify({ studentId, timezone }),
       });
-      setStudent((prev) => (prev && prev.id === studentId ? { ...prev, timezone } : prev));
+      setStudent((prev) => (prev && prev.id === studentId ? { ...prev, timezone, timezoneConfirmed: true } : prev));
     } catch { /* best-effort — falls back to platform time next render */ }
   }
 

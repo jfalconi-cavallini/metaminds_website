@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchCourses } from "@/lib/portal/db";
 import type { Tutor, Course } from "@/lib/portal/types";
 import { DISPLAY_GROUP_ORDER, displayGroupFor } from "@/lib/portal/utils";
+import { US_TIMEZONES } from "@/lib/portal/timezone";
 
 const GRADES = [
   "Kindergarten", "1st", "2nd", "3rd", "4th", "5th",
@@ -58,6 +59,7 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose, seedP
   const [grade,          setGrade]          = useState("");
   const [school,         setSchool]         = useState("");
   const [graduationYear, setGraduationYear] = useState("");
+  const [familyTimezone, setFamilyTimezone] = useState("");
   const [parentName,     setParentName]     = useState(seedParent?.name ?? "");
   const [parentEmail,    setParentEmail]    = useState(seedParent?.email ?? "");
   const [parentPhone,    setParentPhone]    = useState(seedParent?.phone ?? "");
@@ -158,6 +160,7 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose, seedP
           grade,
           school:         school.trim()        || undefined,
           graduationYear: graduationYear.trim() || undefined,
+          familyTimezone: familyTimezone        || undefined,
           parentName:     parentName.trim(),
           parentEmail:    parentEmail.trim(),
           parentPhone:    parentPhone.trim()   || undefined,
@@ -303,6 +306,17 @@ export default function OnboardStudentWizard({ tutors, onSuccess, onClose, seedP
                 <label className="text-xs text-gray-500 mb-1 block">Parent Phone <span className="text-gray-400 font-normal">(optional)</span></label>
                 <input type="tel" value={parentPhone} onChange={(e) => setParentPhone(e.target.value)} placeholder="(555) 000-0000"
                   className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="col-span-2">
+                <label className="text-xs text-gray-500 mb-1 block">Family Time Zone <span className="text-gray-400 font-normal">(optional)</span></label>
+                <select value={familyTimezone} onChange={(e) => setFamilyTimezone(e.target.value)}
+                  className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Select time zone…</option>
+                  {US_TIMEZONES.map((tz) => <option key={tz.value} value={tz.value}>{tz.label}</option>)}
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Used for session-confirmation emails until the family logs in and we detect their time zone automatically.
+                </p>
               </div>
               {parentLookupLoading && (
                 <p className="col-span-2 text-xs text-gray-400">Checking…</p>

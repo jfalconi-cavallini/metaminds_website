@@ -178,6 +178,7 @@ export async function POST(request: Request) {
     grade: string;
     school?: string;
     graduationYear?: string;
+    familyTimezone?: string;
     parentName: string;
     parentEmail: string;
     parentPhone?: string;
@@ -190,7 +191,7 @@ export async function POST(request: Request) {
 
   const {
     firstName, lastName, email, phone,
-    grade, school, graduationYear,
+    grade, school, graduationYear, familyTimezone,
     parentName, parentEmail, parentPhone,
     packageHours, packageExpiry,
     tutorId, courseIds, status = "active",
@@ -252,6 +253,13 @@ export async function POST(request: Request) {
   // status column added in migration 014 — include it if the value is not default
   if (status !== "active") studentInsert.status = status;
 
+  // The admin's guess at the family's location, until the dashboard's own
+  // auto-detect confirms it on first login (see migration 059).
+  if (familyTimezone) {
+    studentInsert.timezone = familyTimezone;
+    studentInsert.timezone_confirmed = false;
+  }
+
   const { data: studentRow, error: studentError } = await admin
     .from("students")
     .insert(studentInsert)
@@ -259,9 +267,10 @@ export async function POST(request: Request) {
     .single();
 
   if (studentError) {
-    // Retry without status column if migration hasn't run yet
-    if (studentError.message.includes("column") && studentError.message.includes("status")) {
+    // Retry without status/timezone_confirmed columns if their migrations haven't run yet
+    if (studentError.message.includes("column") && (studentError.message.includes("status") || studentError.message.includes("timezone_confirmed"))) {
       delete studentInsert.status;
+      delete studentInsert.timezone_confirmed;
       const retry = await admin.from("students").insert(studentInsert).select().single();
       if (retry.error) {
         return NextResponse.json({ error: `Student creation failed: ${retry.error.message}`, results }, { status: 500 });

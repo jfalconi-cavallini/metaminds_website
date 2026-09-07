@@ -8,6 +8,7 @@ import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { US_TIMEZONES } from "@/lib/portal/timezone";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import WeeklyCalendar from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
@@ -18,7 +19,7 @@ import {
   fetchTutorAvailability, insertSession, cancelSession,
   updateTutorLeadTime, upsertTutorAvailability,
   fetchSessionNotesByTutor, insertSessionNote,
-  fetchHomeworkByTutor, insertHomework, deleteHomework,
+  fetchHomeworkByTutor, insertHomework, deleteHomework, updateHomeworkDates,
   addHomeworkFeedback, markHomeworkComplete, unsubmitHomework,
   updateSessionZoomLink, updateSession,
   fetchBlockedDates, addBlockedDate, removeBlockedDate,
@@ -237,6 +238,7 @@ export default function TutorPortal() {
   // ── HOMEWORK FORM ───────────────────────────────────────────────
   const [hwStudentId, setHwStudentId] = useState("");
   const [hwTask,      setHwTask]      = useState("");
+  const [hwAssignedDate, setHwAssignedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [hwDue,       setHwDue]       = useState("");
   const [hwKamiLink,  setHwKamiLink]  = useState("");
   const [hwFile,      setHwFile]      = useState<File | null>(null);
@@ -381,8 +383,15 @@ export default function TutorPortal() {
   const [hwSearchQuery,       setHwSearchQuery]       = useState("");
   const [hwFilterStudent,     setHwFilterStudent]     = useState("");
   const [hwReviewId,          setHwReviewId]          = useState<number | null>(null);
+  const [hwDatesEditing,      setHwDatesEditing]      = useState(false);
+  const [hwEditAssignedDate,  setHwEditAssignedDate]  = useState("");
+  const [hwEditDueDate,       setHwEditDueDate]       = useState("");
+  const [hwEditSubmittedDate, setHwEditSubmittedDate] = useState("");
+  const [hwDatesSaving,       setHwDatesSaving]       = useState(false);
+  const [hwDatesError,        setHwDatesError]        = useState("");
   const [panelHwShowForm,     setPanelHwShowForm]     = useState(false);
   const [panelHwTask,         setPanelHwTask]         = useState("");
+  const [panelHwAssignedDate, setPanelHwAssignedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [panelHwDue,          setPanelHwDue]          = useState("");
   const [panelHwSaving,       setPanelHwSaving]       = useState(false);
   const [panelHwSuccess,      setPanelHwSuccess]      = useState(false);
@@ -766,6 +775,7 @@ export default function TutorPortal() {
       const estMinsNum = hwEstMins ? Number.parseInt(hwEstMins, 10) : undefined;
       let hw = await insertHomework({
         tutorId, studentId: Number(hwStudentId), task: hwTask,
+        assignedDate: hwAssignedDate || undefined,
         dueDate: hwDue || undefined, kamiLink: hwKamiLink.trim() || undefined,
         estimatedMinutes: Number.isInteger(estMinsNum) && (estMinsNum ?? 0) > 0 ? estMinsNum : undefined,
         assignmentType:   hwType || undefined,
@@ -815,7 +825,7 @@ export default function TutorPortal() {
         await setHomeworkSkillLinks(hw.id, hwSkillIds, Number(hwStudentId), tutorId);
       }
       setHomework((prev) => [hw, ...prev]);
-      setHwTask(""); setHwDue(""); setHwKamiLink(""); setHwFile(null);
+      setHwTask(""); setHwAssignedDate(new Date().toISOString().slice(0, 10)); setHwDue(""); setHwKamiLink(""); setHwFile(null);
       setHwEstMins(""); setHwType(""); setHwInstructions(""); setHwSkillIds([]);
       setHwVocabWords([{ word: "", hint: "" }]);
       setHwSuccess(true); setTimeout(() => setHwSuccess(false), 4000);
@@ -1006,12 +1016,41 @@ export default function TutorPortal() {
     if (!panelHwTask.trim()) return;
     setPanelHwSaving(true); setPanelHwError(""); setPanelHwSuccess(false);
     try {
-      const hw = await insertHomework({ tutorId, studentId, task: panelHwTask.trim(), dueDate: panelHwDue || undefined });
+      const hw = await insertHomework({
+        tutorId, studentId, task: panelHwTask.trim(),
+        assignedDate: panelHwAssignedDate || undefined,
+        dueDate: panelHwDue || undefined,
+      });
       setHomework((prev) => [hw, ...prev]);
-      setPanelHwTask(""); setPanelHwDue(""); setPanelHwShowForm(false);
+      setPanelHwTask(""); setPanelHwAssignedDate(new Date().toISOString().slice(0, 10)); setPanelHwDue(""); setPanelHwShowForm(false);
       setPanelHwSuccess(true); setTimeout(() => setPanelHwSuccess(false), 3000);
     } catch { setPanelHwError("Failed to assign. Please try again."); }
     finally { setPanelHwSaving(false); }
+  }
+
+  function openHomeworkDatesEdit(h: Homework) {
+    setHwEditAssignedDate(h.assignedDate);
+    setHwEditDueDate(h.dueDate ?? "");
+    setHwEditSubmittedDate(h.submittedAt ? h.submittedAt.slice(0, 10) : "");
+    setHwDatesError("");
+    setHwDatesEditing(true);
+  }
+
+  async function saveHomeworkDates(hwId: number) {
+    setHwDatesSaving(true); setHwDatesError("");
+    try {
+      const updated = await updateHomeworkDates(hwId, {
+        assignedDate: hwEditAssignedDate || undefined,
+        dueDate:      hwEditDueDate || null,
+        submittedAt:  hwEditSubmittedDate || null,
+      });
+      setHomework((prev) => prev.map((h) => h.id === updated.id ? updated : h));
+      setHwDatesEditing(false);
+    } catch {
+      setHwDatesError("Failed to save. Please try again.");
+    } finally {
+      setHwDatesSaving(false);
+    }
   }
 
   async function handleDeleteHomework(hwId: number) {
@@ -1598,6 +1637,11 @@ export default function TutorPortal() {
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                               <div className="flex flex-wrap items-end gap-3">
+                                <div>
+                                  <label className="text-xs text-gray-500 block mb-1">Assigned date</label>
+                                  <input type="date" value={panelHwAssignedDate} onChange={(e) => setPanelHwAssignedDate(e.target.value)}
+                                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm" />
+                                </div>
                                 <div>
                                   <label className="text-xs text-gray-500 block mb-1">Due date (optional)</label>
                                   <input type="date" value={panelHwDue} onChange={(e) => setPanelHwDue(e.target.value)}
@@ -3606,6 +3650,12 @@ export default function TutorPortal() {
                     </div>
                   )}
                   <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Assigned Date</label>
+                    <input type="date" value={hwAssignedDate} onChange={(e) => setHwAssignedDate(e.target.value)}
+                      className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p className="text-xs text-gray-400 mt-1">Defaults to today — back-date it if you forgot to log this earlier.</p>
+                  </div>
+                  <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase tracking-widest mb-1.5">Due Date <span className="font-normal text-gray-400 normal-case tracking-normal">(optional)</span></label>
                     <input type="date" value={hwDue} onChange={(e) => setHwDue(e.target.value)}
                       className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -3655,27 +3705,61 @@ export default function TutorPortal() {
                 <Modal
                   title={h.task}
                   subtitle={st?.name}
-                  onClose={() => { setHwReviewId(null); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); setHwUnsubmitId(null); setHwUnsubmitNote(""); setHwUnsubmitDue(""); setHwUnsubmitError(""); }}
+                  onClose={() => { setHwReviewId(null); setHwFeedbackId(null); setHwFeedbackText(""); setHwGradeText(""); setHwUnsubmitId(null); setHwUnsubmitNote(""); setHwUnsubmitDue(""); setHwUnsubmitError(""); setHwDatesEditing(false); setHwDatesError(""); }}
                   size="xl"
                 >
                   <div className="space-y-5">
                     {/* Meta chips */}
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg">Assigned {formatDate(h.assignedDate)}</span>
-                      {h.dueDate && (
-                        <span className={`px-2.5 py-1 rounded-lg ${h.dueDate < today && h.status === "pending" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
-                          Due {formatDate(h.dueDate)}
-                        </span>
-                      )}
-                      {h.submittedAt && <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>}
-                      {h.assignmentType && (
-                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg capitalize">
-                          {h.assignmentType === "sat_vocabulary" ? "Vocabulary"
-                            : h.assignmentType === "sat_practice_test" ? "SAT Practice Test"
-                            : h.assignmentType.replace(/_/g, " ")}
-                        </span>
-                      )}
-                    </div>
+                    {!hwDatesEditing ? (
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="bg-gray-100 text-gray-600 px-2.5 py-1 rounded-lg">Assigned {formatDate(h.assignedDate)}</span>
+                        {h.dueDate && (
+                          <span className={`px-2.5 py-1 rounded-lg ${h.dueDate < today && h.status === "pending" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
+                            Due {formatDate(h.dueDate)}
+                          </span>
+                        )}
+                        {h.submittedAt && <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">Submitted {formatDate(h.submittedAt.slice(0, 10))}</span>}
+                        {h.assignmentType && (
+                          <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg capitalize">
+                            {h.assignmentType === "sat_vocabulary" ? "Vocabulary"
+                              : h.assignmentType === "sat_practice_test" ? "SAT Practice Test"
+                              : h.assignmentType.replace(/_/g, " ")}
+                          </span>
+                        )}
+                        <button onClick={() => openHomeworkDatesEdit(h)} className="text-gray-400 hover:text-blue-600 font-medium ml-1">
+                          Edit dates
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Edit Dates</p>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Assigned</label>
+                            <input type="date" value={hwEditAssignedDate} onChange={(e) => setHwEditAssignedDate(e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Due <span className="text-gray-400">(optional)</span></label>
+                            <input type="date" value={hwEditDueDate} onChange={(e) => setHwEditDueDate(e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-xs text-gray-500 block mb-1">Submitted <span className="text-gray-400">(optional)</span></label>
+                            <input type="date" value={hwEditSubmittedDate} onChange={(e) => setHwEditSubmittedDate(e.target.value)}
+                              className="w-full rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm" />
+                          </div>
+                        </div>
+                        {hwDatesError && <p className="text-xs text-red-500">{hwDatesError}</p>}
+                        <div className="flex gap-3">
+                          <button onClick={() => saveHomeworkDates(h.id)} disabled={hwDatesSaving || !hwEditAssignedDate}
+                            className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold disabled:opacity-40">
+                            {hwDatesSaving ? "Saving…" : "Save"}
+                          </button>
+                          <button onClick={() => { setHwDatesEditing(false); setHwDatesError(""); }} className="text-xs text-gray-400 hover:text-gray-600">Cancel</button>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Instructions */}
                     {h.instructions && (
@@ -4325,6 +4409,12 @@ export default function TutorPortal() {
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Contact</p>
                 <ProfileRow label="Email" value={ps.email} />
                 <ProfileRow label="Phone" value={ps.phone} />
+                <ProfileRow
+                  label="Time Zone"
+                  value={ps.timezone
+                    ? `${US_TIMEZONES.find((z) => z.value === ps.timezone)?.label ?? ps.timezone}${ps.timezoneConfirmed ? "" : " (unconfirmed guess)"}`
+                    : "Not set yet"}
+                />
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subjects</p>

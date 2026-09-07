@@ -24,6 +24,11 @@ export interface Student {
   weeklyStudyGoalMinutes?: number;
   /** IANA zone id, e.g. "America/Los_Angeles". Null/undefined = platform default. */
   timezone?: string;
+  /** false = `timezone` is an admin-entered guess from onboarding, still
+   *  subject to being overwritten by the dashboard's auto-detect on the
+   *  family's first login. true = confirmed by auto-detect or a manual
+   *  Settings edit — never silently overwritten again. */
+  timezoneConfirmed?: boolean;
 }
 
 export interface Tutor {

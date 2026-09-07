@@ -28,6 +28,7 @@ function rowToStudent(r: any): Student {
     successPlanUrl:         r.success_plan_url         ?? undefined,
     weeklyStudyGoalMinutes: r.weekly_study_goal_minutes ?? 180,
     timezone:               r.timezone                 ?? undefined,
+    timezoneConfirmed:      r.timezone_confirmed        ?? false,
   };
 }
 
@@ -573,13 +574,14 @@ export async function markHomeworkComplete(id: number): Promise<Homework> {
 
 export async function insertHomework(payload: {
   studentId: number; tutorId: number; task: string; dueDate?: string; kamiLink?: string;
-  estimatedMinutes?: number; assignmentType?: string; instructions?: string;
+  estimatedMinutes?: number; assignmentType?: string; instructions?: string; assignedDate?: string;
 }): Promise<Homework> {
   const { data, error } = await supabase.from("homework").insert({
     student_id:        payload.studentId,
     tutor_id:          payload.tutorId,
     task:              payload.task,
-    assigned_date:     new Date().toISOString().slice(0, 10),
+    // Overridable for backdating an assignment the tutor forgot to log on time.
+    assigned_date:     payload.assignedDate    || new Date().toISOString().slice(0, 10),
     due_date:          payload.dueDate         ?? null,
     kami_link:         payload.kamiLink        ?? null,
     estimated_minutes: payload.estimatedMinutes ?? null,
@@ -593,6 +595,27 @@ export async function insertHomework(payload: {
 export async function deleteHomework(id: number): Promise<void> {
   const { error } = await supabase.from("homework").delete().eq("id", id);
   if (error) throw error;
+}
+
+/** Corrects an assignment's assigned/due/submitted dates after the fact —
+ *  e.g. the tutor forgot to log it on time, or a student's submission was
+ *  recorded outside the portal. `submittedAt` null clears the submission
+ *  timestamp entirely (without touching status/submissionUrl); a date
+ *  string sets it to noon UTC that day, matching logCompletedHomework. */
+export async function updateHomeworkDates(id: number, payload: {
+  assignedDate?: string;
+  dueDate?:      string | null;
+  submittedAt?:  string | null;
+}): Promise<Homework> {
+  const update: Record<string, unknown> = {};
+  if (payload.assignedDate !== undefined) update.assigned_date = payload.assignedDate;
+  if (payload.dueDate      !== undefined) update.due_date      = payload.dueDate || null;
+  if (payload.submittedAt  !== undefined) {
+    update.submitted_at = payload.submittedAt ? `${payload.submittedAt}T12:00:00.000Z` : null;
+  }
+  const { data, error } = await supabase.from("homework").update(update).eq("id", id).select().single();
+  if (error) throw error;
+  return rowToHomework(data);
 }
 
 // Backfill a completed assignment with historical dates — bypasses pending/submitted flow.
@@ -798,7 +821,7 @@ export async function addPackageHours(
 export async function updateStudentProfile(id: number, payload: Partial<{
   name: string; email: string; grade: string; subjects: string[]; programs: string[];
   phone: string; parentName: string; parentEmail: string; parentPhone: string; notes: string;
-  allowInPerson: boolean; successPlan: string; successPlanUrl: string;
+  allowInPerson: boolean; successPlan: string; successPlanUrl: string; timezone: string;
 }>): Promise<Student> {
   const update: Record<string, unknown> = {};
   if (payload.name           !== undefined) update.name             = payload.name;
@@ -814,6 +837,10 @@ export async function updateStudentProfile(id: number, payload: Partial<{
   if (payload.allowInPerson  !== undefined) update.allow_in_person  = payload.allowInPerson;
   if (payload.successPlan    !== undefined) update.success_plan     = payload.successPlan    || null;
   if (payload.successPlanUrl !== undefined) update.success_plan_url = payload.successPlanUrl || null;
+  // Like the onboarding wizard's guess, an admin correction here is still
+  // not the family's own device — leave it unconfirmed so the dashboard's
+  // auto-detect still takes over once the family actually logs in.
+  if (payload.timezone       !== undefined) { update.timezone = payload.timezone || null; update.timezone_confirmed = false; }
   const { data, error } = await supabase.from("students").update(update).eq("id", id).select().single();
   if (error) throw error;
   return rowToStudent(data);

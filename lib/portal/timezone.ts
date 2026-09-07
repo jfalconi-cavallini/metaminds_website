@@ -6,6 +6,19 @@
  *  for display only; nothing about storage or booking logic changes. */
 export const PLATFORM_TIMEZONE = "America/New_York";
 
+/** US-focused zone list for the admin onboarding wizard's "family
+ *  timezone" picker — MetaMinds families are US-based for now. */
+export const US_TIMEZONES = [
+  { value: "America/New_York",    label: "Eastern Time (ET)" },
+  { value: "America/Chicago",     label: "Central Time (CT)" },
+  { value: "America/Denver",      label: "Mountain Time (MT)" },
+  { value: "America/Phoenix",     label: "Arizona (no DST)" },
+  { value: "America/Los_Angeles", label: "Pacific Time (PT)" },
+  { value: "America/Anchorage",   label: "Alaska Time" },
+  { value: "Pacific/Honolulu",    label: "Hawaii Time" },
+  { value: "America/Puerto_Rico", label: "Atlantic Time (Puerto Rico)" },
+];
+
 function parseTime12h(time: string): { hour: number; minute: number } {
   const m = time.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
   if (!m) return { hour: 0, minute: 0 };

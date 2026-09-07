@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { error } = await admin.from("students").update({ timezone }).eq("id", studentId);
+  const { error } = await admin.from("students").update({ timezone, timezone_confirmed: true }).eq("id", studentId);
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
