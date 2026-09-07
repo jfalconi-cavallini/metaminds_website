@@ -199,6 +199,7 @@ export default function TutorPortal() {
 
   // ── CANCEL SESSION ──────────────────────────────────────────────
   const [cancellingId, setCancellingId] = useState<number | null>(null);
+  const [cancelError,  setCancelError]  = useState("");
 
   // ── RESEND SESSION EMAIL ──────────────────────────────────────────
   const [resendingSessionId, setResendingSessionId] = useState<number | null>(null);
@@ -552,8 +553,9 @@ export default function TutorPortal() {
     } finally { setLeadSaving(false); }
   }
 
-  async function handleCancelSession(session: Session) {
+  async function handleCancelSession(session: Session): Promise<boolean> {
     setCancellingId(session.id);
+    setCancelError("");
     try {
       await cancelSession(session.id);
       setLocalSessions((prev) => prev.map((s) => s.id === session.id ? { ...s, status: "cancelled" } : s));
@@ -562,7 +564,11 @@ export default function TutorPortal() {
           ? { ...b, totalUsed: Math.max(0, b.totalUsed - session.durationHours), remaining: b.remaining + session.durationHours }
           : b
       ));
-    } catch { /* silent */ } finally { setCancellingId(null); }
+      return true;
+    } catch (e: unknown) {
+      setCancelError(e instanceof Error ? e.message : "Failed to cancel session.");
+      return false;
+    } finally { setCancellingId(null); }
   }
 
   async function handleDuplicateSession(session: Session) {
@@ -625,6 +631,10 @@ export default function TutorPortal() {
         durationHours: Number(sdEditDuration),
         subject:       sdEditSubject,
         sessionType:   sdEditType,
+        // Rescheduling a session that already auto-completed (see
+        // autoCompletePastSessions) puts it back on the calendar as
+        // upcoming instead of leaving it stuck as "completed".
+        ...(sessionDetail.status === "completed" ? { status: "upcoming" as const } : {}),
       });
       setLocalSessions((prev) => prev.map((s) => s.id === updated.id ? updated : s));
       setSessionDetail(updated);
@@ -4124,7 +4134,7 @@ export default function TutorPortal() {
                   </button>
                 )}
                 {!editingSession && (
-                  <button onClick={() => { handleCancelSession(sd); setSessionDetail(null); }} disabled={cancellingId === sd.id}
+                  <button onClick={async () => { if (await handleCancelSession(sd)) setSessionDetail(null); }} disabled={cancellingId === sd.id}
                     className="text-xs text-red-500 hover:text-red-700 border border-red-200 rounded-lg px-3 py-1.5 disabled:opacity-40">
                     {cancellingId === sd.id ? "Cancelling…" : "Cancel Session"}
                   </button>
@@ -4133,6 +4143,9 @@ export default function TutorPortal() {
             </div>
             {duplicateError && (
               <p className="text-xs text-red-500 -mt-3">{duplicateError}</p>
+            )}
+            {cancelError && (
+              <p className="text-xs text-red-500 -mt-3">{cancelError}</p>
             )}
 
             {/* ── EDIT FORM ── */}

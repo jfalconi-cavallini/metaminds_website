@@ -664,6 +664,7 @@ export async function updateSession(id: number, payload: {
   durationHours?: number;
   subject?: string;
   sessionType?: "online" | "in-person";
+  status?: "upcoming" | "completed" | "cancelled";
 }): Promise<Session> {
   const update: Record<string, unknown> = {};
   if (payload.sessionDate   !== undefined) update.session_date   = payload.sessionDate;
@@ -671,6 +672,7 @@ export async function updateSession(id: number, payload: {
   if (payload.durationHours !== undefined) update.duration_hours = payload.durationHours;
   if (payload.subject       !== undefined) update.subject        = payload.subject;
   if (payload.sessionType   !== undefined) update.session_type   = payload.sessionType;
+  if (payload.status        !== undefined) update.status         = payload.status;
   const { data, error } = await supabase.from("sessions").update(update).eq("id", id).select().single();
   if (error) throw error;
   return rowToSession(data);
