@@ -1,10 +1,16 @@
 /** Sessions are stored as a bare date + a "4:00 PM"-style string, with no
- *  zone attached anywhere in the schema. By convention (matching the
- *  reminders cron in app/api/cron/send-reminders/route.ts) that string is
- *  wall-clock time in the business's home zone — the "platform timezone".
- *  Everything here converts FROM that assumption TO a viewer's own zone,
- *  for display only; nothing about storage or booking logic changes. */
-export const PLATFORM_TIMEZONE = "America/New_York";
+ *  zone attached anywhere in the schema. By convention that string is
+ *  wall-clock time in the tutor's own home zone when they book it — the
+ *  "platform timezone" — and everything here converts FROM that assumption
+ *  TO a viewer's own zone, for display only; nothing about storage or
+ *  booking logic changes. The reminders cron (app/api/cron/send-reminders/
+ *  route.ts) imports this same constant for its day-boundary math, so the
+ *  two never drift apart.
+ *
+ *  Update this if the tutor's home base changes, or generalize to a
+ *  per-tutor value (a `timezone` column on `tutors`) if a second tutor in
+ *  a different zone ever joins. */
+export const PLATFORM_TIMEZONE = "America/Chicago";
 
 /** US-focused zone list for the admin onboarding wizard's "family
  *  timezone" picker — MetaMinds families are US-based for now. */

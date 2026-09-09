@@ -2,17 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { adminClient } from "@/lib/apiAuth";
 import { resolveZoomUrl, formatDate } from "@/lib/portal/utils";
-import { convertSessionDisplay } from "@/lib/portal/timezone";
+import { convertSessionDisplay, PLATFORM_TIMEZONE } from "@/lib/portal/timezone";
 import { logEmail } from "@/lib/emailLog";
 
 const admin = adminClient();
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
 
-/** Today's calendar date in America/New_York, as a UTC-midnight Date so
- *  day-add arithmetic (setUTCDate) doesn't fall over a DST boundary. */
-function easternToday(): Date {
+/** Today's calendar date in the platform timezone, as a UTC-midnight Date so
+ *  day-add arithmetic (setUTCDate) doesn't fall over a DST boundary. Uses
+ *  the same PLATFORM_TIMEZONE as lib/portal/timezone.ts so "today" here
+ *  always matches the zone every session_time is interpreted in. */
+function platformToday(): Date {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+    timeZone: PLATFORM_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit",
   }).formatToParts(new Date());
   const y = Number(parts.find((p) => p.type === "year")!.value);
   const m = Number(parts.find((p) => p.type === "month")!.value);
@@ -91,8 +93,8 @@ function buildHomeworkReminderEmail(opts: {
 }
 
 /** Daily cron (see vercel.json) — emails a 48h-before session reminder and a
- *  due-tomorrow homework reminder. Session window is two days ahead in
- *  America/New_York; homework stays +1 day. Each row is marked
+ *  due-tomorrow homework reminder. Session window is two days ahead in the
+ *  platform timezone; homework stays +1 day. Each row is marked
  *  reminder_sent_at so a re-run (or a slightly-late cron trigger) never
  *  double-sends. */
 export async function GET(req: NextRequest) {
@@ -113,7 +115,7 @@ export async function GET(req: NextRequest) {
   }
   const resend = apiKey ? new Resend(apiKey) : null;
 
-  const today = easternToday();
+  const today = platformToday();
 
   const inTwoDays = new Date(today);
   inTwoDays.setUTCDate(today.getUTCDate() + 2);

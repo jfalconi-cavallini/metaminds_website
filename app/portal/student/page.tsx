@@ -215,8 +215,8 @@ export default function StudentPortal() {
     } catch { /* best-effort — falls back to platform time next render */ }
   }
 
-  // Sessions are stored in platform time (America/New_York) — these render
-  // a booked session's date/time in the viewer's own zone when known.
+  // Sessions are stored in platform time (see PLATFORM_TIMEZONE) — these
+  // render a booked session's date/time in the viewer's own zone when known.
   function fmtSessionDate(dateISO: string, time: string): string {
     return formatDate(convertSessionDisplay(dateISO, time, student?.timezone).dateISO);
   }
