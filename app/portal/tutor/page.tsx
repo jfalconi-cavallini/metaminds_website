@@ -1266,9 +1266,13 @@ export default function TutorPortal() {
             {!tutor.zoomLink && (
               <div className="flex items-start gap-3 px-4 py-3.5 bg-amber-50 border border-amber-200 rounded-2xl">
                 <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-semibold text-amber-800">Zoom link not set</p>
-                  <p className="text-xs text-amber-600 mt-0.5">Students won&apos;t have a link to join. Ask admin to add your Zoom room link.</p>
+                  <p className="text-xs text-amber-600 mt-0.5">
+                    Set your default Zoom room once in{" "}
+                    <button onClick={() => setTab("settings")} className="underline font-semibold hover:text-amber-800">Settings</button>
+                    {" "}and it&apos;ll be used for every online session automatically.
+                  </p>
                 </div>
               </div>
             )}
@@ -1317,6 +1321,9 @@ export default function TutorPortal() {
                     const lastUpdDate = lastUpd?.createdAt.slice(0, 10) ?? "0000-00-00";
                     const pastSt     = localSessions.filter((ps) => ps.studentId === s.studentId && (ps.status === "completed" || ps.date < todayIso));
                     const updateOverdue = pastSt.length > 0 && pastSt.some((ps) => ps.date >= weekAgoIso && ps.date > lastUpdDate);
+                    // Sessions with no link of their own use the tutor's default Zoom room —
+                    // no need to re-enter the same link on every session.
+                    const zoomLink = s.zoomLink || tutor.zoomLink;
                     return (
                       <div key={s.id}
                         className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md transition-shadow"
@@ -1344,8 +1351,8 @@ export default function TutorPortal() {
                             </div>
                             <p className="text-sm text-gray-500 mb-3">{s.subject} · {s.time} · {s.durationHours} hr</p>
                             <div className="flex flex-wrap gap-2">
-                              {s.zoomLink ? (
-                                <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                              {zoomLink ? (
+                                <a href={resolveZoomUrl(zoomLink)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
                                   className="inline-flex items-center gap-1.5 bg-blue-600 text-white px-3 py-1.5 rounded-xl text-xs font-semibold hover:bg-blue-700 transition-colors">
                                   <Video className="w-3 h-3" />Join Zoom
                                 </a>
@@ -1451,6 +1458,7 @@ export default function TutorPortal() {
                 <div className="space-y-2">
                   {futureSessions.map((s) => {
                     const st = getStudent(s.studentId);
+                    const zoomLink = s.zoomLink || tutor.zoomLink;
                     return (
                       <div key={s.id}
                         className="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3.5 flex items-center gap-4 cursor-pointer hover:shadow-md transition-shadow"
@@ -1470,8 +1478,8 @@ export default function TutorPortal() {
                           <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${s.sessionType === "in-person" ? "bg-violet-100 text-violet-700" : "bg-blue-100 text-blue-700"}`}>
                             {s.sessionType === "in-person" ? "In Person" : "Online"}
                           </span>
-                          {s.zoomLink
-                            ? <a href={resolveZoomUrl(s.zoomLink!)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 font-medium hover:underline">Zoom →</a>
+                          {zoomLink
+                            ? <a href={resolveZoomUrl(zoomLink)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-xs text-blue-600 font-medium hover:underline">Zoom →</a>
                             : <button onClick={(e) => { e.stopPropagation(); setZoomEditId(s.id); setZoomEditVal(""); }} className="text-xs text-gray-400 hover:text-blue-600 font-medium">+ Zoom</button>}
                           <button onClick={(e) => { e.stopPropagation(); handleCancelSession(s); }} disabled={cancellingId === s.id} className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40">
                             {cancellingId === s.id ? "…" : "Cancel"}
@@ -4302,6 +4310,12 @@ export default function TutorPortal() {
                 <div className="flex items-center gap-3">
                   <a href={resolveZoomUrl(sd.zoomLink!)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate">{sd.zoomLink}</a>
                   <button onClick={() => { setZoomEditId(sd.id); setZoomEditVal(sd.zoomLink ?? ""); }} className="text-xs text-gray-400 hover:text-gray-600 shrink-0">Edit</button>
+                </div>
+              ) : tutor.zoomLink ? (
+                <div className="flex items-center gap-3">
+                  <a href={resolveZoomUrl(tutor.zoomLink)} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate">{tutor.zoomLink}</a>
+                  <span className="text-xs text-gray-400 shrink-0">(your default)</span>
+                  <button onClick={() => { setZoomEditId(sd.id); setZoomEditVal(""); }} className="text-xs text-gray-400 hover:text-gray-600 shrink-0">Use a different link</button>
                 </div>
               ) : (
                 <button onClick={() => { setZoomEditId(sd.id); setZoomEditVal(""); }} className="text-sm text-gray-400 hover:text-blue-600">+ Add Zoom link</button>

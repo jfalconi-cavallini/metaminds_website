@@ -897,7 +897,9 @@ export default function AdminPortal() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {upcoming.map((s) => (
+                  {upcoming.map((s) => {
+                    const zoomLink = s.zoomLink || getTutor(s.tutorId)?.zoomLink;
+                    return (
                     <tr key={s.id} className={s.date === todayIso ? "bg-blue-50" : "hover:bg-gray-50 transition-colors"}>
                       <td className="px-5 py-3.5 font-semibold text-gray-900">
                         {getStudent(s.studentId)?.name ?? "—"}
@@ -908,12 +910,13 @@ export default function AdminPortal() {
                       <td className="px-4 py-3.5 text-gray-600">{s.subject}</td>
                       <td className="px-4 py-3.5"><Badge status={s.sessionType} /></td>
                       <td className="px-4 py-3.5">
-                        {s.zoomLink
-                          ? <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
+                        {zoomLink
+                          ? <a href={zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
                           : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                   {upcoming.length === 0 && (
                     <tr><td colSpan={6} className="px-5 py-8 text-center text-gray-400 text-sm">No upcoming sessions.</td></tr>
                   )}
@@ -1585,6 +1588,7 @@ export default function AdminPortal() {
                       .sort((a, b) => a.date.localeCompare(b.date))
                       .map((s) => {
                         const st = students.find((x) => x.id === s.studentId);
+                        const zoomLink = s.zoomLink || getTutor(s.tutorId)?.zoomLink;
                         return (
                           <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5">
                             <div>
@@ -1592,8 +1596,8 @@ export default function AdminPortal() {
                               <span className="text-sm text-gray-400 ml-1.5">· {s.subject} · {s.durationHours}h</span>
                             </div>
                             <div className="flex items-center gap-2.5">
-                              {s.zoomLink && (
-                                <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">Zoom</a>
+                              {zoomLink && (
+                                <a href={zoomLink} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline">Zoom</a>
                               )}
                               <span className="text-xs text-gray-500 whitespace-nowrap">{formatDate(s.date)} · {s.time}</span>
                               <Badge status={s.sessionType} />
@@ -1703,7 +1707,7 @@ export default function AdminPortal() {
                       </button>
                     ))}
                   </div>
-                  <input value={bulkZoom} onChange={(e) => setBulkZoom(e.target.value)} placeholder="Zoom link (optional — same for all sessions)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                  <input value={bulkZoom} onChange={(e) => setBulkZoom(e.target.value)} placeholder="Zoom link (optional — leave blank to use the tutor's own Zoom room)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
 
                   {/* Preview */}
                   {previewDates.length > 0 && (
@@ -1761,7 +1765,7 @@ export default function AdminPortal() {
                     ))}
                   </div>
                 </div>
-                <input value={sessZoom} onChange={(e) => setSessZoom(e.target.value)} placeholder="Zoom link (optional)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
+                <input value={sessZoom} onChange={(e) => setSessZoom(e.target.value)} placeholder="Zoom link (optional — leave blank to use the tutor's own Zoom room)" className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm" />
                 <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
                   {(["upcoming", "completed"] as const).map((s, i) => (
                     <button key={s} type="button" onClick={() => setSessStatus(s)}
@@ -1798,7 +1802,9 @@ export default function AdminPortal() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {sessions.map((s) => (
+                {sessions.map((s) => {
+                  const tutorZoomLink = getTutor(s.tutorId)?.zoomLink;
+                  return (
                   <React.Fragment key={s.id}>
                     <tr className={s.status === "cancelled" ? "opacity-50" : ""}>
                       <td className="px-4 py-3 font-medium text-gray-900">{getStudent(s.studentId)?.name ?? "—"}</td>
@@ -1818,6 +1824,12 @@ export default function AdminPortal() {
                           <div className="flex items-center gap-1">
                             <a href={s.zoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
                             <button onClick={() => { setZoomEditId(s.id); setZoomEditVal(s.zoomLink ?? ""); }} className="text-gray-400 text-xs hover:text-gray-600">✎</button>
+                          </div>
+                        ) : tutorZoomLink ? (
+                          <div className="flex items-center gap-1">
+                            <a href={tutorZoomLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 text-xs underline">Join</a>
+                            <span className="text-gray-300 text-xs">(default)</span>
+                            <button onClick={() => { setZoomEditId(s.id); setZoomEditVal(""); }} className="text-gray-400 text-xs hover:text-gray-600">✎</button>
                           </div>
                         ) : (
                           <button onClick={() => { setZoomEditId(s.id); setZoomEditVal(""); }} className="text-gray-400 text-xs hover:text-blue-600">+ Add</button>
@@ -1841,7 +1853,8 @@ export default function AdminPortal() {
                       </td>
                     </tr>
                   </React.Fragment>
-                ))}
+                  );
+                })}
                 {sessions.length === 0 && (
                   <tr><td colSpan={9} className="px-4 py-8 text-center text-gray-400 text-sm">No sessions yet.</td></tr>
                 )}
