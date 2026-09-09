@@ -1565,6 +1565,7 @@ export default function StudentPortal() {
                 sessions={tutorSessions}
                 visibleSessions={mySessions}
                 blockedDates={blockedDates.map((b) => b.blockedDate)}
+                viewerTimezone={student?.timezone}
                 mode={(balance?.remaining ?? 0) > 0 ? "book" : "view"}
                 selectedSlot={selectedSlot}
                 bookingLeadHours={tutor?.bookingLeadHours ?? 24}

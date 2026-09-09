@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import type { Session, TutorAvailability } from "@/lib/portal/types";
+import { convertSessionDisplay } from "@/lib/portal/timezone";
 
 const ROW_H      = 36;   // px per 30-min slot — spacious, Google-Calendar feel
 const SLOT_START = 8;    // 8 AM
@@ -87,14 +88,33 @@ interface Props {
   blockedSlots?: { date: string; time: string }[];
   onSlotBlock?: (date: string, time: string) => void;
   resolveStudentName?: (id: number) => string | undefined;
+  /** When set, session blocks (position, date column, and displayed time)
+   *  render converted into this zone instead of raw platform time — for a
+   *  family viewing their own schedule. Availability/blocked-slot cells
+   *  stay in platform time regardless (a tutor's recurring weekly
+   *  availability can't be losslessly re-expressed in a zone with a
+   *  different DST calendar); onSessionClick/getSessionActions always
+   *  receive the original, unconverted session. */
+  viewerTimezone?: string | null;
 }
 
 export default function WeeklyCalendar({
   availability, sessions, visibleSessions, mode, onSlotSelect, selectedSlot,
   bookingLeadHours, onSessionClick, getSessionActions, blockedDates, blockedSlots,
-  onSlotBlock, resolveStudentName,
+  onSlotBlock, resolveStudentName, viewerTimezone,
 }: Props) {
   const renderSessions = visibleSessions ?? sessions;
+
+  // Maps a session's platform-time date/time onto viewerTimezone for
+  // display only — the returned object keeps the same `id` so callers can
+  // look the original back up (click handlers always get the original).
+  function toViewerZone(s: Session): Session {
+    if (!viewerTimezone) return s;
+    const converted = convertSessionDisplay(s.date, s.time, viewerTimezone);
+    return { ...s, date: converted.dateISO, time: converted.time12h };
+  }
+  const displaySessions    = renderSessions.map(toViewerZone);
+  const occupancySessions  = sessions.map(toViewerZone);
   const [weekOffset,       setWeekOffset]       = useState(0);
   const [visibleDayCount,  setVisibleDayCount]  = useState(7);
   const [dayWindowStart,   setDayWindowStart]   = useState(0);
@@ -291,7 +311,7 @@ export default function WeeklyCalendar({
                 const isToday      = dateISO === todayISO;
                 const isDayBlocked = blockedDates?.includes(dateISO) ?? false;
 
-                const daySessions = renderSessions.filter(
+                const daySessions = displaySessions.filter(
                   (s) => s.date === dateISO && s.status !== "cancelled",
                 );
 
@@ -313,7 +333,7 @@ export default function WeeklyCalendar({
                     {/* ── Background slot rows ── */}
                     {SLOTS.map((slot) => {
                       const isHalf        = slot % 1 !== 0;
-                      const occupied      = slotOccupied(dateISO, slot, sessions);
+                      const occupied      = slotOccupied(dateISO, slot, occupancySessions);
                       const avail         = inAvailability(dow, slot, availability);
                       const slotTime      = hourToTimeString(slot);
                       const isSlotBlocked = blockedSlots?.some(
@@ -413,6 +433,10 @@ export default function WeeklyCalendar({
                       const startH = parseTimeToHour(session.time);
                       if (startH < SLOT_START || startH > SLOT_START + SPAN_HOURS) return null;
 
+                      // session is converted to viewerTimezone for position/label;
+                      // handlers get the real, platform-time record.
+                      const original = renderSessions.find((o) => o.id === session.id) ?? session;
+
                       const topPx    = (startH - SLOT_START) * 2 * ROW_H;
                       const heightPx = Math.max(ROW_H - 2, session.durationHours * 2 * ROW_H - 2);
                       const stuName  = resolveStudentName?.(session.studentId);
@@ -420,7 +444,7 @@ export default function WeeklyCalendar({
                       const endH     = startH + session.durationHours;
                       const timeEnd  = hourToTimeString(endH);
 
-                      const actions     = getSessionActions?.(session) ?? [];
+                      const actions     = getSessionActions?.(original) ?? [];
                       const hasActions  = actions.length > 0;
                       const canClickBase = (mode === "tutor" || mode === "view") && !!onSessionClick;
                       const isClickable  = canClickBase || hasActions;
@@ -433,7 +457,7 @@ export default function WeeklyCalendar({
                         <div
                           key={session.id}
                           style={{ position: "absolute", top: topPx, height: heightPx, left: 2, right: 2 }}
-                          onClick={() => { if (canClickBase) onSessionClick!(session); }}
+                          onClick={() => { if (canClickBase) onSessionClick!(original); }}
                           className={`group rounded-lg z-10 overflow-hidden border shadow-sm ${
                             inPerson
                               ? "bg-violet-600 border-violet-500"
