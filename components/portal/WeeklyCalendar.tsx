@@ -17,6 +17,18 @@ function hourLabel(h: number): string {
   return h < 12 ? `${h} AM` : `${h - 12} PM`;
 }
 
+/** The real moment `instant` represents, as an hour-of-day (0–24, with
+ *  minutes as a fraction) in `zone` — used only for the "now" line, since
+ *  that's the one grid element with no date/time of its own to convert. */
+function hourOfDayInZone(instant: Date, zone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: zone, hour: "2-digit", minute: "2-digit", hour12: false,
+  }).formatToParts(instant);
+  const hour   = Number(parts.find((p) => p.type === "hour")!.value) % 24;
+  const minute = Number(parts.find((p) => p.type === "minute")!.value);
+  return hour + minute / 60;
+}
+
 export function hourToTimeString(slot: number): string {
   const h    = Math.floor(slot);
   const mins = slot % 1 >= 0.5 ? "30" : "00";
@@ -150,7 +162,11 @@ export default function WeeklyCalendar({
   const todayISO    = toISO(today);
   const visibleDays = days.slice(dayWindowStart, dayWindowStart + visibleDayCount);
 
-  const nowH       = now.getHours() + now.getMinutes() / 60;
+  // The "now" line's vertical position should read as the viewer's own
+  // current time when a viewerTimezone is set (this is the one grid
+  // element that couldn't just come from a session — it has no date of
+  // its own, so it always needs "right now" recomputed in that zone).
+  const nowH = viewerTimezone ? hourOfDayInZone(now, viewerTimezone) : now.getHours() + now.getMinutes() / 60;
   const nowTopPx   = (nowH - SLOT_START) * 2 * ROW_H;
   const showNowBar = nowH >= SLOT_START && nowH <= SLOT_START + SPAN_HOURS;
 
