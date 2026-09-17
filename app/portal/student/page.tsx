@@ -1780,6 +1780,7 @@ export default function StudentPortal() {
                   </select>
                   <select value={bookDuration} onChange={(e) => setBookDuration(Number(e.target.value))}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    <option value={0.5}>30 min</option>
                     <option value={1}>1 hour</option>
                     <option value={1.5}>1.5 hours</option>
                     <option value={2}>2 hours</option>

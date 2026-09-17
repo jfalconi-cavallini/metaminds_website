@@ -1689,6 +1689,7 @@ export default function AdminPortal() {
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">Duration</label>
                       <select value={bulkDuration} onChange={(e) => setBulkDuration(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                        <option value="0.5">30 min</option>
                         <option value="1">1 hr</option>
                         <option value="1.5">1.5 hrs</option>
                         <option value="2">2 hrs</option>
@@ -1753,6 +1754,7 @@ export default function AdminPortal() {
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <select value={sessDuration} onChange={(e) => setSessDuration(e.target.value)} className="rounded-lg border border-gray-300 px-3 py-2 text-sm">
+                    <option value="0.5">30 min</option>
                     <option value="1">1 hour</option>
                     <option value="1.5">1.5 hours</option>
                     <option value="2">2 hours</option>

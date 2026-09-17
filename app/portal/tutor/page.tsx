@@ -2618,7 +2618,7 @@ export default function TutorPortal() {
                 </select>
                 <input value={schedSubject} onChange={(e) => setSchedSubject(e.target.value)} placeholder="Subject (e.g. Algebra)" className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
                 <select value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                  <option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option>
+                  <option value="0.5">30 min</option><option value="1">1 hour</option><option value="1.5">1.5 hours</option><option value="2">2 hours</option>
                 </select>
                 <input value={schedZoom} onChange={(e) => setSchedZoom(e.target.value)} placeholder="Zoom link (optional)" className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm" />
                 {schedError && <p className="text-xs text-red-500">{schedError}</p>}
