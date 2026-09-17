@@ -14,31 +14,6 @@ export const siteData = {
         formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
     },
 
-    trustBar: [
-        { label: "Students Helped", value: "500+" },
-        { label: "Avg SAT Improvement", value: "+200pts" },
-        { label: "Tutor Degrees", value: "B.S. / M.S." },
-        { label: "Success Rate", value: "98%" },
-    ],
-
-    testimonials: [
-        {
-            quote: "My SAT score went from 1050 to 1310. The personalized approach really made the difference.",
-            author: "Sarah J.",
-            role: "SAT Student",
-        },
-        {
-            quote: "Finally understand coding. Best investment in my son's education.",
-            author: "Parent of Alex",
-            role: "Python Student",
-        },
-        {
-            quote: "Got into my dream college. Couldn't have done it without this tutoring.",
-            author: "Michael K.",
-            role: "SAT Student",
-        },
-    ],
-
     platform: {
         headline: "Every Session Leaves a Trail You Can See",
         subheadline: "Most tutoring disappears the moment the session ends. Ours doesn't — every session, skill, and assignment lives in one place for you and your family.",
@@ -51,7 +26,7 @@ export const siteData = {
             {
                 icon: "FileText",
                 title: "Session Notes, Every Time",
-                description: "What was covered, what to review, what's next. Posted to the parent and student portal after every single session — no exceptions.",
+                description: "What was covered, what to review, what's next — written up after every session and sent to you.",
             },
             {
                 icon: "TrendingUp",
@@ -93,7 +68,7 @@ export const siteData = {
         },
         {
             question: "How much can I improve my SAT/ACT score?",
-            answer: "Students we've worked with have seen 200+ point SAT improvements, with others reaching 1500+ scores. Results depend on starting point, consistency, and effort — individual results vary.",
+            answer: "Results depend on starting point, consistency, and effort — individual results vary. We can walk through real examples on a free consultation.",
         },
         {
             question: "Can I schedule sessions around my school schedule?",
@@ -121,7 +96,6 @@ export const siteData = {
         { label: "Platform", href: "#platform" },
         { label: "Our Team", href: "#team" },
         { label: "Pricing", href: "#pricing" },
-        { label: "Programs", href: "#programs" },
         { label: "Results", href: "#results" },
         { label: "FAQ", href: "#faq" },
     ],
@@ -137,10 +111,9 @@ export const siteData = {
             credentials: [
                 "B.S. Computer Science, UC San Diego",
                 "CEO & Co-Founder, MetaMinds STEM Academy",
-                "Former Professional Tutor, Revolution Prep",
                 "7+ years STEM teaching experience",
             ],
-            bio: "Jose founded MetaMinds after years as a professional tutor at Revolution Prep, where he saw firsthand how much families were overpaying for results they could get better — directly from the tutor. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
+            bio: "Jose founded MetaMinds after years as a professional tutor, where he saw firsthand how much families were overpaying for results they could get better. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
         },
         {
             name: "Emma Brugman",
@@ -150,7 +123,6 @@ export const siteData = {
                 "B.S. Cognitive & Behavioral Neuroscience, UC San Diego",
                 "M.S. Molecular Science & Software Engineering, UC Berkeley",
                 "Data & Machine Learning Analyst (Industry)",
-                "Former Professional Tutor, Revolution Prep",
             ],
             bio: "Emma brings neuroscience, machine learning, and software engineering together to help students understand how they learn — and how to learn faster. She designs curriculum grounded in how the brain actually processes information, making complex topics click.",
         },
@@ -160,7 +132,6 @@ export const siteData = {
             image: "/images/tutors/johan_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Civil Engineering, UC Merced",
-                "Former Professional Tutor, Revolution Prep",
                 "Engineering & structural analysis specialist",
                 "3+ years STEM teaching experience",
             ],
@@ -197,7 +168,6 @@ export const siteData = {
             credentials: [
                 "B.S. Mathematics–Computer Science, UC San Diego",
                 "MBA Candidate, Georgia Institute of Technology",
-                "Professional tutor at EdLadder",
             ],
             bio: "Christian holds a B.S. in Mathematics–Computer Science and an M.S. in Business Analytics from UC San Diego, and is currently pursuing his MBA at Georgia Tech. He specializes in mathematics, programming, and data-driven problem solving — helping students build analytical and coding skills grounded in both engineering and business.",
         },
