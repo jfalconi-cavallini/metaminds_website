@@ -192,6 +192,29 @@ export default function AdminPortal() {
     }
   }
 
+  async function openTutorPreview(tutorId: number) {
+    setPreviewError(null);
+    setPreviewLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch("/api/admin/start-tutor-preview", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token}` },
+        body:    JSON.stringify({ tutorId }),
+      });
+      if (!res.ok) {
+        const j = await res.json() as { error?: string };
+        throw new Error(j.error ?? "Failed to start preview");
+      }
+      const { previewUrl } = await res.json() as { previewUrl: string };
+      router.push(previewUrl);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "Could not open preview.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  }
+
   // ── ARCHIVE ─────────────────────────────────────────────────────
   const [showArchivedStudents, setShowArchivedStudents] = useState(false);
   const [showArchivedTutors,   setShowArchivedTutors]   = useState(false);
@@ -2481,7 +2504,19 @@ export default function AdminPortal() {
                   {assignedStudents.length === 0 && <span className="text-xs text-gray-400">None assigned</span>}
                 </div>
               </div>
-              <button onClick={() => setEditingProfile(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+              <div className="flex items-center gap-3">
+                <button onClick={() => setEditingProfile(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">Edit Profile</button>
+                <button
+                  onClick={() => openTutorPreview(pt.id)}
+                  disabled={previewLoading}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {previewLoading ? "Opening…" : "View as Tutor"}
+                </button>
+              </div>
+              {previewError && (
+                <p className="text-xs text-red-500 font-medium">{previewError}</p>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
