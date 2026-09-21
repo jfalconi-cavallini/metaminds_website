@@ -1,13 +1,12 @@
 ﻿"use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
-import CourseLibrary from "@/components/curriculum/CourseLibrary";
 import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
-import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail as _sendSessionConfirmationEmail } from "@/lib/portal/utils";
 import { US_TIMEZONES } from "@/lib/portal/timezone";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import WeeklyCalendar from "@/components/portal/WeeklyCalendar";
@@ -16,34 +15,36 @@ import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import {
   fetchTutorById, fetchStudents, fetchSessionsByTutor, fetchAllPackages,
-  fetchTutorAvailability, insertSession, cancelSession,
-  updateTutorLeadTime, upsertTutorAvailability,
-  fetchSessionNotesByTutor, insertSessionNote,
-  fetchHomeworkByTutor, insertHomework, deleteHomework, updateHomeworkDates,
-  addHomeworkFeedback, markHomeworkComplete, unsubmitHomework,
-  updateSessionZoomLink, updateSession,
-  fetchBlockedDates, addBlockedDate, removeBlockedDate,
-  fetchParentUpdatesByTutor, insertParentUpdate,
+  fetchTutorAvailability,
+  insertSession as _insertSession, cancelSession as _cancelSession,
+  updateTutorLeadTime as _updateTutorLeadTime, upsertTutorAvailability as _upsertTutorAvailability,
+  fetchSessionNotesByTutor, insertSessionNote as _insertSessionNote,
+  fetchHomeworkByTutor,
+  insertHomework as _insertHomework, deleteHomework as _deleteHomework, updateHomeworkDates as _updateHomeworkDates,
+  addHomeworkFeedback as _addHomeworkFeedback, markHomeworkComplete as _markHomeworkComplete, unsubmitHomework as _unsubmitHomework,
+  updateSessionZoomLink as _updateSessionZoomLink, updateSession as _updateSession,
+  fetchBlockedDates, addBlockedDate as _addBlockedDate, removeBlockedDate as _removeBlockedDate,
+  fetchParentUpdatesByTutor, insertParentUpdate as _insertParentUpdate,
   autoCompletePastSessions,
-  fetchBlockedSlots, toggleBlockedSlot,
-  updateSessionNote, deleteSessionNote,
-  updateStudentProfile, updateTutorProfile,
+  fetchBlockedSlots, toggleBlockedSlot as _toggleBlockedSlot,
+  updateSessionNote as _updateSessionNote, deleteSessionNote as _deleteSessionNote,
+  updateStudentProfile, updateTutorProfile as _updateTutorProfile,
   fetchStudyLog,
   fetchStudentPlans, fetchStudentPlanFull,
   fetchCourses, fetchFullCatalog,
-  assignLessonToStudent, updatePlanLessonStatus, removeLessonFromPlan,
-  deleteStudentPlan, updatePlanSectionBars, updatePlanSkillBaseline,
-  fetchSkillNodes, fetchNoteSkills, setNoteSkillLinks,
-  setHomeworkSkillLinks,
-  upsertVocabularyConfig,
+  assignLessonToStudent as _assignLessonToStudent, updatePlanLessonStatus as _updatePlanLessonStatus, removeLessonFromPlan as _removeLessonFromPlan,
+  deleteStudentPlan as _deleteStudentPlan, updatePlanSectionBars as _updatePlanSectionBars, updatePlanSkillBaseline as _updatePlanSkillBaseline,
+  fetchSkillNodes, fetchNoteSkills, setNoteSkillLinks as _setNoteSkillLinks,
+  setHomeworkSkillLinks as _setHomeworkSkillLinks,
+  upsertVocabularyConfig as _upsertVocabularyConfig,
   fetchVocabularyConfig, fetchVocabularySubmissions,
-  updateVocabularyEntry,
-  fetchPracticeTestResults, insertPracticeTestResult, deletePracticeTestResult,
-  updateStudentPlan,
-  logCompletedHomework,
-  fetchSatPracticeTestConfig, upsertSatPracticeTestConfig,
+  updateVocabularyEntry as _updateVocabularyEntry,
+  fetchPracticeTestResults, insertPracticeTestResult as _insertPracticeTestResult, deletePracticeTestResult as _deletePracticeTestResult,
+  updateStudentPlan as _updateStudentPlan,
+  logCompletedHomework as _logCompletedHomework,
+  fetchSatPracticeTestConfig, upsertSatPracticeTestConfig as _upsertSatPracticeTestConfig,
   fetchSatPracticeTestSubmission, fetchSatPracticeTestAnswers,
-  fetchStudentSkills, recalculateDomainSkillsFromPracticeTest,
+  fetchStudentSkills, recalculateDomainSkillsFromPracticeTest as _recalculateDomainSkillsFromPracticeTest,
 } from "@/lib/portal/db";
 import PlanWizard from "@/components/portal/PlanWizard";
 import SATRoadmapGraph from "@/components/portal/SATRoadmapGraph";
@@ -71,6 +72,20 @@ function ProfileRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+/**
+ * Wraps a mutating db function so it's a no-op while `active` (admin preview
+ * mode) is true. Used below to shadow every write function this file imports
+ * with a preview-safe version under the SAME name, so every existing call
+ * site throughout this file is automatically blocked during preview without
+ * having to touch each one individually.
+ */
+function guardWrite<A extends unknown[], R>(active: boolean, fn: (...args: A) => Promise<R>) {
+  return (...args: A): Promise<R> => {
+    if (active) return Promise.reject(new Error("This action isn't available while previewing a tutor's dashboard."));
+    return fn(...args);
+  };
+}
+
 const DAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const DAY_SHORT  = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -92,7 +107,6 @@ const navItems = [
   { id: "notes",     label: "Session Notes"  },
   { id: "homework",  label: "Homework"       },
   { id: "courses",   label: "Courses"        },
-  { id: "library",   label: "Course Library" },
   { id: "settings",  label: "Settings"       },
 ];
 
@@ -105,6 +119,106 @@ export default function TutorPortal() {
   const handleTabChange = useCallback((id: string) => {
     setTab(id);
   }, []);
+
+  // ── ADMIN "VIEW AS TUTOR" PREVIEW ─────────────────────────────────
+  // Read-only: the admin stays authenticated as themselves (no
+  // impersonation) and every write below is disabled — see guardWrite above.
+  const isPreview = user?.role === "admin";
+  const [previewTutorId,   setPreviewTutorId]   = useState<number | null>(null);
+  const [previewTutorName, setPreviewTutorName] = useState<string | null>(null);
+  const [previewSessionId, setPreviewSessionId] = useState<number | null>(null);
+  const previewValidationState = useRef<"idle" | "validating" | "done">("idle");
+
+  useEffect(() => {
+    if (!authLoaded || !isPreview) return;
+    if (previewValidationState.current !== "idle") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get("preview");
+    if (!token) { router.push("/portal/admin"); return; }
+
+    previewValidationState.current = "validating";
+    window.history.replaceState({}, "", "/portal/tutor");
+
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const res = await fetch(`/api/admin/validate-tutor-preview?token=${encodeURIComponent(token)}`, {
+          headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+        });
+        if (!res.ok) {
+          previewValidationState.current = "idle";
+          router.push("/portal/admin");
+          return;
+        }
+        const data = await res.json() as { tutorId: number; tutorName: string; previewId: number };
+        setPreviewTutorId(data.tutorId);
+        setPreviewTutorName(data.tutorName);
+        setPreviewSessionId(data.previewId);
+        previewValidationState.current = "done";
+      } catch {
+        previewValidationState.current = "idle";
+        router.push("/portal/admin");
+      }
+    })();
+  }, [authLoaded, isPreview, router]);
+
+  async function exitTutorPreview() {
+    if (previewSessionId !== null) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        await fetch("/api/admin/end-tutor-preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+          body: JSON.stringify({ previewId: previewSessionId }),
+        });
+      } catch { /* best-effort — the session expires naturally after 90 minutes */ }
+    }
+    router.push("/portal/admin");
+  }
+
+  // Shadow every mutating db function this file imports with a preview-safe
+  // version under the same name, so every call site below is automatically
+  // blocked during preview without needing to touch each one individually.
+  const insertSession                       = guardWrite(isPreview, _insertSession);
+  const cancelSession                       = guardWrite(isPreview, _cancelSession);
+  const updateTutorLeadTime                 = guardWrite(isPreview, _updateTutorLeadTime);
+  const upsertTutorAvailability             = guardWrite(isPreview, _upsertTutorAvailability);
+  const insertSessionNote                   = guardWrite(isPreview, _insertSessionNote);
+  const insertHomework                      = guardWrite(isPreview, _insertHomework);
+  const deleteHomework                      = guardWrite(isPreview, _deleteHomework);
+  const updateHomeworkDates                 = guardWrite(isPreview, _updateHomeworkDates);
+  const addHomeworkFeedback                 = guardWrite(isPreview, _addHomeworkFeedback);
+  const markHomeworkComplete                = guardWrite(isPreview, _markHomeworkComplete);
+  const unsubmitHomework                    = guardWrite(isPreview, _unsubmitHomework);
+  const updateSessionZoomLink               = guardWrite(isPreview, _updateSessionZoomLink);
+  const updateSession                       = guardWrite(isPreview, _updateSession);
+  const addBlockedDate                      = guardWrite(isPreview, _addBlockedDate);
+  const removeBlockedDate                   = guardWrite(isPreview, _removeBlockedDate);
+  const insertParentUpdate                  = guardWrite(isPreview, _insertParentUpdate);
+  const toggleBlockedSlot                   = guardWrite(isPreview, _toggleBlockedSlot);
+  const updateSessionNote                   = guardWrite(isPreview, _updateSessionNote);
+  const deleteSessionNote                   = guardWrite(isPreview, _deleteSessionNote);
+  const updateTutorProfile                  = guardWrite(isPreview, _updateTutorProfile);
+  const assignLessonToStudent               = guardWrite(isPreview, _assignLessonToStudent);
+  const updatePlanLessonStatus              = guardWrite(isPreview, _updatePlanLessonStatus);
+  const removeLessonFromPlan                = guardWrite(isPreview, _removeLessonFromPlan);
+  const deleteStudentPlan                   = guardWrite(isPreview, _deleteStudentPlan);
+  const updatePlanSkillBaseline             = guardWrite(isPreview, _updatePlanSkillBaseline);
+  const setNoteSkillLinks                   = guardWrite(isPreview, _setNoteSkillLinks);
+  const setHomeworkSkillLinks               = guardWrite(isPreview, _setHomeworkSkillLinks);
+  const upsertVocabularyConfig              = guardWrite(isPreview, _upsertVocabularyConfig);
+  const updateVocabularyEntry               = guardWrite(isPreview, _updateVocabularyEntry);
+  const insertPracticeTestResult            = guardWrite(isPreview, _insertPracticeTestResult);
+  const deletePracticeTestResult            = guardWrite(isPreview, _deletePracticeTestResult);
+  const updateStudentPlan                   = guardWrite(isPreview, _updateStudentPlan);
+  const logCompletedHomework                = guardWrite(isPreview, _logCompletedHomework);
+  const upsertSatPracticeTestConfig         = guardWrite(isPreview, _upsertSatPracticeTestConfig);
+  const recalculateDomainSkillsFromPracticeTest = guardWrite(isPreview, _recalculateDomainSkillsFromPracticeTest);
+  const sendSessionConfirmationEmail = (sessionId: number): void => {
+    if (isPreview) return;
+    _sendSessionConfirmationEmail(sessionId);
+  };
 
   // Remote data
   const [tutor,         setTutor]         = useState<Tutor | null>(null);
@@ -153,15 +267,22 @@ export default function TutorPortal() {
 
   useEffect(() => {
     if (!authLoaded) return;
-    if (!user || user.role !== "tutor" || !user.linkedId) {
+    if (!user) { router.push("/login"); return; }
+
+    let tutorId: number;
+    if (isPreview) {
+      if (!previewTutorId) return; // wait for the preview-validation effect above
+      tutorId = previewTutorId;
+    } else if (user.role !== "tutor" || !user.linkedId) {
       router.push("/login");
       return;
+    } else {
+      tutorId = user.linkedId;
     }
-    const tutorId = user.linkedId;
 
     async function load() {
       try {
-        await autoCompletePastSessions();
+        if (!isPreview) await autoCompletePastSessions();
         const [t, allStudents, sess, pkgs, avail, notes, hw, blocked, pu, bs] = await Promise.all([
           fetchTutorById(tutorId),
           fetchStudents(),
@@ -188,9 +309,9 @@ export default function TutorPortal() {
       finally { setLoading(false); }
     }
     load();
-  }, [authLoaded, user, router]);
+  }, [authLoaded, user, router, isPreview, previewTutorId]);
 
-  const tutorId = user?.linkedId ?? 0;
+  const tutorId = isPreview ? (previewTutorId ?? 0) : (user?.linkedId ?? 0);
 
   // Realtime: see student homework submissions without page refresh
   useEffect(() => {
@@ -527,6 +648,7 @@ export default function TutorPortal() {
   function getStudent(id: number) { return myStudents.find((s) => s.id === id); }
 
   async function startStudentPreview(studentId: number) {
+    if (isPreview) return;
     setPreviewLoadingId(studentId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -633,6 +755,7 @@ export default function TutorPortal() {
   }
 
   async function resendSessionEmail(sessionId: number) {
+    if (isPreview) return;
     setResendingSessionId(sessionId);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1189,7 +1312,7 @@ export default function TutorPortal() {
   }
 
   async function uploadSuccessPlan(file: File) {
-    if (!profileStudent) return;
+    if (isPreview || !profileStudent) return;
     setPlanUploading(true); setPlanUploadErr(""); setPlanUploaded(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -1221,7 +1344,7 @@ export default function TutorPortal() {
   }
 
   async function removeSuccessPlan() {
-    if (!profileStudent) return;
+    if (isPreview || !profileStudent) return;
     if (!window.confirm("Remove the Success Plan PDF?")) return;
     setPlanRemoving(true); setPlanUploadErr("");
     try {
@@ -1263,7 +1386,8 @@ export default function TutorPortal() {
   }
 
   // Force password reset — block dashboard access until new password is set
-  if (user?.mustResetPassword && !forceResetDone) {
+  // Skip entirely in preview mode: the previewing admin's own account never needs a force-reset
+  if (!isPreview && user?.mustResetPassword && !forceResetDone) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
         <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8 w-full max-w-md">
@@ -1330,9 +1454,29 @@ export default function TutorPortal() {
         <span>{roadmapUpdateBanner}</span>
       </div>
     )}
-    <DashboardShell role="tutor" userName={user?.fullName ?? tutor.name} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
-      fullBleed={tab === "library" || tab === "notes"}
+    <DashboardShell role="tutor" userName={isPreview ? (previewTutorName ?? tutor.name) : (user?.fullName ?? tutor.name)} navItems={navItems} activeTab={tab} onTabChange={handleTabChange}
+      fullBleed={tab === "notes"}
       contentMaxWidthClassName={tab === "schedule" ? "max-w-none md:px-[72px]" : undefined}>
+
+      {/* ── PREVIEW BANNER (admin viewing this tutor read-only) ── */}
+      {isPreview && (
+        <div className="flex items-center justify-between gap-4 px-5 py-3 mb-6 bg-amber-50 border-b-2 border-amber-200 rounded-xl">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="shrink-0 text-[10px] font-bold px-2.5 py-1 bg-amber-200 text-amber-900 rounded-full uppercase tracking-widest">
+              Read-only
+            </span>
+            <span className="text-sm font-semibold text-amber-900 truncate">
+              Admin Preview — Tutor view for {previewTutorName ?? "…"}
+            </span>
+          </div>
+          <button
+            onClick={exitTutorPreview}
+            className="shrink-0 text-xs font-semibold text-amber-700 border border-amber-300 px-3 py-1.5 rounded-xl hover:bg-amber-100 transition-colors"
+          >
+            Exit Preview
+          </button>
+        </div>
+      )}
 
       {/* ── OVERVIEW ── */}
       {tab === "overview" && (() => {
@@ -4257,10 +4401,7 @@ export default function TutorPortal() {
       })()}
 
 
-      {/* ── COURSE LIBRARY ── */}
       {tab === "courses" && <CoursesOverview students={myStudents} role="tutor" />}
-
-      {tab === "library" && <CourseLibrary />}
 
     </DashboardShell>
 
