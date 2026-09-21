@@ -119,6 +119,38 @@ export default function TutorPortal() {
   const [calendarMode,  setCalendarMode]   = useState<"schedule" | "block">("schedule");
   const [loading,       setLoading]        = useState(true);
 
+  // Force password reset state
+  const [forceResetDone, setForceResetDone] = useState(false);
+  const [resetNewPw,     setResetNewPw]     = useState("");
+  const [resetConfirmPw, setResetConfirmPw] = useState("");
+  const [resetPwError,   setResetPwError]   = useState("");
+  const [resetPwLoading, setResetPwLoading] = useState(false);
+  const [resetShowPw,    setResetShowPw]    = useState(false);
+
+  async function handleForceReset() {
+    if (resetNewPw.length < 8) { setResetPwError("Password must be at least 8 characters."); return; }
+    if (resetNewPw !== resetConfirmPw) { setResetPwError("Passwords don't match."); return; }
+    setResetPwLoading(true); setResetPwError("");
+    try {
+      const { error } = await supabase.auth.updateUser({ password: resetNewPw });
+      if (error) throw error;
+      // Clear flag via server route — bypasses RLS on profiles table
+      const { data: { session: activeSession } } = await supabase.auth.getSession();
+      if (activeSession) {
+        await fetch("/api/student/complete-reset", {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${activeSession.access_token}` },
+        });
+      }
+      setForceResetDone(true);
+      setResetNewPw(""); setResetConfirmPw("");
+    } catch (e: unknown) {
+      setResetPwError(e instanceof Error ? e.message : "Failed to update password. Please try again.");
+    } finally {
+      setResetPwLoading(false);
+    }
+  }
+
   useEffect(() => {
     if (!authLoaded) return;
     if (!user || user.role !== "tutor" || !user.linkedId) {
@@ -1227,6 +1259,66 @@ export default function TutorPortal() {
       <DashboardShell role="tutor" userName="Tutor" navItems={navItems} activeTab={tab} onTabChange={handleTabChange}>
         <div className="flex items-center justify-center h-64 text-red-500 text-sm">Could not load your data. Check your Supabase connection.</div>
       </DashboardShell>
+    );
+  }
+
+  // Force password reset — block dashboard access until new password is set
+  if (user?.mustResetPassword && !forceResetDone) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8 w-full max-w-md">
+          <div className="text-center mb-6">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3 text-xl">🔒</div>
+            <h1 className="text-xl font-bold text-gray-900">Create Your Password</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Your account was set up with a temporary password. Please create a permanent password before accessing your dashboard.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">New Password</label>
+              <div className="relative">
+                <input
+                  type={resetShowPw ? "text" : "password"}
+                  value={resetNewPw}
+                  onChange={(e) => setResetNewPw(e.target.value)}
+                  placeholder="At least 8 characters"
+                  className="w-full rounded-xl border border-gray-200 px-4 py-3 pr-14 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button type="button" onClick={() => setResetShowPw((v) => !v)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-gray-400 hover:text-gray-600 font-medium">
+                  {resetShowPw ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-gray-500 block mb-1">Confirm Password</label>
+              <input
+                type={resetShowPw ? "text" : "password"}
+                value={resetConfirmPw}
+                onChange={(e) => setResetConfirmPw(e.target.value)}
+                placeholder="Repeat your new password"
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={(e) => { if (e.key === "Enter") handleForceReset(); }}
+              />
+            </div>
+
+            {resetPwError && (
+              <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{resetPwError}</p>
+            )}
+
+            <button
+              onClick={handleForceReset}
+              disabled={resetPwLoading || !resetNewPw || !resetConfirmPw}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {resetPwLoading ? "Setting password…" : "Set Password & Enter Dashboard"}
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

@@ -379,15 +379,14 @@ export default function AdminPortal() {
   const [showTutorForm,   setShowTutorForm]   = useState(false);
   const [newTutName,      setNewTutName]      = useState("");
   const [newTutEmail,     setNewTutEmail]     = useState("");
-  const [newTutPassword,  setNewTutPassword]  = useState("");
   const [newTutSubjs,     setNewTutSubjs]     = useState("");
   const [tutFormError,    setTutFormError]    = useState("");
   const [tutFormSuccess,  setTutFormSuccess]  = useState("");
   const [tutFormLoading,  setTutFormLoading]  = useState(false);
 
   async function submitNewTutor() {
-    if (!newTutName || !newTutEmail || !newTutPassword) {
-      setTutFormError("Name, email, and password are required."); return;
+    if (!newTutName || !newTutEmail) {
+      setTutFormError("Name and email are required."); return;
     }
     setTutFormLoading(true); setTutFormError(""); setTutFormSuccess("");
     let createdTutorId: number | null = null;
@@ -400,7 +399,9 @@ export default function AdminPortal() {
       createdTutorId = t.id;
       setTutors((prev) => [...prev, t]);
 
-      // 2. Create Supabase Auth account + link to DB record
+      // 2. Create Supabase Auth account + link to DB record. The server
+      // generates a temp password, force-resets it on first login, and
+      // emails the credentials — see /api/admin/create-user.
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Your session has expired — please refresh and sign in again.");
       const res = await fetch("/api/admin/create-user", {
@@ -411,22 +412,56 @@ export default function AdminPortal() {
         },
         body: JSON.stringify({
           email: newTutEmail,
-          password: newTutPassword,
           fullName: newTutName,
           role: "tutor",
           linkedId: t.id,
         }),
       });
-      const result = await res.json() as { error?: string };
+      const result = await res.json() as { error?: string; emailSent?: boolean; emailError?: string; tempPassword?: string };
       if (!res.ok) throw new Error(result.error ?? `Server error ${res.status}`);
 
-      setTutFormSuccess(`Account created! ${newTutName} can now log in with ${newTutEmail}.`);
-      setNewTutName(""); setNewTutEmail(""); setNewTutPassword(""); setNewTutSubjs("");
-      setTimeout(() => { setShowTutorForm(false); setTutFormSuccess(""); }, 4000);
+      setTutFormSuccess(
+        result.emailSent
+          ? `Account created! A welcome email with login credentials was sent to ${newTutEmail}.`
+          : `Account created, but the welcome email couldn't be sent (${result.emailError ?? "unknown error"}). Temporary password: ${result.tempPassword} — share it with ${newTutName} manually, or use "Resend Welcome" once email is configured.`
+      );
+      setNewTutName(""); setNewTutEmail(""); setNewTutSubjs("");
+      if (result.emailSent) {
+        setTimeout(() => { setShowTutorForm(false); setTutFormSuccess(""); }, 4000);
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       setTutFormError(`${msg}${createdTutorId ? ` (Tutor DB record #${createdTutorId} was created — re-submit or delete it manually in Supabase)` : ""}`);
     } finally { setTutFormLoading(false); }
+  }
+
+  // ── RESEND TUTOR WELCOME EMAIL ────────────────────────────────────
+  const [resendTutorLoading, setResendTutorLoading] = useState<number | null>(null);
+  const [resendTutorMsg,     setResendTutorMsg]     = useState<{ tutorId: number; ok: boolean; text: string } | null>(null);
+
+  async function handleResendTutorWelcome(t: Tutor) {
+    setResendTutorLoading(t.id); setResendTutorMsg(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Session expired");
+      const res = await fetch("/api/admin/resend-tutor-welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}` },
+        body: JSON.stringify({ tutorId: t.id, tutorName: t.name, tutorEmail: t.email }),
+      });
+      const result = await res.json() as { error?: string; emailSent?: boolean; emailError?: string; tempPassword?: string };
+      if (!res.ok) throw new Error(result.error ?? "Failed");
+      setResendTutorMsg(
+        result.emailSent
+          ? { tutorId: t.id, ok: true, text: `New login credentials sent to ${t.email}.` }
+          : { tutorId: t.id, ok: false, text: `Email not sent (${result.emailError ?? "unknown error"}). Temp password: ${result.tempPassword}` }
+      );
+    } catch (e: unknown) {
+      setResendTutorMsg({ tutorId: t.id, ok: false, text: e instanceof Error ? e.message : "Error sending email" });
+    } finally {
+      setResendTutorLoading(null);
+      setTimeout(() => setResendTutorMsg((m) => (m?.tutorId === t.id ? null : m)), 6000);
+    }
   }
 
   // ── ASSIGN TUTOR ────────────────────────────────────────────────
@@ -1483,10 +1518,9 @@ export default function AdminPortal() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                 <input value={newTutName}     onChange={(e) => setNewTutName(e.target.value)}     placeholder="Full Name *"               className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
                 <input value={newTutEmail}    onChange={(e) => setNewTutEmail(e.target.value)}    placeholder="Email Address *" type="email" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newTutPassword} onChange={(e) => setNewTutPassword(e.target.value)} placeholder="Temporary Password *" type="password" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
-                <input value={newTutSubjs}    onChange={(e) => setNewTutSubjs(e.target.value)}    placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white" />
+                <input value={newTutSubjs}    onChange={(e) => setNewTutSubjs(e.target.value)}    placeholder="Subjects (comma-separated)" className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white sm:col-span-2" />
               </div>
-              <p className="text-xs text-gray-400 mb-3">Share the email + temporary password with the tutor so they can log in.</p>
+              <p className="text-xs text-gray-400 mb-3">A temporary password is generated automatically and emailed to the tutor, who will be asked to set a permanent one on first login.</p>
               {tutFormSuccess && <p className="text-xs text-green-600 font-medium mb-2">✓ {tutFormSuccess}</p>}
               {tutFormError   && <p className="text-xs text-red-500 mb-2">{tutFormError}</p>}
               <div className="flex gap-3">
@@ -1511,7 +1545,8 @@ export default function AdminPortal() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {visibleTutors.map((t) => (
-                  <tr key={t.id} className={t.archived ? "opacity-50 bg-gray-50" : ""}>
+                  <Fragment key={t.id}>
+                  <tr className={t.archived ? "opacity-50 bg-gray-50" : ""}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-blue-600 cursor-pointer hover:underline" onClick={() => openTutorProfile(t)}>{t.name}</span>
@@ -1524,9 +1559,14 @@ export default function AdminPortal() {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {!t.archived && (
-                          <button onClick={() => openTutorSchedule(t)} className="text-blue-600 text-xs font-medium hover:underline">
-                            View Schedule
-                          </button>
+                          <>
+                            <button onClick={() => openTutorSchedule(t)} className="text-blue-600 text-xs font-medium hover:underline">
+                              View Schedule
+                            </button>
+                            <button onClick={() => handleResendTutorWelcome(t)} disabled={resendTutorLoading === t.id} className="text-blue-600 text-xs font-medium hover:underline disabled:opacity-40">
+                              {resendTutorLoading === t.id ? "Sending…" : "Resend Welcome"}
+                            </button>
+                          </>
                         )}
                         {t.archived ? (
                           <>
@@ -1548,6 +1588,14 @@ export default function AdminPortal() {
                       </div>
                     </td>
                   </tr>
+                  {resendTutorMsg?.tutorId === t.id && (
+                    <tr>
+                      <td colSpan={5} className={`px-4 py-2 text-xs ${resendTutorMsg.ok ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"}`}>
+                        {resendTutorMsg.text}
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 ))}
                 {visibleTutors.length === 0 && (
                   <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400 text-sm">
@@ -2058,6 +2106,7 @@ export default function AdminPortal() {
           parent_update:        "Parent Update",
           welcome_student:      "Welcome (Student)",
           welcome_parent:       "Welcome (Parent)",
+          welcome_tutor:        "Welcome (Tutor)",
           test:                 "Test",
         };
         const filtered = (emailLog ?? []).filter((e) => !emailLogFilter || e.emailType === emailLogFilter);
@@ -2090,7 +2139,7 @@ export default function AdminPortal() {
                       <tr>
                         <th className="text-left px-4 py-2.5">Sent</th>
                         <th className="text-left px-4 py-2.5">Type</th>
-                        <th className="text-left px-4 py-2.5">Student</th>
+                        <th className="text-left px-4 py-2.5">Student / Tutor</th>
                         <th className="text-left px-4 py-2.5">Recipients</th>
                         <th className="text-left px-4 py-2.5">Subject</th>
                         <th className="text-left px-4 py-2.5">Status</th>
@@ -2100,13 +2149,14 @@ export default function AdminPortal() {
                     <tbody className="divide-y divide-gray-100">
                       {filtered.map((e) => {
                         const student = e.relatedStudentId ? getStudent(e.relatedStudentId) : undefined;
+                        const relatedTutor = e.relatedTutorId ? getTutor(e.relatedTutorId) : undefined;
                         return (
                           <tr key={e.id} className="hover:bg-gray-50">
                             <td className="px-4 py-2.5 text-gray-500 whitespace-nowrap">
                               {new Date(e.sentAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                             </td>
                             <td className="px-4 py-2.5 text-gray-700">{typeLabels[e.emailType] ?? e.emailType}</td>
-                            <td className="px-4 py-2.5 text-gray-700">{student?.name ?? "—"}</td>
+                            <td className="px-4 py-2.5 text-gray-700">{student?.name ?? relatedTutor?.name ?? "—"}</td>
                             <td className="px-4 py-2.5 text-gray-500 max-w-[220px] truncate" title={e.recipients.join(", ")}>
                               {e.recipients.join(", ")}
                             </td>

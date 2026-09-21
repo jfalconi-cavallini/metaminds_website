@@ -582,6 +582,7 @@ export type EmailType =
   | "parent_update"
   | "welcome_student"
   | "welcome_parent"
+  | "welcome_tutor"
   | "test";
 
 export interface EmailLogEntry {

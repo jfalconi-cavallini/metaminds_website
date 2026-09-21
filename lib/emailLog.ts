@@ -7,6 +7,7 @@ export type EmailType =
   | "parent_update"
   | "welcome_student"
   | "welcome_parent"
+  | "welcome_tutor"
   | "test";
 
 /** Records an outbound email after a Resend send attempt, so admins/tutors
