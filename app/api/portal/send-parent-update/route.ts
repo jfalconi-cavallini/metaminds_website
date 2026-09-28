@@ -2,10 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 import { logEmail } from "@/lib/emailLog";
+import { foreignParentUpdateSessionIds, parseSessionIdList } from "@/lib/portal/parentUpdateSessions";
 
 const admin = adminClient();
 
 const FROM = process.env.RESEND_FROM_EMAIL ?? "updates@metaminds.com";
+
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 function buildEmail({
   tutorName,
@@ -21,7 +26,7 @@ function buildEmail({
   const sessionsHtml = sessionLines.length
     ? `<div style="margin:16px 0;padding:12px 16px;background:#f0f9ff;border-left:3px solid #3b82f6;border-radius:4px;">
         <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#1e40af;text-transform:uppercase;letter-spacing:.05em;">Sessions covered</p>
-        ${sessionLines.map((l) => `<p style="margin:2px 0;font-size:13px;color:#1d4ed8;">• ${l}</p>`).join("")}
+        ${sessionLines.map((l) => `<p style="margin:2px 0;font-size:13px;color:#1d4ed8;">• ${escapeHtml(l)}</p>`).join("")}
        </div>`
     : "";
 
@@ -72,28 +77,49 @@ export async function POST(req: NextRequest) {
   if (isAuthError(caller)) return caller;
 
   try {
-    const { tutorId, studentId, message, sessionIds } = await req.json() as {
+    const body = await req.json() as {
       tutorId: number;
       studentId: number;
       message: string;
-      sessionIds: number[];
+      sessionIds: unknown;
     };
+    const { tutorId, studentId, message } = body;
+    const sessionIds = parseSessionIdList(body.sessionIds);
+    if (sessionIds === null) {
+      return NextResponse.json({ error: "Invalid session ids" }, { status: 400 });
+    }
 
     if (caller.role === "student" || (caller.role === "tutor" && caller.linkedId !== tutorId)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    // Fetch tutor, student, and tagged sessions in parallel
+    // sessions stores session_date / session_time, not date / time.
+    // A session may be listed only when it belongs to this student and this tutor.
     const [tutorRes, studentRes, sessionsRes] = await Promise.all([
       admin.from("tutors").select("name").eq("id", tutorId).single(),
       admin.from("students").select("name,email,parent_email").eq("id", studentId).single(),
-      sessionIds?.length
-        ? admin.from("sessions").select("date,time,subject").in("id", sessionIds)
+      sessionIds.length
+        ? admin.from("sessions").select("id, student_id, tutor_id, session_date, session_time, subject").in("id", sessionIds)
         : Promise.resolve({ data: [], error: null }),
     ]);
 
-    if (tutorRes.error || studentRes.error) {
+    if (tutorRes.error || studentRes.error || sessionsRes.error) {
       return NextResponse.json({ error: "Could not fetch data" }, { status: 500 });
+    }
+
+    const sessionRows = (sessionsRes.data ?? []) as {
+      id: number;
+      student_id: number;
+      tutor_id: number;
+      session_date: string;
+      session_time: string;
+      subject: string;
+    }[];
+    if (foreignParentUpdateSessionIds(sessionIds, sessionRows, studentId, tutorId).length > 0) {
+      return NextResponse.json(
+        { error: "Sessions must belong to this student and tutor" },
+        { status: 400 },
+      );
     }
 
     const tutorName   = tutorRes.data.name as string;
@@ -101,8 +127,8 @@ export async function POST(req: NextRequest) {
     const studentEmail = studentRes.data.email as string;
     const parentEmail  = studentRes.data.parent_email as string | null;
 
-    const sessionLines = ((sessionsRes.data ?? []) as { date: string; time: string; subject: string }[]).map(
-      (s) => `${new Date(s.date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at ${s.time} — ${s.subject}`
+    const sessionLines = sessionRows.map(
+      (s) => `${new Date(s.session_date + "T00:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} at ${s.session_time} — ${s.subject}`
     );
 
     const html    = buildEmail({ tutorName, studentName, message, sessionLines });

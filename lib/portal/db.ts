@@ -970,6 +970,8 @@ export async function insertParentUpdate(
   message: string,
   sessionIds: number[] = [],
 ): Promise<ParentUpdate> {
+  // Migration 062 rejects the insert unless every session_ids element
+  // is a session for this student_id and tutor_id.
   const { data, error } = await supabase
     .from("parent_updates")
     .insert({ tutor_id: tutorId, student_id: studentId, message, session_ids: sessionIds })
