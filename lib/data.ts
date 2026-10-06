@@ -3,8 +3,8 @@ export const siteData = {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
         email: "metamindsstemacademy@gmail.com",
-        tagline: "Expert Tutoring for SAT, ACT, AP, GED & STEM",
-        description: "1-on-1 tutoring from working engineers and scientists holding B.S. and M.S. degrees from UC San Diego and UC Berkeley. SAT/ACT/GED prep, K-12 math, coding, and advanced STEM mentoring.",
+        tagline: "Online Tutoring in Math, Science, English & SAT Prep",
+        description: "One on one online tutoring for K to 12 from working engineers and scientists. Math, science, English, and more, plus SAT prep and AP Chemistry.",
     },
 
     hero: {
@@ -15,43 +15,26 @@ export const siteData = {
     },
 
     trustBar: [
-        { label: "Students Helped", value: "500+" },
-        { label: "Avg SAT Improvement", value: "+200pts" },
-        { label: "Tutor Degrees", value: "B.S. / M.S." },
-        { label: "Success Rate", value: "98%" },
+        { value: "1 on 1", label: "Online Tutoring" },
+        { value: "B.S. / M.S.", label: "Tutor Degrees" },
+        { value: "K to 12", label: "Plus SAT Prep" },
     ],
 
-    testimonials: [
-        {
-            quote: "My SAT score went from 1050 to 1310. The personalized approach really made the difference.",
-            author: "Sarah J.",
-            role: "SAT Student",
-        },
-        {
-            quote: "Finally understand coding. Best investment in my son's education.",
-            author: "Parent of Alex",
-            role: "Python Student",
-        },
-        {
-            quote: "Got into my dream college. Couldn't have done it without this tutoring.",
-            author: "Michael K.",
-            role: "SAT Student",
-        },
-    ],
+    testimonials: [] as Array<{ quote: string; author: string; role: string }>,
 
     platform: {
         headline: "Every Session Leaves a Trail You Can See",
-        subheadline: "Most tutoring disappears the moment the session ends. Ours doesn't — every session, skill, and assignment lives in one place for you and your family.",
+        subheadline: "Most tutoring disappears the moment the session ends. Ours doesn't. Every session, skill, and assignment lives in one place for you and your family.",
         features: [
             {
                 icon: "Users",
-                title: "One Mentor, Not a Rotation",
-                description: "Your child is matched with a dedicated tutor who stays with them — not whoever happens to be free that week.",
+                title: "A Consistent Tutor, Not a Rotation",
+                description: "Your child is paired with a tutor we think is a great match: a consistent, long term tutor instead of switching session to session.",
             },
             {
                 icon: "FileText",
-                title: "Session Notes, Every Time",
-                description: "What was covered, what to review, what's next. Posted to the parent and student portal after every single session — no exceptions.",
+                title: "Session Notes in the Portal",
+                description: "What was covered, what to review, what's next. Session notes parents can see in the portal.",
             },
             {
                 icon: "TrendingUp",
@@ -61,24 +44,24 @@ export const siteData = {
             {
                 icon: "BookOpen",
                 title: "Homework With Real Feedback",
-                description: "Assigned after each session and graded by your tutor — not an answer key, and not busywork.",
+                description: "Homework and grades live in the portal, with real feedback from your tutor, not an answer key and not busywork.",
             },
             {
                 icon: "MessageSquare",
                 title: "Direct Parent Updates",
-                description: "Updates come from the person who actually taught the session, not a form email on a schedule.",
+                description: "Your tutor emails you a weekly progress update, written by the person who actually works with your child.",
             },
             {
                 icon: "GraduationCap",
-                title: "K–12 Through College, One System",
-                description: "Students can stay with MetaMinds from elementary school through AP exams and beyond — same tutor relationship, same tracked history, no starting over.",
+                title: "K to 12, One System",
+                description: "Students can stay with MetaMinds from elementary school through high school, with the same tracked history in the portal and no starting over.",
             },
         ],
     },
 
     referral: {
         headline: "Love MetaMinds? Share It.",
-        description: "Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account — automatically. No limits, refer as many people as you like.",
+        description: "Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account automatically. No limits, refer as many people as you like.",
         badge: "Free Hour for Every Referral",
     },
 
@@ -92,8 +75,8 @@ export const siteData = {
             answer: "Packages start at $70 for a single session, and drop as low as $50/hr on our 20-hour package. Book a free consultation and we'll walk you through which tier and package fit your goals.",
         },
         {
-            question: "How much can I improve my SAT/ACT score?",
-            answer: "Students we've worked with have seen 200+ point SAT improvements, with others reaching 1500+ scores. Results depend on starting point, consistency, and effort — individual results vary.",
+            question: "How much can my student improve on the SAT?",
+            answer: "Results depend on starting point, consistency, and effort. One of our students went from 1110 to 1410 on an Official SAT practice test (individual results vary).",
         },
         {
             question: "Can I schedule sessions around my school schedule?",
@@ -113,7 +96,7 @@ export const siteData = {
         },
         {
             question: "What technology do I need?",
-            answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for coding and problem-solving.",
+            answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for problem solving.",
         },
     ],
 
@@ -140,7 +123,7 @@ export const siteData = {
                 "Former Professional Tutor, Revolution Prep",
                 "7+ years STEM teaching experience",
             ],
-            bio: "Jose founded MetaMinds after years as a professional tutor at Revolution Prep, where he saw firsthand how much families were overpaying for results they could get better — directly from the tutor. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
+            bio: "Jose founded MetaMinds after years as a professional tutor at Revolution Prep, where he saw firsthand how much families were overpaying for results they could get better. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
         },
         {
             name: "Emma Brugman",
@@ -152,7 +135,7 @@ export const siteData = {
                 "Data & Machine Learning Analyst (Industry)",
                 "Former Professional Tutor, Revolution Prep",
             ],
-            bio: "Emma brings neuroscience, machine learning, and software engineering together to help students understand how they learn — and how to learn faster. She designs curriculum grounded in how the brain actually processes information, making complex topics click.",
+            bio: "Emma brings neuroscience, machine learning, and software engineering together to help students understand how they learn, and how to learn faster. She designs curriculum grounded in how the brain actually processes information, making complex topics click.",
         },
         {
             name: "Johan Falconi-Cavallini",
@@ -176,7 +159,7 @@ export const siteData = {
                 "Advanced CAD & mechanical design",
                 "Former tutor at Juni Learning",
             ],
-            bio: "Roberto works as an R&D and design engineer and brings that real-world perspective into every session. Students learn not just how to solve problems, but how engineers actually design and iterate on solutions — building skills that transfer far beyond the classroom.",
+            bio: "Roberto works as an R&D and design engineer and brings that real-world perspective into every session. Students learn not just how to solve problems, but how engineers actually design and iterate on solutions, building skills that transfer far beyond the classroom.",
         },
         {
             name: "Alan Martinez",
@@ -195,11 +178,11 @@ export const siteData = {
             title: "Mathematics & CS Tutor · MBA Candidate",
             image: "/images/tutors/christian_tutor_1024_square.jpg",
             credentials: [
-                "B.S. Mathematics–Computer Science, UC San Diego",
+                "B.S. Mathematics and Computer Science, UC San Diego",
                 "MBA Candidate, Georgia Institute of Technology",
                 "Professional tutor at EdLadder",
             ],
-            bio: "Christian holds a B.S. in Mathematics–Computer Science and an M.S. in Business Analytics from UC San Diego, and is currently pursuing his MBA at Georgia Tech. He specializes in mathematics, programming, and data-driven problem solving — helping students build analytical and coding skills grounded in both engineering and business.",
+            bio: "Christian holds a B.S. in Mathematics and Computer Science and an M.S. in Business Analytics from UC San Diego, and is currently pursuing his MBA at Georgia Tech. He specializes in mathematics, programming, and data driven problem solving, helping students build analytical and coding skills grounded in both engineering and business.",
         },
     ],
 

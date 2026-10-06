@@ -69,7 +69,7 @@ export default function SuccessPage() {
                             <h2 className="text-2xl font-bold text-gray-900">Please Prepare</h2>
                         </div>
                         <p className="text-gray-500 text-sm mb-6">
-                            If possible, have these ready before the call — but don't worry if you don't have everything.
+                            If possible, have these ready before the call, but don't worry if you don't have everything.
                         </p>
                         <ul className="space-y-3">
                             {prepItems.map((item) => (
