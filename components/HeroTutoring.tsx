@@ -37,8 +37,8 @@ export default function HeroTutoring() {
                             MetaMinds pairs your child with one dedicated mentor who builds a
                             personalized plan, sends session notes after every session, and
                             tracks skill growth you can actually see. SAT &amp; ACT, AP classes,
-                            K–12 math, coding, and robotics. Every tier runs on the same system —
-                            the difference is who sits with your child.
+                            K–12 math, coding, and robotics. Every tier runs on the same system.
+                            The difference is who works with your child online.
                         </p>
 
                         {/* CTA Buttons */}

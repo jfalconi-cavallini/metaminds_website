@@ -85,9 +85,9 @@ const services = [
 const whyMetaMinds = [
     {
         icon: Users,
-        stat: "500+",
-        label: "Students Helped",
-        description: "Families across the DFW Metroplex trust MetaMinds for test prep, academics, and STEM mentoring.",
+        stat: "",
+        label: "Online Tutoring",
+        description: "Families trust MetaMinds for one on one online tutoring.",
     },
     {
         icon: TrendingUp,
@@ -265,7 +265,7 @@ export default function ConsultationPage() {
                         </motion.div>
 
                         {/* Trust stats */}
-                        <motion.div {...fade(0.4)} className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                        <motion.div {...fade(0.4)} className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
                             {siteData.trustBar.map((t) => (
                                 <div key={t.label} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
                                     <div className="text-2xl font-black text-white">{t.value}</div>
@@ -356,7 +356,7 @@ export default function ConsultationPage() {
                                     <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
                                         <Icon className="w-6 h-6 text-blue-600" />
                                     </div>
-                                    <div className="text-3xl font-black text-blue-600 mb-1">{stat}</div>
+                                    {stat ? <div className="text-3xl font-black text-blue-600 mb-1">{stat}</div> : null}
                                     <div className="font-bold text-gray-900 text-sm mb-2">{label}</div>
                                     <p className="text-gray-500 text-xs leading-relaxed">{description}</p>
                                 </motion.div>

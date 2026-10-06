@@ -52,23 +52,23 @@ const programs = [
     {
         icon: Cpu,
         title: "Robotics",
-        description: "Design, build, and program robots with mentors who work in engineering — from first build to competition-ready.",
+        description: "Robotics and coding concepts taught live online with mentors who work in engineering.",
         details: [
-            "VEX robotics systems",
-            "Mechanical engineering",
+            "Robotics coding concepts",
+            "Mechanical engineering concepts",
             "Autonomous programming",
-            "Competition preparation"
+            "Programming concepts taught live online"
         ]
     },
     {
         icon: Zap,
-        title: "3D Printing & Design",
-        description: "CAD design and hands-on 3D printing, taught by a practicing design engineer — from first sketch to a real printed part.",
+        title: "3D Design & Modeling",
+        description: "3D design and modeling taught live online by a practicing design engineer, from first sketch through a digital model.",
         details: [
             "CAD software mastery",
             "3D modeling design",
             "Design thinking",
-            "Real-world prototyping"
+            "Digital design practice"
         ]
     },
 ];
@@ -91,7 +91,7 @@ export default function ProgramsAndResults() {
                         One tutor, six directions your kid could go.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                        Test prep, math, code, and hardware — taught by tutors who work in the field, not just teach it.
+                        Test prep, math, code, and robotics concepts, taught live online by tutors who work in the field, not just teach it.
                     </motion.p>
                 </div>
 

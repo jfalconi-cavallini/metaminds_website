@@ -15,7 +15,6 @@ export const siteData = {
     },
 
     trustBar: [
-        { label: "Students Helped", value: "500+" },
         { label: "Avg SAT Improvement", value: "+200pts" },
         { label: "Tutor Degrees", value: "B.S. / M.S." },
         { label: "Success Rate", value: "98%" },
