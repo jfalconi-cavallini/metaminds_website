@@ -3,8 +3,8 @@
 import { motion } from "framer-motion";
 import {
     CheckCircle2, Clock, Video,
-    ArrowDown, Shield, Users, TrendingUp, Lightbulb,
-    BookOpen, Target, Brain, ChevronDown, Code, Layers,
+    ArrowDown, Shield, Users, Lightbulb,
+    BookOpen, Target, Brain, ChevronDown, Layers,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Script from "next/script";
@@ -23,33 +23,33 @@ const GOOGLE_ADS_CONVERSION_LABEL = "XXXXXXXXXXXXXXXXXXXX";
 const benefits = [
     {
         icon: Shield,
-        title: "100% Free — No Commitment",
+        title: "100% Free, No Commitment",
         description: "A genuine conversation, not a sales pitch. You'll get real advice whether or not you book sessions.",
     },
     {
         icon: Target,
         title: "Pinpoint Exactly Where to Focus",
-        description: "We identify the specific gaps — in test prep, coursework, or a new skill — holding your student back.",
+        description: "We find the specific gaps holding your student back, in test prep or in schoolwork.",
     },
     {
         icon: Video,
         title: "Meet Your Tutor Before You Pay",
-        description: "See how we teach and ask anything. Most families schedule their first session on the call — on their terms.",
+        description: "See how we teach and ask anything. If you're ready, you can schedule your first session right on the call.",
     },
     {
         icon: BookOpen,
         title: "Get a Subject-Specific Game Plan",
-        description: "Whether it's the SAT, AP Calculus, Python, or catching up in math class — we'll map out the right path.",
+        description: "Whether it's the SAT, AP Chemistry, or catching up in math, science, or English, we'll map out the right path.",
     },
     {
         icon: Clock,
-        title: "Leave With an Actionable Plan",
-        description: "A concrete week-by-week study schedule tailored to your student's goals, pace, and timeline.",
+        title: "Leave With Clear Next Steps",
+        description: "Clear next steps built around your student's goals, pace, and timeline.",
     },
     {
         icon: Brain,
         title: "Expert Perspective, Not a Script",
-        description: "Our tutors are working engineers and scientists — they spot root causes other tutors miss.",
+        description: "Our tutors are working engineers and scientists who look for the root cause, not just the wrong answer.",
     },
 ];
 
@@ -59,9 +59,9 @@ const whatParentsLearn = [
     "How the Digital SAT's adaptive format works and how to use Desmos strategically",
     "Whether the SAT or ACT is a better fit for your student's strengths",
     "What a realistic improvement timeline looks like for your student's specific goal",
-    "How AP exam scoring works and how our approach is different from school prep",
+    "How the AP Chemistry exam is scored and how we help students prepare for it",
     "What a strong weekly study schedule looks like around school and activities",
-    "How our tutors approach coding, 3D printing, and STEM mentoring for beginners",
+    "How our tutors approach math, science, and English for students who are behind or ahead",
 ];
 
 const prepChecklist = [
@@ -74,12 +74,12 @@ const prepChecklist = [
 ];
 
 const services = [
-    { icon: Target,  label: "SAT & ACT Prep" },
-    { icon: Layers,  label: "AP Exam Prep" },
-    { icon: BookOpen,label: "GED Prep" },
-    { icon: Brain,   label: "K–12 Math & Science" },
-    { icon: Code,    label: "Coding & Programming" },
-    { icon: Lightbulb, label: "3D Printing & STEM" },
+    { icon: Target,      label: "SAT Prep" },
+    { icon: Layers,      label: "AP Chemistry" },
+    { icon: Brain,       label: "K to 12 Math" },
+    { icon: Lightbulb,   label: "Science" },
+    { icon: BookOpen,    label: "English & Writing" },
+    { icon: CheckCircle2, label: "Homework Help" },
 ];
 
 const whyMetaMinds = [
@@ -87,23 +87,23 @@ const whyMetaMinds = [
         icon: Users,
         stat: "",
         label: "Online Tutoring",
-        description: "Families trust MetaMinds for one on one online tutoring.",
+        description: "One on one sessions over Zoom, paired with a tutor we think is a great match.",
     },
     {
-        icon: TrendingUp,
-        stat: "+200pts",
-        label: "Avg SAT Improvement",
-        description: "Our structured, personalized approach consistently delivers score improvements that matter.",
+        icon: Shield,
+        stat: "",
+        label: "A Consistent Tutor",
+        description: "A consistent, long term tutor instead of switching session to session.",
     },
     {
         icon: Lightbulb,
-        stat: "B.S. / M.S.",
+        stat: "",
         label: "Tutor Credentials",
-        description: "Every tutor holds an engineering or CS degree from a top university and works in their field today.",
+        description: "Our tutors include working engineers and scientists with B.S. and M.S. degrees.",
     },
     {
         icon: CheckCircle2,
-        stat: "98%",
+        stat: "",
         label: "Satisfaction Rate",
         description: "We back every engagement with a money-back guarantee. Your student's progress is our measure of success.",
     },
@@ -111,20 +111,20 @@ const whyMetaMinds = [
 
 const faqs = [
     {
-        q: "How long is the consultation?",
-        a: "30 minutes via Zoom. We keep it focused — no fluff. If you have more questions, we're happy to go a few minutes over.",
+        q: "What happens on the consultation?",
+        a: "It's a free call over Zoom. We keep it focused on your student's goals and where to start, and we're happy to answer every question you have.",
     },
     {
         q: "Is it really free?",
-        a: "Yes — completely free, no credit card required, no obligation to continue. We do this because families who understand how we work become long-term clients.",
+        a: "Yes. It's completely free, with no credit card required and no obligation to continue. We do it because families who understand how we work tend to stay with us for the long term.",
     },
     {
         q: "Who will I be speaking with?",
-        a: "You'll speak directly with Jose, the founder of MetaMinds — a UCSD Computer Science graduate with 7+ years of tutoring experience in test prep, coding, and STEM.",
+        a: "You'll speak directly with Jose, the founder of MetaMinds. He's a UC San Diego Computer Science graduate with 7+ years of tutoring experience in test prep and STEM.",
     },
     {
-        q: "We're not focused on SAT/ACT — can we still book?",
-        a: "Absolutely. The consultation works for any goal: improving grades in a specific class, learning to code, AP exam prep, GED prep, or exploring 3D printing and robotics. We'll talk through whatever your student needs.",
+        q: "We're not focused on the SAT. Can we still book?",
+        a: "Absolutely. The consultation works for any goal: improving grades in math, science, or English, AP Chemistry, or getting ahead for next year. We'll talk through whatever your student needs.",
     },
     {
         q: "Can my student join the call?",
@@ -132,7 +132,7 @@ const faqs = [
     },
     {
         q: "What happens after the consultation?",
-        a: "If you'd like to move forward, we'll send you package options and get your first session scheduled — usually within the week. No pressure, no deadline.",
+        a: "If you'd like to move forward, we'll send you package options and get your first session scheduled, usually within the week. No pressure, no deadline.",
     },
     {
         q: "We don't have any score reports. Should we still book?",
@@ -233,14 +233,14 @@ export default function ConsultationPage() {
                     <div className="relative max-w-4xl mx-auto">
                         <motion.div {...fade()}>
                             <span className="inline-block bg-blue-500/20 text-blue-300 text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6 border border-blue-500/30">
-                                Free · 30 Minutes · No Obligation
+                                Free · Online · No Obligation
                             </span>
                         </motion.div>
                         <motion.h1 {...fade(0.1)} className="text-4xl md:text-5xl font-black text-white mb-6 leading-[1.05]">
                             Let's Build Your<br className="hidden md:block" /> Student's<br className="hidden md:block" /> Success Plan
                         </motion.h1>
                         <motion.p {...fade(0.2)} className="text-xl text-blue-100 max-w-2xl mx-auto mb-6 leading-relaxed">
-                            Whether it's the SAT, AP exams, struggling in math, learning to code, or exploring 3D printing — talk directly with a working engineer and walk away with a real plan.
+                            Whether it&apos;s the SAT, AP Chemistry, or catching up in math, science, or English, talk directly with our team and walk away with clear next steps.
                         </motion.p>
 
                         {/* Service tags */}
@@ -280,7 +280,7 @@ export default function ConsultationPage() {
                 <section className="py-12 px-6 bg-gray-50">
                     <div className="max-w-5xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-7">
-                            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why This 30-Minute Call Is Worth It</h2>
+                            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why This Free Call Is Worth It</h2>
                             <p className="text-gray-500 max-w-xl mx-auto">Most parents leave the call saying they wish they'd done it sooner.</p>
                         </motion.div>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -302,7 +302,7 @@ export default function ConsultationPage() {
                     <div className="max-w-4xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">What You'll Learn on the Call</h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">Clear, specific answers — not generic advice.</p>
+                            <p className="text-gray-500 max-w-xl mx-auto">Clear, specific answers, not generic advice.</p>
                         </motion.div>
                         <div className="grid md:grid-cols-2 gap-3">
                             {whatParentsLearn.map((item, i) => (
@@ -338,7 +338,7 @@ export default function ConsultationPage() {
                             ))}
                         </div>
                         <motion.p {...fade(0.3)} className="text-center text-blue-300 text-sm mt-8 italic">
-                            Don't have these? That's completely okay — book the call anyway.
+                            Don&apos;t have these? That&apos;s completely okay. Book the call anyway.
                         </motion.p>
                     </div>
                 </section>
@@ -348,7 +348,7 @@ export default function ConsultationPage() {
                     <div className="max-w-5xl mx-auto">
                         <motion.div {...fade()} className="text-center mb-7">
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why Families Choose MetaMinds</h2>
-                            <p className="text-gray-500 max-w-xl mx-auto">We're not a tutoring marketplace or a franchise. Every session is with a working professional who has mastered the material firsthand.</p>
+                            <p className="text-gray-500 max-w-xl mx-auto">We&apos;re not a tutoring marketplace or a franchise. Every session is one on one over Zoom with a tutor we think is a great match for your student.</p>
                         </motion.div>
                         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
                             {whyMetaMinds.map(({ icon: Icon, stat, label, description }, i) => (

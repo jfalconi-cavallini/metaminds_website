@@ -1,81 +1,80 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpen, Code2, Cpu, Zap, Calculator, GraduationCap, CheckCircle } from "lucide-react";
+import { BookOpen, FlaskConical, Atom, PenLine, Calculator, Lightbulb, CheckCircle } from "lucide-react";
 import Section from "./Section";
 
 const programs = [
     {
         icon: BookOpen,
-        title: "SAT & ACT Prep",
-        description: "Full-length practice tests, section-by-section score tracking, and a plan built around your actual weak areas — not a generic syllabus.",
+        title: "SAT Prep",
+        description: "Full length practice tests, score tracking by section, and sessions built around your student's actual weak areas, not a generic syllabus.",
         details: [
-            "Full-length practice tests",
-            "Targeted weak-area focus",
-            "Test-day strategy",
+            "Full length practice tests",
+            "Targeted weak area focus",
+            "Test day strategy",
             "College readiness guidance"
         ]
     },
     {
-        icon: GraduationCap,
-        title: "AP Courses",
-        description: "AP-level instruction from tutors who studied this material at the college level, not just taught it from a textbook.",
+        icon: FlaskConical,
+        title: "AP Chemistry",
+        description: "AP Chemistry help built around the units your student is working on now, with free response practice and exam pacing.",
         details: [
-            "Calculus AB/BC, Physics, Chemistry & more",
-            "Free-response & essay strategy",
-            "Exam-day pacing",
-            "College-credit strategy"
+            "Unit by unit review",
+            "Free response practice",
+            "Lab and data questions",
+            "Exam day pacing"
         ]
     },
     {
         icon: Calculator,
-        title: "Math Concepts",
-        description: "Elementary through calculus, with a focus on actually understanding the concept — not memorizing steps to pass the next quiz.",
+        title: "Math",
+        description: "Elementary through calculus, with a focus on actually understanding the concept, not memorizing steps to pass the next quiz.",
         details: [
             "Elementary to advanced levels",
-            "Homework help & tutoring",
+            "Homework help",
             "Concept mastery focus",
-            "Real-world applications"
+            "Real world applications"
         ]
     },
     {
-        icon: Code2,
-        title: "Programming",
-        description: "Python, Java, and JavaScript, taught by tutors who write code professionally — building toward a real project, not just exercises.",
+        icon: Atom,
+        title: "Science",
+        description: "Science help from elementary through high school, with clear explanations and practice that builds on what your student is learning in class.",
         details: [
-            "Python, Java, JavaScript",
-            "Web development",
-            "Real project building",
-            "Portfolio development"
+            "Clear concept explanations",
+            "Homework help",
+            "Test review",
+            "Study skills"
         ]
     },
     {
-        icon: Cpu,
-        title: "Robotics",
-        description: "Robotics and coding concepts taught live online with mentors who work in engineering.",
+        icon: PenLine,
+        title: "English & Writing",
+        description: "Reading, writing, and grammar help, from building strong habits early to sharpening essays in high school.",
         details: [
-            "Robotics coding concepts",
-            "Mechanical engineering concepts",
-            "Autonomous programming",
-            "Programming concepts taught live online"
+            "Reading comprehension",
+            "Writing and essays",
+            "Grammar and vocabulary",
+            "SAT Reading and Writing"
         ]
     },
     {
-        icon: Zap,
-        title: "3D Design & Modeling",
-        description: "3D design and modeling taught live online by a practicing design engineer, from first sketch through a digital model.",
+        icon: Lightbulb,
+        title: "And More",
+        description: "Don't see your student's subject? Ask us on the free consultation and we'll tell you honestly if we're a good fit.",
         details: [
-            "CAD software mastery",
-            "3D modeling design",
-            "Design thinking",
-            "Digital design practice"
+            "Homework help",
+            "Study habits",
+            "Test review",
+            "Getting ahead for next year"
         ]
     },
 ];
 
 const results = [
-    { before: 950, after: 1110, improvement: 160, label: "SAT Composite", student: "MetaMinds Student" },
-    { before: 370, after: 590, improvement: 220, label: "SAT Math Section", student: "MetaMinds Student" },
+    { before: 1110, after: 1410, label: "Official SAT Practice Test", student: "MetaMinds Student" },
 ];
 
 export default function ProgramsAndResults() {
@@ -88,10 +87,10 @@ export default function ProgramsAndResults() {
                         <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">What We Teach</span>
                     </motion.div>
                     <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
-                        One tutor, six directions your kid could go.
+                        One tutor, matched to what your kid needs.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                        Test prep, math, code, and robotics concepts, taught live online by tutors who work in the field, not just teach it.
+                        Math, science, English, and more, plus SAT prep and AP Chemistry. Every session is one on one and live online, K to 12.
                     </motion.p>
                 </div>
 
@@ -127,11 +126,11 @@ export default function ProgramsAndResults() {
                         Progress you can point to.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-blue-200 max-w-2xl mx-auto leading-relaxed">
-                        Every student&apos;s progress is tracked skill by skill, session by session. Here are two real examples.
+                        Every student&apos;s progress is tracked skill by skill, session by session. Here is one real example.
                     </motion.p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row justify-center gap-5 max-w-3xl mx-auto mb-4">
+                <div className="flex justify-center max-w-md mx-auto mb-4">
                     {results.map((result, idx) => (
                         <motion.div key={idx} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: idx * 0.1 }}
                             className="flex-1 bg-white rounded-xl p-5 border border-white/20 shadow-lg hover:shadow-xl transition-shadow">
@@ -148,10 +147,6 @@ export default function ProgramsAndResults() {
                                         <div className="text-xs text-gray-500 mt-0.5">After</div>
                                     </div>
                                 </div>
-                                <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg px-3 py-2 mb-4 border border-green-200">
-                                    <div className="text-xl font-black text-green-600">+{result.improvement}</div>
-                                    <div className="text-xs text-green-600 font-semibold">points improvement</div>
-                                </div>
                                 <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
                                     <motion.div initial={{ width: 0 }} whileInView={{ width: `${(result.after / 1600) * 100}%` }} transition={{ delay: 0.3, duration: 0.8 }}
                                         className="h-full bg-gradient-to-r from-blue-500 to-green-500" />
@@ -161,7 +156,7 @@ export default function ProgramsAndResults() {
                     ))}
                 </div>
                 <p className="text-center text-xs text-slate-400">
-                    Individual student results — shown as examples, not guarantees.
+                    Individual results vary. Shown as an example, not a guarantee.
                 </p>
                 </div>
             </section>

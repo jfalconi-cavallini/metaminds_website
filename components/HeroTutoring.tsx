@@ -23,22 +23,18 @@ export default function HeroTutoring() {
                     >
                         <div className="mb-5">
                             <span className="text-xs font-bold text-blue-300 uppercase tracking-widest">
-                                ONE DEDICATED MENTOR · A PLAN YOU CAN SEE
+                                ONE ON ONE ONLINE · K TO 12 · SAT PREP
                             </span>
                         </div>
 
                         <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-tight">
-                            A mentor who stays<br />
-                            with your kid, and<br />
-                            <span className="text-blue-400">a plan you can actually see.</span>
+                            A tutor matched<br />
+                            to your kid, and<br />
+                            <span className="text-blue-400">progress you can actually see.</span>
                         </h1>
 
                         <p className="text-base md:text-lg text-blue-100 mb-7 leading-relaxed max-w-xl">
-                            MetaMinds pairs your child with one dedicated mentor who builds a
-                            personalized plan, sends session notes after every session, and
-                            tracks skill growth you can actually see. SAT &amp; ACT, AP classes,
-                            K–12 math, coding, and robotics. Every tier runs on the same system.
-                            The difference is who works with your child online.
+                            MetaMinds pairs your child with a tutor we think is a great match: a consistent, long term tutor instead of switching session to session. Parents see session notes in the portal and get a weekly progress update by email. Math, science, English, and more, plus SAT prep and AP Chemistry, all one on one online.
                         </p>
 
                         {/* CTA Buttons */}
@@ -65,7 +61,7 @@ export default function HeroTutoring() {
                             >
                                 <FileText className="w-5 h-5 text-blue-400 mb-2" />
                                 <div className="text-xs font-bold text-white">Session Notes</div>
-                                <div className="text-xs text-blue-200 mt-0.5">After every session</div>
+                                <div className="text-xs text-blue-200 mt-0.5">In the parent portal</div>
                             </motion.div>
                             <motion.div
                                 initial={{ opacity: 0, y: 10 }}
@@ -84,8 +80,8 @@ export default function HeroTutoring() {
                                 className="flex flex-col items-center text-center p-3 bg-white/5 backdrop-blur rounded-lg border border-white/10"
                             >
                                 <GraduationCap className="w-5 h-5 text-blue-400 mb-2" />
-                                <div className="text-xs font-bold text-white">K–12 &amp; Beyond</div>
-                                <div className="text-xs text-blue-200 mt-0.5">One long-term partner</div>
+                                <div className="text-xs font-bold text-white">K to 12</div>
+                                <div className="text-xs text-blue-200 mt-0.5">One long term tutor</div>
                             </motion.div>
                         </div>
                     </motion.div>

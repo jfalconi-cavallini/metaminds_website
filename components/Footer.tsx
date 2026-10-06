@@ -13,7 +13,7 @@ export default function Footer() {
                                 <img src="/images/metaminds-logo2.png" alt="MetaMinds Logo" className="h-12 w-auto object-contain" />
                             </div>
                         </div>
-                        <p className="text-gray-400 text-sm">Expert tutoring in SAT, ACT, Math, Coding, and Robotics.</p>
+                        <p className="text-gray-400 text-sm">One on one online tutoring in math, science, English, and more, plus SAT prep.</p>
                     </div>
 
                     {/* Contact */}
