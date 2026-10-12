@@ -17,4 +17,13 @@ export const games: readonly Game[] = [
       "Spanish vocabulary practice for personality words, telling time, ser, dates, and conversation questions. Answer fast to hit the ball farther.",
     href: "/games/palabras-park",
   },
+  {
+    slug: "verbo-rush",
+    title: "Verbo Rush",
+    subject: "Spanish",
+    gradeRange: "Spanish 1–2",
+    description:
+      "Conjugate common -ar, -er, and -ir verbs plus ser, estar, tener, ir, and hacer. Present tense first, with an optional pretérito mode. Type or tap the form before the timer hits zero.",
+    href: "/games/verbo-rush",
+  },
 ];
