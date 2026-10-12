@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored static game scripts (browser globals shared across files).
+    "public/games/**",
   ]),
 ]);
 
