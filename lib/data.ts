@@ -124,6 +124,7 @@ export const siteData = {
         { label: "Programs", href: "#programs" },
         { label: "Results", href: "#results" },
         { label: "FAQ", href: "#faq" },
+        { label: "Games", href: "games" },
     ],
 
     // ==================== PRESERVED FROM ORIGINAL ====================
