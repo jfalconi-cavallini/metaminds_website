@@ -26,4 +26,13 @@ export const games: readonly Game[] = [
       "Conjugate common -ar, -er, and -ir verbs plus ser, estar, tener, ir, and hacer. Present tense first, with an optional pretérito mode. Type or tap the form before the timer hits zero.",
     href: "/games/verbo-rush",
   },
+  {
+    slug: "lanza-loros",
+    title: "Lanza Loros",
+    subject: "Spanish",
+    gradeRange: "Spanish 1–3",
+    description:
+      "Answer a Spanish question to load a parrot, then slingshot it into the blob forts. Faster answers earn MEGA, SÚPER, or GRANDE birds. Six forts, from vocab through the past tense.",
+    href: "/games/lanza-loros",
+  },
 ];
