@@ -7,6 +7,7 @@ import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail as _sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { ownedParentUpdateSessionIds } from "@/lib/portal/parentUpdateSessions";
 import { US_TIMEZONES } from "@/lib/portal/timezone";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import WeeklyCalendar from "@/components/portal/WeeklyCalendar";
@@ -555,7 +556,10 @@ export default function TutorPortal() {
   const [parentUpdateText,     setParentUpdateText]     = useState("");
   const [parentUpdateSaving,   setParentUpdateSaving]   = useState(false);
   const [parentUpdateSuccess,  setParentUpdateSuccess]  = useState(false);
-  const [puSelectedSessionIds, setPuSelectedSessionIds] = useState<number[]>([]);
+  const [parentUpdateError,    setParentUpdateError]    = useState("");
+  // Keyed by student id. One shared list leaked other students' ticked
+  // sessions into whichever update was sent next (2026-09-28).
+  const [puSelectedByStudent,  setPuSelectedByStudent]  = useState<Record<number, number[]>>({});
 
   // ── NOTE LIST PANEL ──────────────────────────────────────────────
   const [selectedNoteId,      setSelectedNoteId]      = useState<number | null>(null);
@@ -1250,11 +1254,22 @@ export default function TutorPortal() {
     }
   }
 
+  function sessionIdsForStudent(studentId: number): number[] {
+    return ownedParentUpdateSessionIds(
+      puSelectedByStudent[studentId] ?? [],
+      localSessions.map((sess) => ({ id: sess.id, student_id: sess.studentId, tutor_id: sess.tutorId })),
+      studentId,
+      tutorId,
+    );
+  }
+
   async function sendParentUpdate(studentId: number) {
-    if (!parentUpdateText.trim()) return;
-    setParentUpdateSaving(true); setParentUpdateSuccess(false);
+    const message = parentUpdateText.trim();
+    if (!message) return;
+    const sessionIds = sessionIdsForStudent(studentId);
+    setParentUpdateSaving(true); setParentUpdateSuccess(false); setParentUpdateError("");
     try {
-      const update = await insertParentUpdate(tutorId, studentId, parentUpdateText.trim(), puSelectedSessionIds);
+      const update = await insertParentUpdate(tutorId, studentId, message, sessionIds);
       setParentUpdates((prev) => [update, ...prev]);
       // Fire email non-blocking — failures don't block the UI
       supabase.auth.getSession().then(({ data: { session } }) => {
@@ -1264,13 +1279,25 @@ export default function TutorPortal() {
             "content-type": "application/json",
             ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
           },
-          body: JSON.stringify({ tutorId, studentId, message: parentUpdateText.trim(), sessionIds: puSelectedSessionIds }),
+          body: JSON.stringify({ tutorId, studentId, message, sessionIds }),
         }).then((r) => r.json()).then((j) => console.log("[email]", j)).catch(console.error);
       });
       setParentUpdateText("");
-      setPuSelectedSessionIds([]);
+      setPuSelectedByStudent((prev) => ({ ...prev, [studentId]: [] }));
       setParentUpdateSuccess(true); setTimeout(() => setParentUpdateSuccess(false), 3000);
-    } catch { /* silent */ }
+    } catch (err) {
+      console.error("[sendParentUpdate]", err);
+      const raw = err instanceof Error
+        ? err.message
+        : err && typeof err === "object" && "message" in err && typeof err.message === "string"
+          ? err.message
+          : "";
+      setParentUpdateError(
+        raw.includes("session_ids")
+          ? "Those sessions don't belong to this student. Deselect them and try again."
+          : raw || "Couldn't send this update. Please try again.",
+      );
+    }
     finally { setParentUpdateSaving(false); }
   }
 
@@ -1619,7 +1646,7 @@ export default function TutorPortal() {
                                 </button>
                               )}
                               {updateOverdue ? (
-                                <button onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.studentId); setStudentPanelTab("update"); setTab("students"); }}
+                                <button onClick={(e) => { e.stopPropagation(); setSelectedStudentId(s.studentId); setStudentPanelTab("update"); setTab("students"); setParentUpdateError(""); }}
                                   className="inline-flex items-center gap-1.5 bg-orange-50 text-orange-700 border border-orange-200 px-3 py-1.5 rounded-xl text-xs font-medium hover:bg-orange-100">
                                   ⚠ Parent update needed
                                 </button>
@@ -1796,7 +1823,7 @@ export default function TutorPortal() {
                         setPanelHwShowForm(false);
                         setPanelHwTask(""); setPanelHwDue("");
                         setPanelHwSuccess(false); setPanelHwError("");
-                        setParentUpdateText(""); setParentUpdateSuccess(false);
+                        setParentUpdateText(""); setParentUpdateSuccess(false); setParentUpdateError("");
                         setSelectedStudyLog([]); setStudyLogLoading(true);
                         fetchStudyLog(s.id, 30).then(setSelectedStudyLog).catch(() => {}).finally(() => setStudyLogLoading(false));
                       }
@@ -2043,16 +2070,21 @@ export default function TutorPortal() {
                                   <p className="text-xs text-gray-500 mb-2">Tag sessions this update covers (optional):</p>
                                   <div className="space-y-1.5">
                                     {recentPastSessions.map((sess) => {
-                                      const checked = puSelectedSessionIds.includes(sess.id);
+                                      const selectedIds = puSelectedByStudent[s.id] ?? [];
+                                      const checked = selectedIds.includes(sess.id);
                                       return (
                                         <label key={sess.id} className="flex items-center gap-2 cursor-pointer group">
                                           <input
                                             type="checkbox"
                                             checked={checked}
                                             onChange={() =>
-                                              setPuSelectedSessionIds((prev) =>
-                                                checked ? prev.filter((id) => id !== sess.id) : [...prev, sess.id]
-                                              )
+                                              setPuSelectedByStudent((prev) => {
+                                                const current = prev[s.id] ?? [];
+                                                const next = current.includes(sess.id)
+                                                  ? current.filter((id) => id !== sess.id)
+                                                  : [...current, sess.id];
+                                                return { ...prev, [s.id]: next };
+                                              })
                                             }
                                             className="w-4 h-4 accent-blue-600 shrink-0"
                                           />
@@ -2068,12 +2100,13 @@ export default function TutorPortal() {
 
                               <textarea
                                 value={parentUpdateText}
-                                onChange={(e) => setParentUpdateText(e.target.value)}
+                                onChange={(e) => { setParentUpdateText(e.target.value); setParentUpdateError(""); }}
                                 placeholder={`Share ${s.name}'s progress, what was covered this week, upcoming topics, or anything the parent should know…`}
                                 rows={4}
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                               />
                               {parentUpdateSuccess && <p className="text-xs text-green-600 font-medium">Update sent!</p>}
+                              {parentUpdateError && <p className="text-xs text-red-600 font-medium">{parentUpdateError}</p>}
                               <button onClick={() => sendParentUpdate(s.id)} disabled={parentUpdateSaving || !parentUpdateText.trim()}
                                 className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-40">
                                 {parentUpdateSaving ? "Sending…" : "Send Update"}
