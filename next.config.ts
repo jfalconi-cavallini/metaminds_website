@@ -11,6 +11,22 @@ const nextConfig: NextConfig = {
         source: "/games/palabras-park/",
         destination: "/games/palabras-park/index.html",
       },
+      {
+        source: "/games/verbo-rush",
+        destination: "/games/verbo-rush/index.html",
+      },
+      {
+        source: "/games/verbo-rush/",
+        destination: "/games/verbo-rush/index.html",
+      },
+      {
+        source: "/games/lanza-loros",
+        destination: "/games/lanza-loros/index.html",
+      },
+      {
+        source: "/games/lanza-loros/",
+        destination: "/games/lanza-loros/index.html",
+      },
     ];
   },
 };

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#5c3418">
+<title>Lanza Loros</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#ead7b2; --ink:#2b1a0e; --muted:#6b4e32;
+  --wood1:#6e4524; --wood2:#8d5a2e; --wood3:#55361a;
+  --navy:#071428; --px:'Press Start 2P', ui-monospace, Menlo, Consolas, monospace;
+  --vt:'VT323', ui-monospace, Menlo, Consolas, monospace;
+  --mega:#ff9a3c; --super:#d46bff; --big:#3dfff3; --plain:#7CFF6B;
+  box-sizing:border-box;
+}
+*,*::before,*::after{box-sizing:inherit}
+html,body{margin:0}
+body{
+  background:var(--page); color:var(--ink); font-family:var(--vt); font-size:22px;
+  -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.wrap{max-width:860px;margin:0 auto;padding:14px 12px 28px}
+.title{font-family:var(--px);font-size:clamp(18px,4.4vw,30px);text-align:center;margin:8px 0 6px;line-height:1.35;text-shadow:3px 3px 0 #ff9a3c,6px 6px 0 #7b3ff0}
+.sub{text-align:center;margin:0 0 14px;color:var(--muted);font-size:22px}
+.cab{
+  background:repeating-linear-gradient(90deg,var(--wood1) 0 7px,var(--wood2) 7px 12px,var(--wood3) 12px 16px,var(--wood2) 16px 24px);
+  border-radius:22px;padding:16px;box-shadow:0 14px 0 #3a2412,0 22px 28px rgba(0,0,0,.35);
+}
+.bezel{background:#120c08;border-radius:12px;padding:8px;border:4px solid #1b120c}
+.rainbow{height:8px;background:linear-gradient(90deg,#ff4d4d 0 16.6%,#ff9a3c 0 33.3%,#ffe14a 0 50%,#3dff6a 0 66.6%,#3dfff3 0 83.3%,#ff4dff 0)}
+#screen{position:relative;background:var(--navy);color:#fff;overflow:hidden}
+#screen:has(#overlay.sheet.show) > :not(#overlay){display:none}
+.hud{
+  display:flex;flex-wrap:wrap;gap:6px 12px;justify-content:space-between;align-items:center;
+  padding:8px 8px 6px;font-family:var(--px);font-size:clamp(7px,1.7vw,10px);color:#d7ecff;
+  background:#06101f;border-bottom:3px solid #12305a;
+}
+.hud b{color:#ffe14a;font-weight:400}
+canvas{display:block;width:100%;height:auto;background:#87d6ff;touch-action:none}
+.panel{padding:8px 10px 12px}
+.banner{font-family:var(--px);font-size:clamp(8px,2vw,11px);color:#ffe14a;text-align:center;margin:0 0 6px;line-height:1.6}
+.prompt{font-size:clamp(26px,5vw,34px);text-align:center;margin:0 0 8px;line-height:1.05;min-height:1.1em}
+.zones{position:relative;display:flex;height:26px;border:2px solid #000;font-family:var(--px);font-size:8px;margin:6px 0}
+.zones span{display:flex;align-items:center;justify-content:center;color:#140818}
+.z-mega{width:30%;background:var(--mega)} .z-super{width:34%;background:var(--super)} .z-big{width:36%;background:var(--big)}
+#marker{position:absolute;top:-5px;bottom:-5px;width:4px;background:#fff;left:0;box-shadow:0 0 0 2px #000}
+.now{text-align:center;margin:6px 0 8px;color:#fff;font-size:22px}
+.now b{color:var(--mega);font-weight:400}
+.answers{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+@media (max-width:720px){.answers{grid-template-columns:repeat(2,1fr)}}
+.ab{
+  font-family:var(--vt);font-size:clamp(22px,4vw,30px);line-height:1;color:#fff;background:#140a28;
+  border:3px solid var(--bc);box-shadow:0 5px 0 var(--bc);min-height:54px;padding:10px 6px;cursor:pointer;position:relative;
+}
+.ab .k{position:absolute;top:3px;left:5px;font-family:var(--px);font-size:8px;color:var(--bc)}
+.ab:active{transform:translateY(4px);box-shadow:0 1px 0 var(--bc)}
+.ab:disabled{opacity:.45;cursor:default;transform:none}
+.why{font-size:24px;line-height:1.15;color:#ffe14a;text-align:center;margin:8px 0}
+.hintline{text-align:center;color:#b7c7dc;margin:4px 0 0;font-size:20px}
+#overlay{display:none;color:#fff}
+#overlay.show{display:block}
+#overlay.sheet{position:relative;padding:12px 10px 16px}
+#overlay.cover{position:absolute;inset:0;overflow:auto;background:rgba(4,10,24,.9);padding:16px 12px;z-index:4}
+section{max-width:640px;margin:0 auto;text-align:center}
+.logo{font-family:var(--px);font-size:clamp(20px,5vw,34px);line-height:1.35;margin:4px 0;color:#ffe14a;text-shadow:4px 4px 0 #ff4d4d}
+.logo span{color:#c86bff;text-shadow:4px 4px 0 #3a1468}
+.tag{font-size:22px;line-height:1.2;color:#e7eef8;margin:0 0 10px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;text-align:left;margin:8px 0 12px}
+@media (max-width:520px){.cards{grid-template-columns:1fr}}
+.card{border:3px solid #2a3a55;background:#07111f;padding:8px 8px 6px}
+.card b{font-family:var(--px);font-size:8px;display:block;margin-bottom:4px}
+.card.mega b{color:var(--mega)} .card.super b{color:var(--super)} .card.big b{color:var(--big)} .card.plain b{color:var(--plain)}
+.card p{margin:0;font-size:20px;line-height:1.1;color:#d5deea}
+.opt{margin:8px 0}
+.opt h3{font-family:var(--px);font-size:8px;color:#9fb4cc;margin:0 0 6px;font-weight:400}
+.tog{font-family:var(--px);font-size:11px;margin:3px;padding:10px 10px;background:#000;color:#9fb4cc;border:2px solid #445;cursor:pointer}
+.tog[aria-pressed="true"]{color:#140818;background:var(--tc,#ffe14a);border-color:var(--tc,#ffe14a)}
+.en{font-size:18px;color:#9fb4cc;margin:4px 0 0;line-height:1.15}
+.btn{font-family:var(--px);font-size:13px;color:#ffe14a;background:#000;border:3px solid #ffe14a;box-shadow:5px 5px 0 #ff4d4d;padding:12px 16px;margin:10px 6px 4px;cursor:pointer}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 #ff4d4d}
+.btn.alt{color:#3dfff3;border-color:#3dfff3;box-shadow:5px 5px 0 #7b3ff0}
+.keys{font-size:18px;color:#b7c7dc;line-height:1.25;margin:8px 0 0}
+.big{font-family:var(--px);font-size:clamp(14px,3vw,22px);margin:8px 0;color:#ffe14a}
+.stats{font-size:26px;line-height:1.3;white-space:pre-line}
+button:focus-visible{outline:3px dashed #3dfff3;outline-offset:3px}
+.controls{display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:10px}
+.mini{font-family:var(--px);font-size:8px;background:#3a2414;color:#f3e0c2;border:2px solid #000;border-radius:8px;padding:10px 8px;cursor:pointer}
+.launch{
+  width:84px;height:84px;border-radius:50%;font-family:var(--px);font-size:8px;line-height:1.35;
+  color:#140818;background:#ffe14a;border:4px solid #ff4d4d;cursor:pointer;box-shadow:0 6px 0 #8a3a12;
+}
+.launch:disabled{opacity:.4;cursor:default}
+.help{color:var(--muted);font-size:22px;line-height:1.3;margin:16px 4px 0}
+.backline{margin:12px 4px 0;font-family:var(--px);font-size:10px}
+.backline a{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){#marker{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1 class="title">LANZA LOROS</h1>
+  <p class="sub">Responde rápido, carga un loro y tumba los fuertes.</p>
+  <div class="cab">
+    <div class="bezel">
+      <div class="rainbow"></div>
+      <div id="screen">
+        <div class="hud">
+          <span>NIVEL <b id="fortLabel">1/6</b></span>
+          <span>PUNTOS <b id="score">000000</b></span>
+          <span>BICHOS <b id="enemies">0</b></span>
+          <span>LOROS <b id="birdsLeft">0</b></span>
+          <span>RACHA <b id="streak">0</b></span>
+        </div>
+        <canvas id="c" width="960" height="540" aria-label="Campo de juego"></canvas>
+        <div class="panel" id="panel">
+          <p class="banner" id="banner">RESPONDE PARA CARGAR TU LORO</p>
+          <p class="prompt" id="prompt" lang="es"></p>
+          <div class="zones" id="zones" aria-hidden="true">
+            <span class="z-mega">MEGA</span><span class="z-super">SÚPER</span><span class="z-big">GRANDE</span>
+            <i id="marker"></i>
+          </div>
+          <p class="now" id="now">Responde ahora y sale: <b id="zoneLabel">MEGA</b></p>
+          <div class="answers" id="answers"></div>
+          <p class="why" id="why" hidden></p>
+          <p class="hintline" id="hintline"></p>
+        </div>
+        <div id="overlay" class="show sheet">
+          <section id="menu">
+            <div class="logo">LANZA<br><span>LOROS</span></div>
+            <p class="tag">Antes de cada tiro respondes una pregunta. Rápido y bien: un loro poderoso. Mal: un loro normal.</p>
+            <div class="cards">
+              <div class="card mega"><b>MEGA · ¡BOOM!</b><p>Muy rápido. Toca en el aire y explota.</p></div>
+              <div class="card super"><b>SÚPER · TRÍO</b><p>Rápido. Toca y se parte en tres.</p></div>
+              <div class="card big"><b>GRANDE · ROCA</b><p>Correcto, pero lento. Pesa y pega fuerte.</p></div>
+              <div class="card plain"><b>NORMAL · PÍO</b><p>Respuesta mal. Solo un loro común.</p></div>
+            </div>
+            <div class="opt">
+              <h3>NIVEL DE ESPAÑOL</h3>
+              <button class="tog" type="button" data-group="level" data-value="1" aria-pressed="true" style="--tc:#7CFF6B">1</button>
+              <button class="tog" type="button" data-group="level" data-value="2" aria-pressed="false" style="--tc:#3dfff3">2</button>
+              <button class="tog" type="button" data-group="level" data-value="3" aria-pressed="false" style="--tc:#ffe14a">3</button>
+              <button class="tog" type="button" data-group="level" data-value="4" aria-pressed="false" style="--tc:#ff9a3c">4</button>
+              <button class="tog" type="button" data-group="level" data-value="5" aria-pressed="false" style="--tc:#ff4dff">5</button>
+              <p class="en">English: 1 vocab, colors, numbers · 2 el/la and gender · 3 present tense · 4 ser, estar, gustar · 5 preterite vs imperfect</p>
+            </div>
+            <div class="opt">
+              <h3>EMPEZAR EN EL FUERTE</h3>
+              <button class="tog" type="button" data-group="fort" data-value="1" aria-pressed="true">1</button>
+              <button class="tog" type="button" data-group="fort" data-value="2" aria-pressed="false">2</button>
+              <button class="tog" type="button" data-group="fort" data-value="3" aria-pressed="false">3</button>
+              <button class="tog" type="button" data-group="fort" data-value="4" aria-pressed="false">4</button>
+              <button class="tog" type="button" data-group="fort" data-value="5" aria-pressed="false">5</button>
+              <button class="tog" type="button" data-group="fort" data-value="6" aria-pressed="false">6</button>
+              <p class="en">English: start at fort 1 through 6. Clear every blob to win the fort.</p>
+            </div>
+            <button class="btn" type="button" id="start">JUGAR</button>
+            <p class="keys">Arrastra para apuntar y suelta para lanzar. Toca en el aire para el poder.<br>Teclado: ← → apuntar · ↑ ↓ fuerza · espacio lanzar · 1–4 respuesta · P pausa<br>3 respuestas correctas seguidas suben tu loro un nivel.</p>
+          </section>
+          <section id="paused" hidden>
+            <div class="logo">PAUSA</div>
+            <button class="btn" type="button" id="resume">REANUDAR</button>
+            <button class="btn alt" type="button" id="quit">MENÚ</button>
+          </section>
+          <section id="cleared" hidden>
+            <div class="logo" id="clearTitle">¡FUERTE LIMPIO!</div>
+            <p class="stats" id="clearBody"></p>
+            <button class="btn" type="button" id="nextFort">SIGUIENTE FUERTE</button>
+            <button class="btn alt" type="button" id="clearMenu">MENÚ</button>
+          </section>
+          <section id="failed" hidden>
+            <div class="logo">SIN LOROS</div>
+            <p class="tag">Los bichos siguen en el fuerte.</p>
+            <button class="btn" type="button" id="retry">REINTENTAR</button>
+            <button class="btn alt" type="button" id="failMenu">MENÚ</button>
+          </section>
+          <section id="won" hidden>
+            <div class="logo">¡GANASTE!</div>
+            <p class="stats" id="wonBody"></p>
+            <button class="btn" type="button" id="again">JUGAR OTRA VEZ</button>
+            <button class="btn alt" type="button" id="wonMenu">MENÚ</button>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="controls">
+    <div>
+      <button class="mini" type="button" id="pauseBtn">PAUSA</button>
+      <button class="mini" type="button" id="soundBtn" aria-pressed="true">SONIDO SÍ</button>
+    </div>
+    <button class="launch" type="button" id="launchBtn" disabled>LANZAR</button>
+  </div>
+  <p class="help">Seis fuertes. Cada loro sale de una pregunta de opción múltiple. Si respondes en la zona naranja sale un MEGA, en la morada un SÚPER y en la azul una roca GRANDE. Una racha de 3 sube el loro un nivel. Los loros que no uses al limpiar el fuerte dan estrellas. English: slingshot parrots into the forts. No account and no score is saved.</p>
+  <p class="backline"><a href="/games">Todos los juegos</a></p>
+</div>
+<script src="/games/lanza-loros/game.js"></script>
+</body>
+</html>
