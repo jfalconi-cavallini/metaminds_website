@@ -275,7 +275,7 @@ export default function SpellingBeeGame() {
           </div>
           <Link
             href="/games"
-            className="inline-flex min-h-12 shrink-0 touch-manipulation items-center rounded-xl px-3 text-[16px] font-bold text-[#E0B44A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0B44A]"
+            className="inline-flex min-h-14 shrink-0 touch-manipulation items-center rounded-xl px-3 text-[16px] font-bold text-[#E0B44A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0B44A]"
           >
             Games
           </Link>
