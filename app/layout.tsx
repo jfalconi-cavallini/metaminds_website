@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: `${siteData.brand.name} | ${siteData.brand.tagline}`,
   description: siteData.brand.description,
   openGraph: {
-    title: `MetaMinds STEM Academy — ${siteData.brand.tagline}`,
+    title: `MetaMinds STEM Academy | ${siteData.brand.tagline}`,
     description: siteData.brand.description,
     url: "https://www.metamindsstemacademy.com/",
     siteName: "MetaMinds STEM Academy",

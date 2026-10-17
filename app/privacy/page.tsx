@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { siteData } from "@/lib/data";
 
+// TODO: This page is still the old camp privacy copy (medical info, allergies, camp photos).
+// It needs a rewrite for online tutoring. Do not invent legal text here.
+
 export default function PrivacyPage() {
     return (
         <div className="min-h-screen bg-gray-50">

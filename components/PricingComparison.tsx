@@ -8,9 +8,9 @@ import CalendlyButton from "./CalendlyButton";
 const tiers = [
     {
         name: "Premium Mentoring",
-        tag: "SAT/ACT · AP Courses · Advanced Coursework",
+        tag: "SAT/ACT · AP Chemistry · Advanced Coursework",
         description:
-            "Our most experienced tutors — practicing engineers, scientists, and subject specialists who've taught this exact material for years.",
+            "Our most experienced tutors: practicing engineers, scientists, and subject specialists who've taught this exact material for years.",
         rate: "From $70/hr",
         rateNote: "Single session through 20-hour packages",
     },
@@ -18,7 +18,7 @@ const tiers = [
         name: "College Mentor",
         tag: "High School · Middle School · Elementary",
         description:
-            "High-achieving college students, carefully selected and supervised by MetaMinds. The full MetaMinds system — session notes, homework, parent updates, skill tracking — at a more accessible rate.",
+            "High-achieving college students, carefully selected and supervised by MetaMinds. The full MetaMinds system, with session notes, homework, parent updates, and skill tracking, at a more accessible rate.",
         rate: "From $50/hr",
         rateNote: "Single session through 20-hour packages",
     },
@@ -33,11 +33,11 @@ const tiers = [
 ] as const;
 
 const includedInAll = [
-    "Session notes after every session",
+    "Session notes parents can see in the portal",
     "Homework assignments with feedback",
     "Parent progress updates",
     "Skill tracking in the student portal",
-    "1-on-1 sessions only — no group classes",
+    "One on one sessions only, no group classes",
 ];
 
 export default function PricingComparison() {
