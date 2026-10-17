@@ -202,6 +202,17 @@ export const siteData = {
             ],
             bio: "Christian holds a B.S. in Mathematics–Computer Science and an M.S. in Business Analytics from UC San Diego, and is currently pursuing his MBA at Georgia Tech. He specializes in mathematics, programming, and data-driven problem solving — helping students build analytical and coding skills grounded in both engineering and business.",
         },
+        {
+            name: "Sarah Qiu",
+            title: "Math, AP Math & SAT Tutor",
+            image: "/images/tutors/sarah_tutor_1024_square.jpg",
+            credentials: [
+                "Pursuing Molecular, Cellular, and Developmental Biology, Yale University",
+                "Certificate in Spanish",
+                "Experience teaching elementary and middle school math, AP math, and SAT prep",
+            ],
+            bio: "Sarah currently studies at Yale University, pursuing Molecular, Cellular, and Developmental Biology with a certificate in Spanish. She has experience teaching elementary and middle school math, AP math, and SAT prep. She is excited to help students with standardized testing, something she felt lost with at the time, and focuses on providing tailored resources and working through concepts alongside problems.",
+        },
     ],
 
     gallery: {
