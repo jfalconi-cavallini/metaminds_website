@@ -1,7 +1,8 @@
 "use client";
 
 import { useId, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { games, trail } from "@/lib/games";
+import GamesBreadcrumb from "../GamesBreadcrumb";
 import {
   LINEAR_LEVELS,
   isCorrectAnswer,
@@ -23,6 +24,8 @@ type Miss = {
   typed: string;
   answer: string;
 };
+
+const linearGame = games.find((entry) => entry.slug === "linear-equations");
 
 const goldButton =
   "inline-flex min-h-14 w-full touch-manipulation items-center justify-center rounded-xl bg-[#E0B44A] px-4 text-center text-[16px] font-bold text-[#071426] hover:bg-[#C9962E] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F6F0E4] active:bg-[#C9962E]";
@@ -112,21 +115,16 @@ export default function LinearEquationsGame() {
     <div className="min-h-dvh overflow-x-hidden bg-[#071426] text-[#F6F0E4]">
       <div className="h-1.5 bg-[#E0B44A]" aria-hidden="true" />
       <div className="mx-auto w-full min-w-0 max-w-lg px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold uppercase tracking-widest text-[#E0B44A]">
-              {phase === "play" ? `${level.label} ${level.detail}` : "SAT Algebra"}
-            </p>
-            <h1 className={`break-words font-bold leading-tight ${phase === "play" ? "text-[18px]" : "text-[24px]"}`}>
-              Linear Equations
-            </h1>
-          </div>
-          <Link
-            href="/games"
-            className="inline-flex min-h-14 shrink-0 touch-manipulation items-center rounded-xl px-3 text-[16px] font-bold text-[#E0B44A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0B44A]"
-          >
-            Games
-          </Link>
+        {linearGame && (
+          <GamesBreadcrumb tone="game" items={trail(linearGame.level, linearGame.subject, linearGame.title)} />
+        )}
+        <div className="mt-2 min-w-0">
+          <p className="text-[12px] font-bold uppercase tracking-widest text-[#E0B44A]">
+            {phase === "play" ? `${level.label} ${level.detail}` : "SAT Algebra"}
+          </p>
+          <h1 className={`break-words font-bold leading-tight ${phase === "play" ? "text-[18px]" : "text-[24px]"}`}>
+            Linear Equations
+          </h1>
         </div>
 
         {phase === "pick" && (

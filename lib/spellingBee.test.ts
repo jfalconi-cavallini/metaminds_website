@@ -130,10 +130,10 @@ describe("games registry", () => {
     const game = games.find((entry) => entry.slug === "spelling-bee");
     assert.ok(game);
     assert.equal(game.title, "Spelling Bee Practice");
-    assert.equal(game.gradeBand, "Elementary");
+    assert.equal(game.level, "elementary");
     assert.equal(game.gradeRange, "Grades 4 and 5");
     assert.equal(game.skill, null);
-    assert.equal(game.href, "/games/spelling-bee");
+    assert.equal(game.legacyPath, "/games/spelling-bee");
     assert.equal(/[-–—]/.test(`${game.title} ${game.description} ${game.gradeRange}`), false);
   });
 });
