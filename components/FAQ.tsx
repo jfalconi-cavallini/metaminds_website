@@ -4,8 +4,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, HelpCircle, CheckCircle, Send, User, Mail, MessageSquare } from "lucide-react";
 import { siteData } from "@/lib/data";
+import { validateContactFields, CONTACT_LIMITS } from "@/lib/contactForm";
 import Section from "./Section";
-import emailjs from "@emailjs/browser";
 import CalendlyButton from "./CalendlyButton";
 
 export default function FAQ() {
@@ -15,74 +15,54 @@ export default function FAQ() {
     const [submitStatus, setSubmitStatus] = useState<"idle" | "success" | "error">("idle");
     const [errors, setErrors] = useState({ name: "", email: "", message: "" });
 
-    // Email validation
-    const validateEmail = (email: string) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
-
-    // Form validation
-    const validateForm = () => {
-        const newErrors = { name: "", email: "", message: "" };
-        let isValid = true;
-
-        if (formData.name.trim().length < 2) {
-            newErrors.name = "Name must be at least 2 characters";
-            isValid = false;
-        }
-
-        if (!validateEmail(formData.email)) {
-            newErrors.email = "Please enter a valid email address";
-            isValid = false;
-        }
-
-        if (formData.message.trim().length < 10) {
-            newErrors.message = "Message must be at least 10 characters";
-            isValid = false;
-        }
-
-        setErrors(newErrors);
-        return isValid;
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
-        // Honeypot check (spam bot protection)
-        if (formData.honeypot) {
-            console.log("Bot detected");
-            return;
-        }
 
-        // Validate form
-        if (!validateForm()) {
+        const validated = validateContactFields(formData);
+        if (!validated.ok) {
+            setErrors(validated.errors);
+            setSubmitStatus("idle");
             return;
         }
 
         setIsSubmitting(true);
-        
+        setSubmitStatus("idle");
+
         try {
-            // Send email using EmailJS
-            await emailjs.send(
-                process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
-                process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
-                {
-                    name: formData.name,
-                    email: formData.email,
-                    message: formData.message,
-                },
-                process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
-            );
-            
+            const res = await fetch("/api/contact", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: validated.value.name,
+                    email: validated.value.email,
+                    message: validated.value.message,
+                    mm_leave_blank: formData.honeypot,
+                }),
+            });
+            const data = (await res.json().catch(() => null)) as {
+                fields?: { name?: string; email?: string; message?: string };
+            } | null;
+
+            if (!res.ok) {
+                if (data?.fields) {
+                    setErrors({
+                        name: data.fields.name ?? "",
+                        email: data.fields.email ?? "",
+                        message: data.fields.message ?? "",
+                    });
+                } else {
+                    setSubmitStatus("error");
+                }
+                return;
+            }
+
             setSubmitStatus("success");
             setFormData({ name: "", email: "", message: "", honeypot: "" });
             setErrors({ name: "", email: "", message: "" });
-        } catch (error) {
-            console.error("EmailJS Error:", error);
+        } catch {
             setSubmitStatus("error");
         } finally {
             setIsSubmitting(false);
-            setTimeout(() => setSubmitStatus("idle"), 5000);
         }
     };
 
@@ -255,17 +235,20 @@ export default function FAQ() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form noValidate onSubmit={handleSubmit} className="relative space-y-5">
                         {/* Honeypot field (hidden from users, catches bots) */}
-                        <input
-                            type="text"
-                            name="website"
-                            value={formData.honeypot}
-                            onChange={(e) => setFormData({ ...formData, honeypot: e.target.value })}
-                            style={{ display: "none" }}
-                            tabIndex={-1}
-                            autoComplete="off"
-                        />
+                        <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+                            <label htmlFor="mm_leave_blank">Leave this field blank</label>
+                            <input
+                                type="text"
+                                id="mm_leave_blank"
+                                name="mm_leave_blank"
+                                value={formData.honeypot}
+                                onChange={(e) => setFormData({ ...formData, honeypot: e.target.value })}
+                                tabIndex={-1}
+                                autoComplete="off"
+                            />
+                        </div>
 
                         {/* Name Field */}
                         <div>
@@ -278,10 +261,12 @@ export default function FAQ() {
                                     type="text"
                                     id="name"
                                     required
+                                    maxLength={CONTACT_LIMITS.nameMax}
                                     value={formData.name}
                                     onChange={(e) => {
                                         setFormData({ ...formData, name: e.target.value });
                                         setErrors({ ...errors, name: "" });
+                                        setSubmitStatus("idle");
                                     }}
                                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.name ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white`}
                                     placeholder="John Doe"
@@ -301,10 +286,12 @@ export default function FAQ() {
                                     type="email"
                                     id="email"
                                     required
+                                    maxLength={CONTACT_LIMITS.emailMax}
                                     value={formData.email}
                                     onChange={(e) => {
                                         setFormData({ ...formData, email: e.target.value });
                                         setErrors({ ...errors, email: "" });
+                                        setSubmitStatus("idle");
                                     }}
                                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.email ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white`}
                                     placeholder="parent@example.com"
@@ -324,10 +311,12 @@ export default function FAQ() {
                                     id="message"
                                     required
                                     rows={4}
+                                    maxLength={CONTACT_LIMITS.messageMax}
                                     value={formData.message}
                                     onChange={(e) => {
                                         setFormData({ ...formData, message: e.target.value });
                                         setErrors({ ...errors, message: "" });
+                                        setSubmitStatus("idle");
                                     }}
                                     className={`w-full pl-12 pr-4 py-3 rounded-xl border-2 ${errors.message ? 'border-red-500' : 'border-gray-200'} focus:border-blue-500 focus:outline-none transition-colors text-gray-900 bg-white resize-none`}
                                     placeholder="What would you like to know about our tutoring programs?"
@@ -366,6 +355,7 @@ export default function FAQ() {
                             <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
+                                role="status"
                                 className="bg-green-50 border-2 border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2"
                             >
                                 <CheckCircle className="w-5 h-5" />
@@ -376,9 +366,10 @@ export default function FAQ() {
                             <motion.div
                                 initial={{ opacity: 0, y: -10 }}
                                 animate={{ opacity: 1, y: 0 }}
+                                role="alert"
                                 className="bg-red-50 border-2 border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm font-bold"
                             >
-                                ⚠️ Something went wrong. Please try emailing us directly at {siteData.brand?.email || 'metamindsstemacademy@gmail.com'}
+                                Something went wrong and your message was not sent. Please try again, or email us directly at {siteData.brand?.email || "metamindsstemacademy@gmail.com"}.
                             </motion.div>
                         )}
                     </form>
