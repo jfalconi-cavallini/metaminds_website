@@ -113,7 +113,7 @@ const navItems = [
 
 
 export default function TutorPortal() {
-  const { user, authLoaded } = useAuth();
+  const { user, authLoaded, sessionMissing, profileMissing } = useAuth();
   const router = useRouter();
   const [tab, setTab] = useState("overview");
 
@@ -268,7 +268,20 @@ export default function TutorPortal() {
 
   useEffect(() => {
     if (!authLoaded) return;
-    if (!user) { router.push("/login"); return; }
+    if (!user) {
+      // useAuth can report a null user while the cookie session is still
+      // valid (profile read in flight, or a refresh that has not settled).
+      // Redirecting immediately was sending tutors to /login overnight.
+      if (profileMissing || sessionMissing) {
+        router.push("/login");
+        return;
+      }
+      let cancelled = false;
+      void supabase.auth.getSession().then(({ data: { session } }) => {
+        if (!cancelled && !session) router.push("/login");
+      });
+      return () => { cancelled = true; };
+    }
 
     let tutorId: number;
     if (isPreview) {
@@ -310,7 +323,7 @@ export default function TutorPortal() {
       finally { setLoading(false); }
     }
     load();
-  }, [authLoaded, user, router, isPreview, previewTutorId]);
+  }, [authLoaded, user, sessionMissing, profileMissing, router, isPreview, previewTutorId]);
 
   const tutorId = isPreview ? (previewTutorId ?? 0) : (user?.linkedId ?? 0);
 
