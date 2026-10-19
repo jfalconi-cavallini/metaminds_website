@@ -1,6 +1,15 @@
+import { isPracticeUserId } from "./access.ts";
 import type { StoredSession } from "./session.ts";
 
 export const SAT_PROGRESS_STORAGE_KEY = "metaminds.sat-practice.v1";
+
+/** Browser progress for one signed-in user. Supabase persistence is a later migration. */
+export function progressStorageKey(userId: string): string {
+  if (!isPracticeUserId(userId)) {
+    throw new Error("Invalid practice progress user id.");
+  }
+  return `${SAT_PROGRESS_STORAGE_KEY}.${userId}`;
+}
 
 export interface SatProgressV1 {
   version: 1;
@@ -48,15 +57,15 @@ export function readProgress(raw: string | null): SatProgressV1 {
   }
 }
 
-export function loadProgress(storage: ProgressStorage): SatProgressV1 {
-  return readProgress(storage.getItem(SAT_PROGRESS_STORAGE_KEY));
+export function loadProgress(storage: ProgressStorage, userId: string): SatProgressV1 {
+  return readProgress(storage.getItem(progressStorageKey(userId)));
 }
 
-export function saveProgress(storage: ProgressStorage, progress: SatProgressV1): void {
+export function saveProgress(storage: ProgressStorage, progress: SatProgressV1, userId: string): void {
   const completed = progress.completed.filter(isStoredSession).slice(-50);
   const active = progress.active && isStoredSession(progress.active) ? progress.active : null;
   storage.setItem(
-    SAT_PROGRESS_STORAGE_KEY,
+    progressStorageKey(userId),
     JSON.stringify({ version: 1, active, completed } satisfies SatProgressV1),
   );
 }

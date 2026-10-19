@@ -32,7 +32,7 @@ function questionsForSession(session: StoredSession, byId: Map<string, SatQuesti
   return picked;
 }
 
-export function SatPracticeApp() {
+export function SatPracticeApp({ userId }: { userId: string }) {
   const bank = useMemo(() => getPracticeQuestions(), []);
   const byId = useMemo(() => new Map(bank.map((question) => [question.id, question])), [bank]);
   const [filters, setFilters] = useState<PracticeFilters>({
@@ -53,9 +53,9 @@ export function SatPracticeApp() {
   const finishingRef = useRef(false);
 
   useEffect(() => {
-    setProgress(loadProgress(window.localStorage));
+    setProgress(loadProgress(window.localStorage, userId));
     setHydrated(true);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (phase !== "practice") return;
@@ -77,7 +77,7 @@ export function SatPracticeApp() {
     };
     setProgress(stored);
     setSession(nextSession);
-    saveProgress(window.localStorage, stored);
+    saveProgress(window.localStorage, stored, userId);
   }
 
   function updateCurrent(mutate: (current: StoredAnswer) => StoredAnswer, allowChecked = false) {

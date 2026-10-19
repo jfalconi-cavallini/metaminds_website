@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { canEnterPractice } from "./access.ts";
+import {
+  SAT_PRACTICE_ACCESS,
+  allowsPracticeDevBypass,
+  canEnterPractice,
+  decidePracticeAccess,
+  destinationAfterLogin,
+  practiceLoginPath,
+  practiceReturnPath,
+} from "./access.ts";
 import { REGISTERED_BATCH_FILES } from "./batchFiles.ts";
 import { loadPracticeBatches } from "./batches.ts";
 import {
@@ -13,7 +21,7 @@ import {
   skillsInQuestions,
 } from "./catalog.ts";
 import { splitMath } from "./math.ts";
-import { SAT_PROGRESS_STORAGE_KEY, loadProgress, readProgress, saveProgress, type ProgressStorage } from "./progress.ts";
+import { SAT_PROGRESS_STORAGE_KEY, loadProgress, progressStorageKey, readProgress, saveProgress, type ProgressStorage } from "./progress.ts";
 import { parseQuestion, parseQuestionBank } from "./schema.ts";
 import {
   checkAnswer,
@@ -361,27 +369,94 @@ describe("practice session", () => {
 });
 
 describe("progress storage", () => {
-  it("round trips under the versioned key and ignores other versions", () => {
+  it("round trips under a per user key and ignores other versions", () => {
     const storage = memoryStorage();
     const session = createSession([sprQuestion], false, new Date("2026-10-19T12:00:00Z"));
-    saveProgress(storage, { version: 1, active: session, completed: [] });
-    assert.equal(storage.map.has(SAT_PROGRESS_STORAGE_KEY), true);
-    assert.equal(SAT_PROGRESS_STORAGE_KEY, "metaminds.sat-practice.v1");
-    const loaded = loadProgress(storage);
+    const userId = "11111111-1111-4111-8111-111111111111";
+    saveProgress(storage, { version: 1, active: session, completed: [] }, userId);
+    const key = progressStorageKey(userId);
+    assert.equal(storage.map.has(key), true);
+    assert.equal(key, `${SAT_PROGRESS_STORAGE_KEY}.${userId}`);
+    const loaded = loadProgress(storage, userId);
     assert.equal(loaded.active?.id, session.id);
     assert.deepEqual(loaded.completed, []);
 
-    storage.setItem(SAT_PROGRESS_STORAGE_KEY, JSON.stringify({ version: 2, active: session, completed: [] }));
-    assert.equal(readProgress(storage.getItem(SAT_PROGRESS_STORAGE_KEY)).active, null);
+    storage.setItem(key, JSON.stringify({ version: 2, active: session, completed: [] }));
+    assert.equal(readProgress(storage.getItem(key)).active, null);
     assert.equal(readProgress("not json").active, null);
+  });
+
+  it("keeps one student's progress out of another student's key", () => {
+    const storage = memoryStorage();
+    const session = createSession([sprQuestion], false, new Date("2026-10-19T12:00:00Z"));
+    const first = "11111111-1111-4111-8111-111111111111";
+    const second = "22222222-2222-4222-8222-222222222222";
+    saveProgress(storage, { version: 1, active: session, completed: [] }, first);
+    const other = loadProgress(storage, second);
+    assert.equal(other.active, null);
+    assert.deepEqual(other.completed, []);
+    assert.throws(() => progressStorageKey(""), /Invalid practice progress user id/);
   });
 });
 
 describe("access", () => {
-  it("allows everyone when public and requires a session for students", () => {
-    assert.equal(canEnterPractice("public", false), true);
-    assert.equal(canEnterPractice("students", false), false);
-    assert.equal(canEnterPractice("students", true), true);
+  it("defaults to students and allows students, tutors, and admins", () => {
+    assert.equal(SAT_PRACTICE_ACCESS, "students");
+    assert.equal(canEnterPractice("students", "student"), true);
+    assert.equal(canEnterPractice("students", "tutor"), true);
+    assert.equal(canEnterPractice("students", "admin"), true);
+    assert.equal(canEnterPractice("students", "parent"), false);
+    assert.equal(canEnterPractice("students", null), false);
+    assert.equal(canEnterPractice("public", null), true);
+  });
+
+  it("sends everyone else to login with the practice return path", () => {
+    assert.equal(practiceLoginPath(), "/login?next=%2Fsat-practice");
+    assert.equal(practiceReturnPath("/sat-practice"), "/sat-practice");
+    assert.equal(practiceReturnPath("https://example.com"), null);
+    assert.equal(practiceReturnPath("//example.com"), null);
+    assert.equal(practiceReturnPath("/portal/admin"), null);
+
+    const parent = decidePracticeAccess({
+      access: "students",
+      nodeEnv: "production",
+      devBypass: "1",
+      userId: "33333333-3333-4333-8333-333333333333",
+      role: "parent",
+    });
+    assert.deepEqual(parent, { type: "redirect", location: "/login?next=%2Fsat-practice" });
+
+    const student = decidePracticeAccess({
+      access: "students",
+      nodeEnv: "production",
+      devBypass: "1",
+      userId: "33333333-3333-4333-8333-333333333333",
+      role: "student",
+    });
+    assert.deepEqual(student, { type: "allow", userId: "33333333-3333-4333-8333-333333333333" });
+  });
+
+  it("bypasses auth only outside production when the local flag is set", () => {
+    assert.equal(allowsPracticeDevBypass("development", "1"), true);
+    assert.equal(allowsPracticeDevBypass("production", "1"), false);
+    assert.equal(allowsPracticeDevBypass("development", undefined), false);
+    const bypass = decidePracticeAccess({
+      access: "students",
+      nodeEnv: "development",
+      devBypass: "1",
+      userId: null,
+      role: null,
+    });
+    assert.deepEqual(bypass, { type: "allow", userId: "local-dev" });
+  });
+
+  it("returns signed-in students to practice and keeps other roles on their portals", () => {
+    assert.equal(destinationAfterLogin("student", "/sat-practice"), "/sat-practice");
+    assert.equal(destinationAfterLogin("tutor", "/sat-practice"), "/sat-practice");
+    assert.equal(destinationAfterLogin("admin", "/sat-practice"), "/sat-practice");
+    assert.equal(destinationAfterLogin("parent", "/sat-practice"), "/portal/parent");
+    assert.equal(destinationAfterLogin("student", null), "/portal/student");
+    assert.equal(destinationAfterLogin("student", "https://example.com"), "/portal/student");
   });
 });
 
