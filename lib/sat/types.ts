@@ -4,8 +4,8 @@
  * This is the shape served at /sat-practice. It is intentionally smaller than
  * the vault authoring schema in Metaminds-vault
  * `architecture/original-question-bank-schema.md`. Vault files stay the
- * authoring source. This type is what the practice screens read from
- * `data/sat/questions.json`.
+ * authoring source. This type is what the practice screens read after
+ * `data/sat/batch-*.json` files are mapped into this shape.
  *
  * A question carries either `choices` (multiple choice) or `sprAnswer`
  * (student produced response). `correctAnswer` is the choice label, or the

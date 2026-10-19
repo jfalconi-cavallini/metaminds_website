@@ -2,12 +2,12 @@
 
 import {
   difficultyLabel,
-  domainOptions,
+  domainsInQuestions,
   sectionLabel,
-  skillOptions,
+  skillsInQuestions,
 } from "@/lib/sat/catalog";
 import type { PracticeFilters } from "@/lib/sat/session";
-import type { SatDifficulty, SatSection } from "@/lib/sat/types";
+import type { SatDifficulty, SatQuestion, SatSection } from "@/lib/sat/types";
 import { cardClass, displayClass, fieldClass, labelClass, primaryClass, secondaryClass } from "./styles";
 
 const SECTIONS: SatSection[] = ["math", "reading_writing"];
@@ -15,6 +15,7 @@ const DIFFICULTIES: SatDifficulty[] = ["easy", "medium", "hard"];
 
 export function SetupScreen({
   filters,
+  questions,
   available,
   bankEmpty,
   canContinue,
@@ -25,6 +26,7 @@ export function SetupScreen({
   onReview,
 }: {
   filters: PracticeFilters;
+  questions: readonly SatQuestion[];
   available: number;
   bankEmpty: boolean;
   canContinue: boolean;
@@ -47,8 +49,8 @@ export function SetupScreen({
     );
   }
 
-  const domains = domainOptions(filters.section);
-  const skills = skillOptions(filters.section, filters.domain);
+  const domains = domainsInQuestions(questions, filters.section);
+  const skills = skillsInQuestions(questions, filters.section, filters.domain);
   const startCount = Math.min(filters.count, available);
 
   return (
@@ -80,10 +82,12 @@ export function SetupScreen({
               skill: "any",
             })}
           >
-            <option value="any">Any</option>
-            {SECTIONS.map((section) => (
-              <option key={section} value={section}>{sectionLabel(section)}</option>
-            ))}
+            {[
+              <option key="any" value="any">Any</option>,
+              ...SECTIONS.map((section) => (
+                <option key={section} value={section}>{sectionLabel(section)}</option>
+              )),
+            ]}
           </select>
         </div>
 
@@ -99,10 +103,12 @@ export function SetupScreen({
               skill: "any",
             })}
           >
-            <option value="any">Any</option>
-            {domains.map((domain) => (
-              <option key={domain.slug} value={domain.slug}>{domain.title}</option>
-            ))}
+            {[
+              <option key="any" value="any">Any</option>,
+              ...domains.map((domain) => (
+                <option key={domain} value={domain}>{domain}</option>
+              )),
+            ]}
           </select>
         </div>
 
@@ -114,10 +120,12 @@ export function SetupScreen({
             value={filters.skill}
             onChange={(event) => onChange({ ...filters, skill: event.target.value })}
           >
-            <option value="any">Any</option>
-            {skills.map((skill) => (
-              <option key={skill.slug} value={skill.slug}>{skill.title}</option>
-            ))}
+            {[
+              <option key="any" value="any">Any</option>,
+              ...skills.map((skill) => (
+                <option key={skill} value={skill}>{skill}</option>
+              )),
+            ]}
           </select>
         </div>
 
@@ -132,10 +140,12 @@ export function SetupScreen({
               difficulty: event.target.value as PracticeFilters["difficulty"],
             })}
           >
-            <option value="any">Any</option>
-            {DIFFICULTIES.map((difficulty) => (
-              <option key={difficulty} value={difficulty}>{difficultyLabel(difficulty)}</option>
-            ))}
+            {[
+              <option key="any" value="any">Any</option>,
+              ...DIFFICULTIES.map((difficulty) => (
+                <option key={difficulty} value={difficulty}>{difficultyLabel(difficulty)}</option>
+              )),
+            ]}
           </select>
         </div>
 

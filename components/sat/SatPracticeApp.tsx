@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getPracticeQuestions } from "@/lib/sat/bank";
-import { isFixtureQuestion } from "@/lib/sat/schema";
 import { emptyProgress, loadProgress, saveProgress, type SatProgressV1 } from "@/lib/sat/progress";
 import {
   checkAnswer,
@@ -34,11 +33,7 @@ function questionsForSession(session: StoredSession, byId: Map<string, SatQuesti
 }
 
 export function SatPracticeApp() {
-  const bank = useMemo(() => {
-    return getPracticeQuestions().filter((question) => (
-      process.env.NODE_ENV === "production" ? !isFixtureQuestion(question) : true
-    ));
-  }, []);
+  const bank = useMemo(() => getPracticeQuestions(), []);
   const byId = useMemo(() => new Map(bank.map((question) => [question.id, question])), [bank]);
   const [filters, setFilters] = useState<PracticeFilters>({
     section: "any",
@@ -216,6 +211,7 @@ export function SatPracticeApp() {
   return (
     <SetupScreen
       filters={filters}
+      questions={bank}
       available={matching.length}
       bankEmpty={bank.length === 0}
       canContinue={hydrated && continueSession !== null}

@@ -128,25 +128,3 @@ export function parseQuestionBank(input: unknown): SatQuestionBankFile {
     questions,
   };
 }
-
-export const FIXTURE_SOURCE = "FIXTURE";
-
-export function isFixtureQuestion(question: SatQuestion): boolean {
-  return question.source === FIXTURE_SOURCE || question.id.startsWith("FIXTURE");
-}
-
-/**
- * Published bank questions render everywhere.
- * Fixture questions render only outside production, and only when the
- * published bank has no real questions. Production never receives them.
- */
-export function selectPracticeQuestions(
-  published: readonly SatQuestion[],
-  fixtures: readonly SatQuestion[],
-  nodeEnv: string | undefined,
-): SatQuestion[] {
-  const real = published.filter((question) => !isFixtureQuestion(question));
-  if (nodeEnv === "production") return real;
-  if (real.length > 0) return real;
-  return fixtures.filter((question) => isFixtureQuestion(question)).slice(0, 3);
-}

@@ -1,5 +1,5 @@
 import { SAT_SKILL_TREE, type SkillNodeSeed } from "../portal/satSkillSeed.ts";
-import type { SatDifficulty, SatSection } from "./types";
+import type { SatDifficulty, SatQuestion, SatSection } from "./types.ts";
 
 export interface CatalogOption {
   slug: string;
@@ -51,4 +51,44 @@ export function skillTitle(slug: string): string {
 
 export function domainTitle(slug: string): string {
   return SAT_SKILL_TREE.find((node) => node.slug === slug)?.title ?? slug;
+}
+
+function firstSeen(values: readonly string[]): string[] {
+  const seen = new Set<string>();
+  const labels: string[] = [];
+  for (const value of values) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    labels.push(value);
+  }
+  return labels;
+}
+
+/** Domain labels present on the loaded questions, in first-seen order. */
+export function domainsInQuestions(
+  questions: readonly Pick<SatQuestion, "section" | "domain">[],
+  section: SatSection | "any",
+): string[] {
+  return firstSeen(
+    questions
+      .filter((question) => section === "any" || question.section === section)
+      .map((question) => question.domain),
+  );
+}
+
+/** Skill labels present on the loaded questions, in first-seen order. */
+export function skillsInQuestions(
+  questions: readonly Pick<SatQuestion, "section" | "domain" | "skill">[],
+  section: SatSection | "any",
+  domain: string | "any",
+): string[] {
+  return firstSeen(
+    questions
+      .filter((question) => {
+        if (section !== "any" && question.section !== section) return false;
+        if (domain !== "any" && question.domain !== domain) return false;
+        return true;
+      })
+      .map((question) => question.skill),
+  );
 }
