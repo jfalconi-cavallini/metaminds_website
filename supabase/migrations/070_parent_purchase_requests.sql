@@ -1,12 +1,13 @@
 -- ================================================================
--- Migration 069: Parents can file hour purchase requests
+-- Migration 070: Parents can file hour purchase requests
 -- Run this in: Supabase Dashboard → SQL Editor
 -- Do not apply this from the pull request. Jose applies it.
 --
--- Number: the highest file in supabase/migrations is
+-- Number: the highest file on main is
 -- 062_parent_update_session_ownership.sql. 063 exists in production
--- but is not in this repo. 064 through 068 are reserved. 069 is the
--- next free number.
+-- but is not in this repo. 064 through 068 are reserved. 069 is
+-- 069_bulk_book_sessions_composite_null.sql on open PR #30.
+-- No higher number is on main or in another open PR, so this is 070.
 --
 -- Context: purchase_requests_insert (migration 016) only allows
 -- role 'student' and student_id = my_linked_id(). A parent account

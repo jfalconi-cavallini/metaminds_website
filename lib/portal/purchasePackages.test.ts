@@ -65,9 +65,9 @@ describe("hour package payment links", () => {
   });
 });
 
-describe("purchase request migration 069", () => {
+describe("purchase request migration 070", () => {
   it("lets a parent insert only for a linked child, and only the three packages", () => {
-    const sql = readFileSync(path.join(root, "supabase/migrations/069_parent_purchase_requests.sql"), "utf8");
+    const sql = readFileSync(path.join(root, "supabase/migrations/070_parent_purchase_requests.sql"), "utf8");
     assert.match(sql, /drop policy if exists "purchase_requests_insert"/);
     assert.match(sql, /my_role\(\) = 'parent' and student_id = any\(my_parent_student_ids\(\)\)/);
     assert.match(sql, /my_role\(\) = 'student' and student_id = my_linked_id\(\)/);
@@ -77,10 +77,10 @@ describe("purchase request migration 069", () => {
     const numbered = readdirSync(path.join(root, "supabase/migrations"))
       .map((name) => Number(name.slice(0, 3)))
       .filter((n) => Number.isFinite(n));
-    for (const reserved of [63, 64, 65, 66, 67, 68]) {
-      assert.equal(numbered.includes(reserved), false);
+    for (const taken of [63, 64, 65, 66, 67, 68, 69]) {
+      assert.equal(numbered.includes(taken), false);
     }
-    assert.equal(Math.max(...numbered), 69);
+    assert.equal(Math.max(...numbered), 70);
   });
 });
 

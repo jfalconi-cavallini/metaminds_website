@@ -279,7 +279,7 @@ CRON_SECRET   # required in Vercel prod for /api/cron/send-reminders — not yet
 - Do not force-push
 - Do not modify files assigned to another developer without approval
 - Do not edit previously applied Supabase migrations — always create a new numbered migration
-- Check the latest migration number before creating one (currently `069_parent_purchase_requests.sql`. 063 is in production but not in this repo. 064 through 068 are reserved.)
+- Check the latest migration number before creating one (currently `070_parent_purchase_requests.sql` on this branch. 063 is in production but not in this repo. 064 through 068 are reserved. 069 is `069_bulk_book_sessions_composite_null.sql` on PR #30.)
 - Never run destructive production database operations automatically
 - Before pushing, run in order:
   1. `npm run lint`
