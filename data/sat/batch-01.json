@@ -194,7 +194,7 @@
       "D": "Robotics Club members spend 7 hours per week, more than the 5 hours spent by Drama Club, the next highest."
     },
     "answer": "D",
-    "explanation": "Only A compares Robotics to the next-highest club, which shows it is the highest."
+    "explanation": "Only D compares Robotics to the next-highest club, which shows it is the highest."
   },
   {
     "id": "RW-005",
@@ -287,6 +287,6 @@
       "D": "Honeybees use a waggle dance, and its direction relates to the sun."
     },
     "answer": "B",
-    "explanation": "Only A explains how the dance shows distance, which is the student's goal."
+    "explanation": "Only B explains how the dance shows distance, which is the student's goal."
   }
 ]

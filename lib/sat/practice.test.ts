@@ -139,7 +139,7 @@ describe("batch 01", () => {
     }
   });
 
-  it("keeps the Director text, including the two explanations that still say Only A", () => {
+  it("keeps the Director text, including the corrected RW-004 and RW-010 explanations", () => {
     for (const raw of batch01Raw) {
       const question = byId(raw.id);
       assert.equal(question.stem, raw.question);
@@ -167,10 +167,10 @@ describe("batch 01", () => {
 
     const rw004 = byId("RW-004");
     assert.equal(rw004.correctAnswer, "D");
-    assert.match(rw004.explanation, /Only A/);
+    assert.equal(rw004.explanation, "Only D compares Robotics to the next-highest club, which shows it is the highest.");
     const rw010 = byId("RW-010");
     assert.equal(rw010.correctAnswer, "B");
-    assert.match(rw010.explanation, /Only A/);
+    assert.equal(rw010.explanation, "Only B explains how the dance shows distance, which is the student's goal.");
     assert.match(rw010.passage ?? "", /waggle dance/);
   });
 
