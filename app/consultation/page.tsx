@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import {
     CheckCircle2, Clock, Video,
-    ArrowDown, Shield, Users, TrendingUp, Lightbulb,
+    ArrowDown, Shield, Lightbulb,
     BookOpen, Target, Brain, ChevronDown, Code, Layers,
 } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -82,30 +82,18 @@ const services = [
     { icon: Lightbulb, label: "3D Printing & STEM" },
 ];
 
-const whyMetaMinds = [
+const proofPoints = [
     {
-        icon: Users,
-        stat: "500+",
-        label: "Students Helped",
-        description: "Families across the DFW Metroplex trust MetaMinds for test prep, academics, and STEM mentoring.",
+        heading: "One on one, online",
+        line: "Every session is just your child and their tutor.",
     },
     {
-        icon: TrendingUp,
-        stat: "+200pts",
-        label: "Avg SAT Improvement",
-        description: "Our structured, personalized approach consistently delivers score improvements that matter.",
+        heading: "Matched to your child",
+        line: "A tutor we think is a great match, for the long run.",
     },
     {
-        icon: Lightbulb,
-        stat: "B.S. / M.S.",
-        label: "Tutor Credentials",
-        description: "Every tutor holds an engineering or CS degree from a top university and works in their field today.",
-    },
-    {
-        icon: CheckCircle2,
-        stat: "98%",
-        label: "Satisfaction Rate",
-        description: "We back every engagement with a money-back guarantee. Your student's progress is our measure of success.",
+        heading: "A plan you can see",
+        line: "Session notes in the parent portal and a weekly progress update.",
     },
 ];
 
@@ -253,7 +241,7 @@ export default function ConsultationPage() {
                             ))}
                         </motion.div>
 
-                        <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-16">
+                        <motion.div {...fade(0.3)} className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                             <a
                                 href="#schedule"
                                 className="inline-flex items-center gap-2 bg-blue-600 text-white font-bold px-10 py-4 rounded-xl hover:bg-blue-700 transition-colors text-lg"
@@ -262,16 +250,6 @@ export default function ConsultationPage() {
                                 <ArrowDown className="w-5 h-5" />
                             </a>
                             <span className="text-blue-300 text-sm">Evening & weekend slots available</span>
-                        </motion.div>
-
-                        {/* Trust stats */}
-                        <motion.div {...fade(0.4)} className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
-                            {siteData.trustBar.map((t) => (
-                                <div key={t.label} className="bg-white/5 border border-white/10 rounded-xl px-4 py-3">
-                                    <div className="text-2xl font-black text-white">{t.value}</div>
-                                    <div className="text-blue-300 text-xs mt-0.5">{t.label}</div>
-                                </div>
-                            ))}
                         </motion.div>
                     </div>
                 </section>
@@ -350,53 +328,25 @@ export default function ConsultationPage() {
                             <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Why Families Choose MetaMinds</h2>
                             <p className="text-gray-500 max-w-xl mx-auto">We're not a tutoring marketplace or a franchise. Every session is with a working professional who has mastered the material firsthand.</p>
                         </motion.div>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                            {whyMetaMinds.map(({ icon: Icon, stat, label, description }, i) => (
-                                <motion.div key={label} {...fade(i * 0.07)} className="text-center p-6 rounded-2xl border border-gray-100 shadow-sm">
-                                    <div className="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mx-auto mb-4">
-                                        <Icon className="w-6 h-6 text-blue-600" />
-                                    </div>
-                                    <div className="text-3xl font-black text-blue-600 mb-1">{stat}</div>
-                                    <div className="font-bold text-gray-900 text-sm mb-2">{label}</div>
-                                    <p className="text-gray-500 text-xs leading-relaxed">{description}</p>
+                        <motion.div {...fade(0.05)} className="bg-blue-50 border border-blue-100 rounded-2xl px-6 py-8 md:px-10 mb-6 text-center">
+                            <p className="text-base md:text-lg text-gray-800 leading-relaxed max-w-3xl mx-auto">
+                                One of our students went from 1110 to 1410 on an Official SAT practice test. Students who show up and do the homework see the biggest gains.
+                            </p>
+                        </motion.div>
+                        <div className="grid md:grid-cols-3 gap-5">
+                            {proofPoints.map(({ heading, line }, i) => (
+                                <motion.div key={heading} {...fade(0.08 + i * 0.05)} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                                    <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">{i + 1}</p>
+                                    <h3 className="font-bold text-gray-900 mb-2">{heading}</h3>
+                                    <p className="text-gray-500 text-sm leading-relaxed">{line}</p>
                                 </motion.div>
                             ))}
                         </div>
+                        <p className="text-center text-sm text-gray-500 max-w-2xl mx-auto mt-8 leading-relaxed">
+                            One on one tutoring online for families anywhere, with in person available with select tutors in Dallas Fort Worth.
+                        </p>
                     </div>
                 </section>
-
-                {/* ── Testimonials ── */}
-                {siteData.testimonials?.length > 0 && (
-                    <section className="py-12 px-6 bg-blue-50">
-                        <div className="max-w-5xl mx-auto">
-                            <motion.div {...fade()} className="text-center mb-7">
-                                <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">Real Results From Real Families</h2>
-                                <p className="text-gray-500">These students booked the same free consultation you're looking at right now.</p>
-                            </motion.div>
-                            <div className="grid md:grid-cols-3 gap-6">
-                                {siteData.testimonials.map((t, i) => (
-                                    <motion.div key={t.author} {...fade(i * 0.08)} className="bg-white rounded-2xl p-6 shadow-sm border border-blue-100">
-                                        <div className="flex gap-0.5 mb-4">
-                                            {[...Array(5)].map((_, j) => (
-                                                <svg key={j} className="w-4 h-4 fill-amber-400 text-amber-400" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                                            ))}
-                                        </div>
-                                        <p className="text-gray-700 text-sm leading-relaxed mb-5">"{t.quote}"</p>
-                                        <div className="flex items-center gap-3 pt-4 border-t border-gray-100">
-                                            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                                {t.author[0]}
-                                            </div>
-                                            <div>
-                                                <p className="font-bold text-gray-900 text-sm">{t.author}</p>
-                                                <p className="text-gray-400 text-xs">{t.role}</p>
-                                            </div>
-                                        </div>
-                                    </motion.div>
-                                ))}
-                            </div>
-                        </div>
-                    </section>
-                )}
 
                 {/* ── FAQ ── */}
                 <section className="py-12 px-6 bg-white">

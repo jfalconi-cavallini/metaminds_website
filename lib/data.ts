@@ -14,31 +14,6 @@ export const siteData = {
         formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
     },
 
-    trustBar: [
-        { label: "Students Helped", value: "500+" },
-        { label: "Avg SAT Improvement", value: "+200pts" },
-        { label: "Tutor Degrees", value: "B.S. / M.S." },
-        { label: "Success Rate", value: "98%" },
-    ],
-
-    testimonials: [
-        {
-            quote: "My SAT score went from 1050 to 1310. The personalized approach really made the difference.",
-            author: "Sarah J.",
-            role: "SAT Student",
-        },
-        {
-            quote: "Finally understand coding. Best investment in my son's education.",
-            author: "Parent of Alex",
-            role: "Python Student",
-        },
-        {
-            quote: "Got into my dream college. Couldn't have done it without this tutoring.",
-            author: "Michael K.",
-            role: "SAT Student",
-        },
-    ],
-
     platform: {
         headline: "Every Session Leaves a Trail You Can See",
         subheadline: "Most tutoring disappears the moment the session ends. Ours doesn't — every session, skill, and assignment lives in one place for you and your family.",
@@ -89,11 +64,11 @@ export const siteData = {
         },
         {
             question: "What's the cost of tutoring?",
-            answer: "Packages start at $70 for a single session, and drop as low as $50/hr on our 20-hour package. Book a free consultation and we'll walk you through which tier and package fit your goals.",
+            answer: "Packages of 1, 4, or 8 hours. Book a free consultation and we'll help you choose.",
         },
         {
             question: "How much can I improve my SAT/ACT score?",
-            answer: "Students we've worked with have seen 200+ point SAT improvements, with others reaching 1500+ scores. Results depend on starting point, consistency, and effort — individual results vary.",
+            answer: "One of our students went from 1110 to 1410 on an Official SAT practice test. Students who show up and do the homework see the biggest gains.",
         },
         {
             question: "Can I schedule sessions around my school schedule?",
@@ -122,7 +97,6 @@ export const siteData = {
         { label: "Our Team", href: "#team" },
         { label: "Pricing", href: "#pricing" },
         { label: "Programs", href: "#programs" },
-        { label: "Results", href: "#results" },
         { label: "FAQ", href: "#faq" },
         { label: "Games", href: "games" },
     ],

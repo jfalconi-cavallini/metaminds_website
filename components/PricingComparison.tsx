@@ -8,27 +8,13 @@ import CalendlyButton from "./CalendlyButton";
 const tiers = [
     {
         name: "Premium Mentoring",
-        tag: "SAT/ACT · AP Courses · Advanced Coursework",
         description:
-            "Our most experienced tutors — practicing engineers, scientists, and subject specialists who've taught this exact material for years.",
-        rate: "From $70/hr",
-        rateNote: "Single session through 20-hour packages",
+            "An experienced tutor and mentor, one on one online, building a plan around your child's goals.",
     },
     {
-        name: "College Mentor",
-        tag: "High School · Middle School · Elementary",
+        name: "College Mentor Tutoring",
         description:
-            "High-achieving college students, carefully selected and supervised by MetaMinds. The full MetaMinds system — session notes, homework, parent updates, skill tracking — at a more accessible rate.",
-        rate: "From $50/hr",
-        rateNote: "Single session through 20-hour packages",
-    },
-    {
-        name: "Junior College Mentor",
-        tag: "Foundational Support · Homework Help · Younger Students",
-        description:
-            "Focused support for foundational learning, homework help, and younger students. A natural entry point for building consistent study habits from an early age.",
-        rate: null,
-        rateNote: "Book a consultation to discuss rates",
+            "The same MetaMinds system with a college mentor who was recently in your child's shoes.",
     },
 ] as const;
 
@@ -44,38 +30,17 @@ export default function PricingComparison() {
     return (
         <Section id="pricing" className="bg-slate-50 py-20">
             <div className="text-center mb-14">
-                <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="inline-block mb-3"
-                >
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">
-                        Mentoring Tiers
-                    </span>
-                </motion.div>
                 <motion.h2
                     initial={{ opacity: 0, y: -10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
-                    className="text-3xl md:text-4xl font-black text-gray-900 mb-4"
+                    className="text-3xl md:text-4xl font-black text-gray-900"
                 >
-                    Choose the right level of support.
+                    Two ways to work with us
                 </motion.h2>
-                <motion.p
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ delay: 0.1 }}
-                    className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed"
-                >
-                    Every tier runs on the same MetaMinds system. The difference is tutor
-                    experience level and the type of student each tier is built for.
-                </motion.p>
             </div>
 
-            {/* Tier cards */}
-            <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto mb-10">
+            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
                 {tiers.map((tier, idx) => (
                     <motion.div
                         key={tier.name}
@@ -86,32 +51,23 @@ export default function PricingComparison() {
                         className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 flex flex-col"
                     >
                         <div className="mb-5">
-                            <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-2">
-                                {tier.tag}
-                            </p>
                             <h3 className="text-lg font-black text-gray-900 mb-3">{tier.name}</h3>
                             <p className="text-sm text-gray-600 leading-relaxed">{tier.description}</p>
                         </div>
 
                         <div className="mt-auto pt-5 border-t border-gray-100">
-                            {tier.rate ? (
-                                <div className="mb-4">
-                                    <span className="text-2xl font-black text-gray-900">{tier.rate}</span>
-                                    <p className="text-xs text-gray-400 mt-1">{tier.rateNote}</p>
-                                </div>
-                            ) : (
-                                <div className="mb-4">
-                                    <p className="text-sm font-semibold text-gray-700">{tier.rateNote}</p>
-                                </div>
-                            )}
                             <CalendlyButton className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 transition-colors text-sm">
-                                Book Free Consultation
+                                Book a free consultation
                                 <ArrowRight className="w-3.5 h-3.5" />
                             </CalendlyButton>
                         </div>
                     </motion.div>
                 ))}
             </div>
+
+            <p className="text-center text-sm text-gray-600 max-w-2xl mx-auto mb-10 leading-relaxed">
+                Packages of 1, 4, or 8 hours. Book a free consultation and we&apos;ll help you choose.
+            </p>
 
             {/* What every tier includes */}
             <motion.div
