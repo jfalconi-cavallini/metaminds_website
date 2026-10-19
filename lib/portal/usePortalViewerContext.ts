@@ -22,8 +22,8 @@ export interface PortalViewerContext {
   switchStudent:       (id: number) => void;
   // true once the auth/preview check has resolved and data loading can begin
   previewReady:        boolean;
-  // Granular capability flags — all false during any preview
-  // Parents may gain some of these later; do not collapse into a single readOnly flag
+  // Granular capability flags. Every preview is read-only.
+  // Parents can buy hours for a linked child. Other parent mutations stay off.
   canSubmitHomework:   boolean;
   canManageSchedule:   boolean;
   canPurchaseHours:    boolean;
@@ -231,7 +231,7 @@ export function usePortalViewerContext(
     previewReady,
     canSubmitHomework:   !isAnyPreview && !isParent,
     canManageSchedule:   !isAnyPreview && !isParent,
-    canPurchaseHours:    !isAnyPreview && !isParent,
+    canPurchaseHours:    !isAnyPreview,
     canReply:            !isAnyPreview,
     canEditAccount:      !isAnyPreview && !isParent,
     exitPreview,

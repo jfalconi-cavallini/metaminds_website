@@ -1197,7 +1197,9 @@ Every feature built should support at least one revenue stream:
 NEXT_PUBLIC_SUPABASE_URL        # Supabase project URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY   # Supabase anonymous/public key
 RESEND_API_KEY                  # Resend email API key
-NEXT_PUBLIC_ADMIN_EMAIL         # Comma-separated admin emails (or single)
+RESEND_FROM_EMAIL               # Verified sender for Resend
+ADMIN_NOTIFY_EMAIL              # Inbox for hour purchase requests (falls back to NEXT_PUBLIC_ADMIN_EMAIL)
+NEXT_PUBLIC_ADMIN_EMAIL         # Comma-separated admin emails (or single). Unused except as the purchase-notify fallback.
 ```
 
 ---

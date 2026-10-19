@@ -127,6 +127,7 @@ export interface PurchaseOption {
   hours: number;
   price: number;          // dollars
   priceLabel: string;     // "$260"
+  paymentUrl: string;     // existing Stripe Payment Link
 }
 
 export interface PurchaseRequest {

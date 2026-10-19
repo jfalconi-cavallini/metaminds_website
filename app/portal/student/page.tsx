@@ -5,7 +5,9 @@ import DashboardShell from "@/components/DashboardShell";
 import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
-import { purchaseOptions, formatDate, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { purchaseOptions, formatDate, resolveZoomUrl, sendSessionConfirmationEmail, notifyPurchaseRequest } from "@/lib/portal/utils";
+import { purchaseCopy, purchaseSavedMessage } from "@/lib/portal/purchasePackages";
+import HourPurchasePanel from "@/components/portal/HourPurchasePanel";
 import { convertSessionDisplay } from "@/lib/portal/timezone";
 import WeeklyCalendar, { parseTimeToHour } from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
@@ -69,7 +71,7 @@ const ALL_NAV_ITEMS = [
   { id: "settings",  label: "Settings",      icon: SettingsIcon    },
 ];
 
-// Tabs parents are allowed to see (read-only view of their child's portal)
+// Tabs parents are allowed to see. Buying hours is allowed. Other mutations stay off.
 const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path"]);
 
 const COMMON_TIMEZONES = [
@@ -282,6 +284,15 @@ export default function StudentPortal() {
   const [purchaseSuccess, setPurchaseSuccess] = useState<string | null>(null);
   const [purchaseError,   setPurchaseError]   = useState("");
   const [purchaseSaving,  setPurchaseSaving]  = useState(false);
+  const [requestedPackageIds, setRequestedPackageIds] = useState<Set<string>>(new Set());
+  const [purchaseStudentId, setPurchaseStudentId] = useState<number | null>(effectiveStudentId);
+  if (effectiveStudentId !== purchaseStudentId) {
+    setPurchaseStudentId(effectiveStudentId);
+    setShowBuyPanel(false);
+    setPurchaseSuccess(null);
+    setPurchaseError("");
+    setRequestedPackageIds(new Set());
+  }
 
   // Past session detail
   const [pastSessionDetail, setPastSessionDetail] = useState<Session | null>(null);
@@ -891,17 +902,29 @@ export default function StudentPortal() {
     setPurchaseSaving(true);
     setPurchaseError("");
     try {
-      await insertPurchaseRequest({
+      const created = await insertPurchaseRequest({
         studentId:    student.id,
         packageLabel: opt.label,
         hours:        opt.hours,
         price:        opt.price,
       });
-      setPurchaseSuccess(`"${opt.label}" request submitted. Admin will confirm and send an invoice.`);
-      setShowBuyPanel(false);
-      setTimeout(() => setPurchaseSuccess(null), 5000);
+      let noticeFailed = false;
+      try {
+        const notice = await notifyPurchaseRequest(created.id);
+        noticeFailed = !notice.sent;
+      } catch {
+        noticeFailed = true;
+      }
+      const childName = ctx.viewerRole === "parent" ? student.name : undefined;
+      const saved = purchaseSavedMessage(opt.label, childName);
+      setPurchaseSuccess(noticeFailed ? `${saved} ${purchaseCopy.noticeFailed}` : saved);
+      setRequestedPackageIds((prev) => {
+        const next = new Set(prev);
+        next.add(opt.id);
+        return next;
+      });
     } catch {
-      setPurchaseError("Failed to submit request. Please try again.");
+      setPurchaseError(purchaseCopy.saveFailed);
     } finally {
       setPurchaseSaving(false);
     }
@@ -3722,10 +3745,16 @@ export default function StudentPortal() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">My Hours & Packages</h1>
-              <p className="text-sm text-gray-400 mt-1">Track your tutoring hours, packages, and usage.</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {isParent ? `Hours for ${student.name}.` : "Track your tutoring hours, packages, and usage."}
+              </p>
             </div>
             <button
-              onClick={() => setShowBuyPanel((v) => !v)}
+              onClick={() => {
+                setShowBuyPanel((v) => !v);
+                setPurchaseSuccess(null);
+                setPurchaseError("");
+              }}
               disabled={!ctx.canPurchaseHours}
               title={!ctx.canPurchaseHours ? "Not available in admin preview" : undefined}
               className="shrink-0 px-4 py-2 bg-blue-600 text-white font-medium rounded-lg text-sm hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -3740,33 +3769,18 @@ export default function StudentPortal() {
             </div>
           )}
 
-          {showBuyPanel && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h3 className="font-semibold text-gray-900 mb-3">Choose a Package</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
-                {purchaseOptions.map((opt) => (
-                  <div key={opt.id} className="bg-gray-50 border border-gray-200 rounded-xl p-5 flex flex-col">
-                    <p className="font-bold text-gray-900 text-lg">{opt.label}</p>
-                    <p className="text-2xl font-bold text-blue-600 mt-1">{opt.priceLabel}</p>
-                    <p className="text-xs text-gray-500 mt-1 mb-4">
-                      {opt.hours} session hour{opt.hours > 1 ? "s" : ""}
-                    </p>
-                    <button
-                      onClick={() => requestPurchase(opt)}
-                      disabled={purchaseSaving}
-                      className="mt-auto w-full py-2 rounded-lg border border-blue-600 text-blue-600 text-sm font-medium hover:bg-blue-50 disabled:opacity-50"
-                    >
-                      {purchaseSaving ? "Submitting…" : "Request Purchase"}
-                    </button>
-                  </div>
-                ))}
-              </div>
-              {purchaseError && <p className="text-xs text-red-500 mb-2">{purchaseError}</p>}
-              <p className="text-xs text-gray-400">
-                No payment collected here. Admin will confirm and send an invoice.
-              </p>
-            </div>
-          )}
+          {showBuyPanel ? (
+            <HourPurchasePanel
+              childName={isParent ? student.name : undefined}
+              options={purchaseOptions}
+              saving={purchaseSaving}
+              requestedIds={requestedPackageIds}
+              error={purchaseError}
+              canPurchase={ctx.canPurchaseHours}
+              disabledTitle="Not available in admin preview"
+              onRequest={requestPurchase}
+            />
+          ) : null}
 
           {balance ? (
             <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,1fr)] gap-4">
