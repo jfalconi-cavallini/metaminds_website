@@ -7,10 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts"
+    "test": "node --experimental-strip-types --test lib/contactForm.test.ts lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts"
   },
   "dependencies": {
-    "@emailjs/browser": "^4.4.1",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.108.2",
     "clsx": "^2.1.1",
