@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts"
+    "test": "node --experimental-strip-types --test lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts lib/games.test.ts lib/linearEquations.test.ts"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
