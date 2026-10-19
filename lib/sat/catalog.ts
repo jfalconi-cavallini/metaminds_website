@@ -1,5 +1,5 @@
 import { SAT_SKILL_TREE, type SkillNodeSeed } from "../portal/satSkillSeed.ts";
-import type { SatDifficulty, SatQuestion, SatSection } from "./types.ts";
+import type { SatDifficulty, SatQuestion, SatSection, SatSource } from "./types.ts";
 
 export interface CatalogOption {
   slug: string;
@@ -13,6 +13,10 @@ const SECTION_CATEGORY: Record<SatSection, string> = {
 
 export function sectionLabel(section: SatSection): string {
   return section === "math" ? "Math" : "Reading and Writing";
+}
+
+export function sourceLabel(source: SatSource): string {
+  return source === "metaminds" ? "MetaMinds" : "Test set";
 }
 
 export function difficultyLabel(difficulty: SatDifficulty): string {

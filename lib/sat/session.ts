@@ -1,10 +1,11 @@
-import type { SatDifficulty, SatQuestion, SatSection } from "./types.ts";
+import type { SatDifficulty, SatQuestion, SatSection, SatSource } from "./types.ts";
 
 export interface PracticeFilters {
   section: SatSection | "any";
   domain: string | "any";
   skill: string | "any";
   difficulty: SatDifficulty | "any";
+  source: SatSource | "any";
   count: number;
   timed: boolean;
 }
@@ -61,13 +62,14 @@ export function emptyAnswer(): StoredAnswer {
 
 export function filterQuestions(
   questions: readonly SatQuestion[],
-  filters: Pick<PracticeFilters, "section" | "domain" | "skill" | "difficulty">,
+  filters: Pick<PracticeFilters, "section" | "domain" | "skill" | "difficulty" | "source">,
 ): SatQuestion[] {
   return questions.filter((question) => {
     if (filters.section !== "any" && question.section !== filters.section) return false;
     if (filters.domain !== "any" && question.domain !== filters.domain) return false;
     if (filters.skill !== "any" && question.skill !== filters.skill) return false;
     if (filters.difficulty !== "any" && question.difficulty !== filters.difficulty) return false;
+    if (filters.source !== "any" && question.source !== filters.source) return false;
     return true;
   });
 }

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --test lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts lib/sat/practice.test.ts"
+    "test": "node --experimental-strip-types --test lib/portal/parentUpdateSessions.test.ts lib/spellingBee.test.ts lib/sat/practice.test.ts lib/sat/import.test.ts"
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -21,6 +21,7 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "resend": "^6.17.2",
+    "sanitize-html": "^2.18.1",
     "tailwind-merge": "^3.4.1"
   },
   "devDependencies": {
@@ -29,8 +30,10 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/sanitize-html": "^2.16.2",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

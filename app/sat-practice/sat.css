@@ -10,3 +10,36 @@
   color: inherit;
   font-size: 1.05em;
 }
+
+.sat-html {
+  overflow-wrap: anywhere;
+}
+
+.sat-html :where(p, ul, ol, table, figure, blockquote) + :where(p, ul, ol, table, figure, blockquote) {
+  margin-top: 0.75rem;
+}
+
+.sat-html ul,
+.sat-html ol {
+  padding-left: 1.25rem;
+}
+
+.sat-html table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.sat-html img {
+  max-width: 100%;
+  height: auto;
+}
+
+.sat-html a {
+  color: #C9A86A;
+  text-decoration: underline;
+}
+
+.sat-html math {
+  font-size: 1.05em;
+}

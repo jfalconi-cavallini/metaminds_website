@@ -7,11 +7,16 @@ import {
   skillsInQuestions,
 } from "@/lib/sat/catalog";
 import type { PracticeFilters } from "@/lib/sat/session";
-import type { SatDifficulty, SatQuestion, SatSection } from "@/lib/sat/types";
+import type { SatDifficulty, SatQuestion, SatSection, SatSource } from "@/lib/sat/types";
 import { cardClass, displayClass, fieldClass, labelClass, primaryClass, secondaryClass } from "./styles";
 
 const SECTIONS: SatSection[] = ["math", "reading_writing"];
 const DIFFICULTIES: SatDifficulty[] = ["easy", "medium", "hard"];
+const SOURCES: { value: SatSource | "any"; label: string }[] = [
+  { value: "any", label: "All" },
+  { value: "metaminds", label: "MetaMinds" },
+  { value: "college_board_test", label: "Test set" },
+];
 
 export function SetupScreen({
   filters,
@@ -59,7 +64,7 @@ export function SetupScreen({
         Set up practice
       </h2>
       <p className="mt-3 max-w-2xl text-sm leading-6 text-[#D9D3C7]">
-        Choose a section, domain, skill, and difficulty. Then choose how many questions and whether the set is timed.
+        Choose a source, section, domain, skill, and difficulty. Then choose how many questions and whether the set is timed.
       </p>
 
       <form
@@ -69,6 +74,25 @@ export function SetupScreen({
           if (startCount > 0) onStart();
         }}
       >
+        <div>
+          <label className={labelClass} htmlFor="sat-source">Source</label>
+          <select
+            id="sat-source"
+            className={fieldClass}
+            value={filters.source}
+            onChange={(event) => onChange({
+              ...filters,
+              source: event.target.value as PracticeFilters["source"],
+              domain: "any",
+              skill: "any",
+            })}
+          >
+            {SOURCES.map((source) => (
+              <option key={source.value} value={source.value}>{source.label}</option>
+            ))}
+          </select>
+        </div>
+
         <div>
           <label className={labelClass} htmlFor="sat-section">Section</label>
           <select

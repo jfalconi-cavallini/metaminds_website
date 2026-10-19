@@ -1,7 +1,17 @@
-import type { SatChoice, SatDifficulty, SatQuestion, SatQuestionBankFile, SatSection } from "./types.ts";
+import type {
+  SatChoice,
+  SatDifficulty,
+  SatFormat,
+  SatQuestion,
+  SatQuestionBankFile,
+  SatSection,
+  SatSource,
+} from "./types.ts";
 
 const SECTIONS: readonly SatSection[] = ["math", "reading_writing"];
 const DIFFICULTIES: readonly SatDifficulty[] = ["easy", "medium", "hard"];
+const FORMATS: readonly SatFormat[] = ["text", "html"];
+const SOURCES: readonly SatSource[] = ["metaminds", "college_board_test"];
 
 export class QuestionBankError extends Error {
   constructor(message: string) {
@@ -72,6 +82,15 @@ export function parseQuestion(value: unknown, index: number): SatQuestion {
     throw new QuestionBankError(`${label} needs choices or sprAnswer, not both.`);
   }
 
+  const source = value.source;
+  if (typeof source !== "string" || !SOURCES.includes(source as SatSource)) {
+    throw new QuestionBankError(`${label} source must be metaminds or college_board_test.`);
+  }
+  const format = value.format === undefined ? "text" : value.format;
+  if (typeof format !== "string" || !FORMATS.includes(format as SatFormat)) {
+    throw new QuestionBankError(`${label} format must be text or html.`);
+  }
+
   const correctAnswer = requiredString(value.correctAnswer, `${label} correctAnswer`);
   const question: SatQuestion = {
     id: requiredString(value.id, `${label} id`),
@@ -82,7 +101,8 @@ export function parseQuestion(value: unknown, index: number): SatQuestion {
     stem: requiredString(value.stem, `${label} stem`),
     correctAnswer,
     explanation: requiredString(value.explanation, `${label} explanation`),
-    source: requiredString(value.source, `${label} source`),
+    format: format as SatFormat,
+    source: source as SatSource,
   };
 
   if (typeof value.passage === "string" && value.passage.trim() !== "") {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getPracticeQuestions } from "@/lib/sat/bank";
+import { supabase } from "@/lib/supabase";
 import { emptyProgress, loadProgress, saveProgress, type SatProgressV1 } from "@/lib/sat/progress";
+import { fetchSatQuestions, type SatQuestionsClient } from "@/lib/sat/query";
 import {
   checkAnswer,
   createSession,
@@ -19,6 +20,7 @@ import type { SatQuestion } from "@/lib/sat/types";
 import { QuestionScreen } from "./QuestionScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SetupScreen } from "./SetupScreen";
+import { cardClass, displayClass } from "./styles";
 
 type Phase = "setup" | "practice" | "results";
 
@@ -33,14 +35,16 @@ function questionsForSession(session: StoredSession, byId: Map<string, SatQuesti
 }
 
 export function SatPracticeApp({ userId }: { userId: string }) {
-  const bank = useMemo(() => getPracticeQuestions(), []);
-  const byId = useMemo(() => new Map(bank.map((question) => [question.id, question])), [bank]);
+  const [bank, setBank] = useState<SatQuestion[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const byId = useMemo(() => new Map((bank ?? []).map((question) => [question.id, question])), [bank]);
   const [filters, setFilters] = useState<PracticeFilters>({
     section: "any",
     domain: "any",
     skill: "any",
     difficulty: "any",
-    count: Math.min(5, Math.max(bank.length, 1)),
+    source: "any",
+    count: 5,
     timed: false,
   });
   const [phase, setPhase] = useState<Phase>("setup");
@@ -58,13 +62,36 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   }, [userId]);
 
   useEffect(() => {
+    let cancelled = false;
+    fetchSatQuestions(supabase as unknown as SatQuestionsClient)
+      .then((questions) => {
+        if (cancelled) return;
+        setBank(questions);
+        setFilters((current) => ({
+          ...current,
+          count: Math.min(current.count, Math.max(questions.length, 1)),
+        }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadError(true);
+        setBank([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (phase !== "practice") return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 250);
     return () => window.clearInterval(timer);
   }, [phase, session?.id]);
 
-  const matching = filterQuestions(bank, filters);
+  const loaded = bank ?? [];
+  const matching = filterQuestions(loaded, filters);
+  const sourceQuestions = loaded.filter((question) => filters.source === "any" || question.source === filters.source);
   const activeQuestions = session ? questionsForSession(session, byId) : null;
   const continueSession = progress.active && questionsForSession(progress.active, byId) ? progress.active : null;
   const latestSession = [...progress.completed].reverse().find((item) => questionsForSession(item, byId)) ?? null;
@@ -201,17 +228,35 @@ export function SatPracticeApp({ userId }: { userId: string }) {
         session={session}
         questions={activeQuestions}
         summary={summarizeSession(session, activeQuestions)}
-        saved={summarizeSessions(progress.completed, bank)}
+        saved={summarizeSessions(progress.completed, loaded)}
         onRetry={retry}
         onNewPractice={newPractice}
       />
     );
   }
 
+  if (bank === null) {
+    return (
+      <section className={cardClass} aria-busy="true">
+        <p className="text-sm text-[#D9D3C7]">Loading questions.</p>
+      </section>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <section className={cardClass} aria-labelledby="sat-load-error-title">
+        <h2 id="sat-load-error-title" className={`${displayClass} text-3xl text-[#F4EFE4]`}>
+          Questions could not be loaded.
+        </h2>
+      </section>
+    );
+  }
+
   return (
     <SetupScreen
       filters={filters}
-      questions={bank}
+      questions={sourceQuestions}
       available={matching.length}
       bankEmpty={bank.length === 0}
       canContinue={hydrated && continueSession !== null}

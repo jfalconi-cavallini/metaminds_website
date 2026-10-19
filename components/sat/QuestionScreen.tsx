@@ -1,9 +1,9 @@
 "use client";
 
-import { difficultyLabel, sectionLabel, skillTitle } from "@/lib/sat/catalog";
+import { difficultyLabel, sectionLabel, skillTitle, sourceLabel } from "@/lib/sat/catalog";
 import { formatClock, secondsRemaining, type StoredAnswer, type StoredSession } from "@/lib/sat/session";
 import type { SatQuestion } from "@/lib/sat/types";
-import { MathText } from "./MathText";
+import { QuestionContent } from "./QuestionContent";
 import { cardClass, displayClass, primaryClass, secondaryClass } from "./styles";
 
 export function QuestionScreen({
@@ -64,7 +64,7 @@ export function QuestionScreen({
             Question {index + 1} of {questions.length}
           </p>
           <p className="mt-1 text-xs text-[#D9D3C7]">
-            {sectionLabel(question.section)}, {skillTitle(question.skill)}, {difficultyLabel(question.difficulty)}
+            {sectionLabel(question.section)}, {skillTitle(question.skill)}, {difficultyLabel(question.difficulty)}, {sourceLabel(question.source)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -161,14 +161,14 @@ export function QuestionScreen({
           <section aria-label="Passage" className={`${cardClass} lg:max-h-[70vh] lg:overflow-y-auto`}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">Passage</p>
             <div className="mt-3 text-sm leading-7 text-[#F4EFE4]">
-              <MathText text={question.passage} />
+              <QuestionContent format={question.format} text={question.passage} />
             </div>
           </section>
         )}
 
         <section aria-label="Question" className={`${cardClass} ${question.passage ? "" : "lg:max-w-3xl"}`}>
           <h2 className={`${displayClass} text-2xl leading-snug text-[#F4EFE4]`}>
-            <MathText text={question.stem} />
+            <QuestionContent format={question.format} text={question.stem} />
           </h2>
 
           {question.choices ? (
@@ -202,7 +202,7 @@ export function QuestionScreen({
                         {choice.label}
                       </span>
                       <span className="pt-1 text-sm leading-6 text-[#F4EFE4]">
-                        <MathText text={choice.text} />
+                        <QuestionContent format={question.format} text={choice.text} />
                         {showCorrect && <span className="mt-1 block text-xs font-semibold text-[#C9A86A]">Correct answer</span>}
                         {showWrong && <span className="mt-1 block text-xs font-semibold text-[#E7B4B4]">Your answer</span>}
                       </span>
@@ -262,7 +262,7 @@ export function QuestionScreen({
             <div className="mt-5 rounded-xl border border-[#C9A86A]/30 bg-[#0B1426] p-4">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">Explanation</p>
               <div className="mt-2 text-sm leading-6 text-[#F4EFE4]">
-                <MathText text={question.explanation} />
+                <QuestionContent format={question.format} text={question.explanation} />
               </div>
             </div>
           )}
