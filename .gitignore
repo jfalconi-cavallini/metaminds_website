@@ -42,3 +42,6 @@ next-env.d.ts
 
 # local study / interview prep — not part of the codebase
 /study_materials
+
+# SAT question files stay on the importer's machine. This repo is public.
+/data/sat/

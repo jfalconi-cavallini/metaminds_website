@@ -1,0 +1,34 @@
+[
+  {
+    "id": "SAMPLE-001",
+    "section": "Math",
+    "domain": "Sample domain",
+    "skill": "Sample skill",
+    "difficulty": "easy",
+    "type": "mcq",
+    "passage": null,
+    "question": "PLACEHOLDER question text",
+    "choices": {
+      "A": "PLACEHOLDER A",
+      "B": "PLACEHOLDER B",
+      "C": "PLACEHOLDER C",
+      "D": "PLACEHOLDER D"
+    },
+    "answer": "A",
+    "explanation": "PLACEHOLDER explanation"
+  },
+  {
+    "questionId": "sample-html-1",
+    "domain_desc": "Sample domain",
+    "skill_cd": "S.1",
+    "skill_desc": "Sample skill",
+    "difficulty": "M",
+    "type": "spr",
+    "stimulus_html": "<p>PLACEHOLDER passage</p>",
+    "stem_html": "<p>PLACEHOLDER stem <math><mi>x</mi></math></p>",
+    "rationale_html": "<p>PLACEHOLDER rationale</p>",
+    "choices": null,
+    "correct_letters": [],
+    "answer": "4"
+  }
+]

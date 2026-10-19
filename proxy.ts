@@ -1,5 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  SAT_PRACTICE_ACCESS,
+  allowsPracticeDevBypass,
+  decidePracticeAccess,
+  isSatPracticePath,
+} from "./lib/sat/access";
 
 // Lists the roles allowed to access each portal path.
 const ALLOWED_ROLES_FOR_PATH: Record<string, string[]> = {
@@ -9,7 +15,28 @@ const ALLOWED_ROLES_FOR_PATH: Record<string, string[]> = {
   "/portal/parent":  ["parent"],
 };
 
+function loginRedirect(request: NextRequest, returnToPractice: boolean) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  if (returnToPractice) {
+    url.search = "";
+    url.searchParams.set("next", "/sat-practice");
+  }
+  return NextResponse.redirect(url);
+}
+
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  const practice = isSatPracticePath(path);
+
+  if (
+    practice &&
+    (SAT_PRACTICE_ACCESS === "public" ||
+      allowsPracticeDevBypass(process.env.NODE_ENV, process.env.SAT_PRACTICE_DEV_BYPASS))
+  ) {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -32,14 +59,34 @@ export async function proxy(request: NextRequest) {
   );
 
   // getUser() re-validates the token against the Supabase Auth server.
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const path = request.nextUrl.pathname;
+  let user: { id: string } | null = null;
+  try {
+    const result = await supabase.auth.getUser();
+    user = result.data.user;
+  } catch (error) {
+    if (practice) return loginRedirect(request, true);
+    throw error;
+  }
 
   if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return loginRedirect(request, practice);
+  }
+
+  if (practice) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const decision = decidePracticeAccess({
+      access: SAT_PRACTICE_ACCESS,
+      nodeEnv: process.env.NODE_ENV,
+      devBypass: process.env.SAT_PRACTICE_DEV_BYPASS,
+      userId: user.id,
+      role: typeof profile?.role === "string" ? profile.role : null,
+    });
+    if (decision.type === "redirect") return loginRedirect(request, true);
+    return response;
   }
 
   const allowedRoles = Object.entries(ALLOWED_ROLES_FOR_PATH).find(([prefix]) => path.startsWith(prefix))?.[1];
@@ -51,9 +98,7 @@ export async function proxy(request: NextRequest) {
       .single();
 
     if (!profile) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return loginRedirect(request, false);
     }
 
     // Admins and tutors can access any portal path — the preview token is validated
@@ -63,9 +108,7 @@ export async function proxy(request: NextRequest) {
     }
 
     if (!allowedRoles.includes(profile.role)) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      return NextResponse.redirect(url);
+      return loginRedirect(request, false);
     }
   }
 
@@ -73,5 +116,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/portal/:path*"],
+  matcher: ["/portal/:path*", "/sat-practice", "/sat-practice/:path*"],
 };

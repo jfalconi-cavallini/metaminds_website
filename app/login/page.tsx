@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { destinationAfterLogin } from "@/lib/sat/access";
 import { supabase } from "@/lib/supabase";
 import { siteData } from "@/lib/data";
 
@@ -42,14 +43,14 @@ export default function LoginPage() {
         return;
       }
 
-      if      (profile.role === "admin")   router.push("/portal/admin");
-      else if (profile.role === "tutor")   router.push("/portal/tutor");
-      else if (profile.role === "student") router.push("/portal/student");
-      else if (profile.role === "parent")  router.push("/portal/parent");
-      else {
+      const next = new URLSearchParams(window.location.search).get("next");
+      const destination = destinationAfterLogin(profile.role, next);
+      if (!destination) {
         setError("Account role not recognized. Contact MetaMinds support.");
         setLoading(false);
+        return;
       }
+      router.push(destination);
     } catch (err) {
       console.error("[login] error:", err);
       setError("An unexpected error occurred. Please try again.");
