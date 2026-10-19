@@ -235,7 +235,7 @@ export default function FAQ() {
                         </p>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="relative space-y-5">
+                    <form noValidate onSubmit={handleSubmit} className="relative space-y-5">
                         {/* Honeypot field (hidden from users, catches bots) */}
                         <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
                             <label htmlFor="mm_leave_blank">Leave this field blank</label>
