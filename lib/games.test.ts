@@ -19,7 +19,7 @@ describe("games registry", () => {
   it("keeps the games that are on main and leaves the open PR games out", () => {
     assert.deepEqual(
       games.map((game) => game.slug),
-      ["palabras-park", "spelling-bee", "linear-equations"],
+      ["palabras-park", "spelling-bee", "linear-equations", "grade-7-math-mix"],
     );
     assert.equal(games.some((game) => game.slug === "verbo-rush" || game.slug === "lanza-loros"), false);
   });
@@ -108,7 +108,10 @@ describe("games registry", () => {
       gamesFor("sat", "Math").map((game) => game.slug),
       ["linear-equations"],
     );
-    assert.deepEqual(gamesFor("middle", "Math"), []);
+    assert.deepEqual(
+      gamesFor("middle", "Math").map((game) => game.slug),
+      ["grade-7-math-mix"],
+    );
     assert.equal(findGame("elementary", "spelling", "spelling-bee")?.title, "Spelling Bee Practice");
     assert.equal(findGame("sat", "math", "palabras-park"), undefined);
   });

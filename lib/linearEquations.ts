@@ -133,7 +133,7 @@ export const LINEAR_LEVELS: readonly LinearLevel[] = [
         prompt: "Solve: 4(x - 3) - (x + 2) = 2x - 8",
         answer: "x = 6",
         accept: ["x = 6", "6"],
-        steps: "Distribute: 4x - 12 - x - 2 = 2x - 8. The negative flips both signs of (x + 2). Combine: 3x - 14 = 2x - 8. Subtract 2x: x - 14 = -8. Add 14.",
+        steps: "Distribute: 4x - 12 - x - 2 = 2x - 8. Subtracting (x + 2) means subtracting x and subtracting 2. Combine: 3x - 14 = 2x - 8. Subtract 2x: x - 14 = -8. Add 14.",
       },
     ],
   },
@@ -169,7 +169,7 @@ export const LINEAR_LEVELS: readonly LinearLevel[] = [
         prompt: "If 2x - 9 = 5, what is the value of 2x + 3?",
         answer: "17",
         accept: ["17"],
-        steps: "The question asks for 2x + 3, not x. 2x - 9 = 5, so 2x = 14 and x = 7. Then 2x + 3 = 17.",
+        steps: "The question asks for 2x + 3, not x. 2x - 9 = 5, so 2x = 14. Then 2x + 3 = 14 + 3 = 17.",
       },
       {
         id: "l3-q5",

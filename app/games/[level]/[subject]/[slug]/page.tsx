@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { findGame, games, type ReactGameSlug } from "@/lib/games";
 import SpellingBeeGame from "../../../spelling-bee/SpellingBeeGame";
 import LinearEquationsGame from "../../../linear-equations/LinearEquationsGame";
+import Grade7MathGame from "../../../grade-7-math-mix/Grade7MathGame";
 
 const VIEWS: Record<ReactGameSlug, ComponentType> = {
   "spelling-bee": SpellingBeeGame,
   "linear-equations": LinearEquationsGame,
+  "grade-7-math-mix": Grade7MathGame,
 };
 
 type Props = { params: Promise<{ level: string; subject: string; slug: string }> };

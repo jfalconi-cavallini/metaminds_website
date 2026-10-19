@@ -9,7 +9,7 @@ export type LevelSlug = (typeof LEVELS)[number]["slug"];
 
 export const MATH_SUBJECT = "Math";
 
-export type ReactGameSlug = "spelling-bee" | "linear-equations";
+export type ReactGameSlug = "spelling-bee" | "linear-equations" | "grade-7-math-mix";
 
 type GameBase = {
   title: string;
@@ -17,13 +17,19 @@ type GameBase = {
   subject: string;
   /** Finer label already used on the game, such as Spanish 1 or Grades 4 and 5. */
   gradeRange: string;
+  /** Numeric grade when the game is tagged to one grade. */
+  grade?: number;
+  /** TEKS codes covered by the game, in first seen order. */
+  teks?: readonly string[];
+  /** Content source name. Null when the published game has no source string. */
+  source?: string;
   /** Canonical skill id or TEKS code. Null when the published game has no code. */
   skill: string | null;
   /** Plain skill name for the card. Null when no skill is on file. */
   skillLabel: string | null;
   description: string;
-  /** Previous public URL. Permanent redirect target is gameHref(game). */
-  legacyPath: string;
+  /** Previous public URL. Omitted when the game launched on its nested path. */
+  legacyPath?: string;
 };
 
 export type Game =
@@ -31,7 +37,7 @@ export type Game =
   | (GameBase & { kind: "static"; slug: string; staticFile: string });
 
 // Verbo Rush and Lanza Loros are on open PR #25, not on main, so they are not listed.
-// Middle School math has no game. Vault math course files have no question set and no TEKS code.
+// Grade 7 Math Mix is original content from the Director of Curriculum (middle-math-01).
 export const games: readonly Game[] = [
   {
     kind: "static",
@@ -73,6 +79,37 @@ export const games: readonly Game[] = [
     description:
       "Solve linear equations in one variable. Three levels. You see the correct answer after each try.",
     legacyPath: "/games/linear-equations",
+  },
+  {
+    kind: "react",
+    slug: "grade-7-math-mix",
+    title: "Grade 7 Math Mix",
+    subject: MATH_SUBJECT,
+    level: "middle",
+    gradeRange: "Grade 7",
+    grade: 7,
+    teks: [
+      "7.3A",
+      "7.12A",
+      "7.3B",
+      "7.4A",
+      "7.4B",
+      "7.4C",
+      "7.4D",
+      "7.5C",
+      "7.9B",
+      "7.9A",
+      "7.9D",
+      "7.9C",
+      "7.11A",
+      "7.10A",
+      "7.6I",
+    ],
+    source: "MetaMinds Director of Curriculum, middle-math-01",
+    skill: null,
+    skillLabel: null,
+    description:
+      "Grade 7 math practice. Two levels. You see the explanation after each answer.",
   },
 ];
 
@@ -166,6 +203,7 @@ export function findGame(level: string, subject: string, slug: string, list: rea
 }
 
 export const legacyRedirects: readonly { source: string; destination: string }[] = games.flatMap((game) => {
+  if (!game.legacyPath) return [];
   const destination = gameHref(game);
   return [
     { source: game.legacyPath, destination },

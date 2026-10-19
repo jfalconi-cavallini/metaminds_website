@@ -76,6 +76,14 @@ describe("linear equations vault items", () => {
     assert.equal(isCorrectAnswer("17", otherDerived), true);
     assert.equal(isCorrectAnswer("x = 7", otherDerived), false);
     assert.equal(isCorrectAnswer("7", otherDerived), false);
+    assert.equal(
+      otherDerived.steps,
+      "The question asks for 2x + 3, not x. 2x - 9 = 5, so 2x = 14. Then 2x + 3 = 14 + 3 = 17.",
+    );
+    assert.equal(
+      question("l2-q5").steps,
+      "Distribute: 4x - 12 - x - 2 = 2x - 8. Subtracting (x + 2) means subtracting x and subtracting 2. Combine: 3x - 14 = 2x - 8. Subtract 2x: x - 14 = -8. Add 14.",
+    );
 
     const none = question("l3-q1");
     assert.equal(isCorrectAnswer("No solution", none), true);
