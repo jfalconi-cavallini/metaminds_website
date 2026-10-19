@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
+import { games, trail } from "@/lib/games";
+import GamesBreadcrumb from "../GamesBreadcrumb";
 import {
   GRADE_4_WORDS,
   GRADE_5_WORDS,
@@ -12,6 +13,8 @@ import {
   type GradeChoice,
   type SpellingWord,
 } from "@/lib/spellingBee";
+
+const spellingGame = games.find((entry) => entry.slug === "spelling-bee");
 
 const HEAR_RATE = 0.95;
 const SLOW_RATE = 0.6;
@@ -264,21 +267,16 @@ export default function SpellingBeeGame() {
       <div
         className="mx-auto w-full min-w-0 max-w-lg px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-[max(0.75rem,env(safe-area-inset-top))]"
       >
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold uppercase tracking-widest text-[#E0B44A]">
-              {phase === "play" ? listLabel(choice) : "Practice"}
-            </p>
-            <h1 className={`break-words font-bold leading-tight ${phase === "play" ? "text-[18px]" : "text-[24px]"}`}>
-              Spelling Bee Practice
-            </h1>
-          </div>
-          <Link
-            href="/games"
-            className="inline-flex min-h-14 shrink-0 touch-manipulation items-center rounded-xl px-3 text-[16px] font-bold text-[#E0B44A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#E0B44A]"
-          >
-            Games
-          </Link>
+        {spellingGame && (
+          <GamesBreadcrumb tone="game" items={trail(spellingGame.level, spellingGame.subject, spellingGame.title)} />
+        )}
+        <div className="mt-2 min-w-0">
+          <p className="text-[12px] font-bold uppercase tracking-widest text-[#E0B44A]">
+            {phase === "play" ? listLabel(choice) : "Practice"}
+          </p>
+          <h1 className={`break-words font-bold leading-tight ${phase === "play" ? "text-[18px]" : "text-[24px]"}`}>
+            Spelling Bee Practice
+          </h1>
         </div>
 
         {phase === "pick" && (
