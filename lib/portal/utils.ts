@@ -1,5 +1,6 @@
-import type { PurchaseOption } from "./types";
 import { supabase } from "@/lib/supabase";
+
+export { purchaseOptions } from "./purchasePackages";
 
 /**
  * Course Offerings (the `courses` table) are the canonical catalog — see
@@ -77,8 +78,18 @@ export function sendSessionConfirmationEmail(sessionId: number): void {
   });
 }
 
-export const purchaseOptions: PurchaseOption[] = [
-  { id: "1hr", label: "1 Hour",  hours: 1, price: 70,  priceLabel: "$70"  },
-  { id: "4hr", label: "4 Hours", hours: 4, price: 260, priceLabel: "$260" },
-  { id: "8hr", label: "8 Hours", hours: 8, price: 480, priceLabel: "$480" },
-];
+/** Tell Jose a purchase request was saved. Failures stay in the return value. */
+export async function notifyPurchaseRequest(requestId: number): Promise<{ sent: boolean; reason?: string }> {
+  const { data: { session } } = await supabase.auth.getSession();
+  const res = await fetch("/api/portal/notify-purchase-request", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      ...(session ? { authorization: `Bearer ${session.access_token}` } : {}),
+    },
+    body: JSON.stringify({ requestId }),
+  });
+  const json = await res.json().catch(() => ({} as { sent?: boolean; reason?: string }));
+  if (!res.ok) return { sent: false, reason: json.reason ?? "request_failed" };
+  return { sent: Boolean(json.sent), reason: json.reason };
+}
