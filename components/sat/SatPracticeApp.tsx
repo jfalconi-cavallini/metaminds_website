@@ -10,9 +10,7 @@ import {
   createSession,
   emptyAnswer,
   filterQuestions,
-  sessionScore,
   summarizeSession,
-  summarizeSessions,
   takeQuestions,
   type PracticeFilters,
   type StoredAnswer,
@@ -239,13 +237,18 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
     }
   }
 
-  function retry() {
+  function retryMissed() {
     if (!session || !activeQuestions) return;
+    const missedIds = new Set(
+      summarizeSession(session, activeQuestions).missed.map((item) => item.questionId),
+    );
+    const missed = activeQuestions.filter((question) => missedIds.has(question.id));
+    if (missed.length === 0) return;
     finishingRef.current = false;
     setIndex(0);
     setTimerHidden(false);
     setPhase("practice");
-    commit(createSession(activeQuestions, session.timed));
+    commit(createSession(missed, session.timed));
   }
 
   function newPractice() {
@@ -301,29 +304,14 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
   }
 
   if (phase === "results" && session && activeQuestions) {
-    const summary = summarizeSession(session, activeQuestions);
-    const score = sessionScore(summary);
-    const missedLabel = summary.missed.length === 0
-      ? "No missed questions."
-      : `Missed ${summary.missed.length}: ${summary.missed.map((item) => item.questionId).join(", ")}.`;
     return (
-      <div className="flex flex-col gap-4">
-        <section className={cardClass} aria-label="Score">
-          <p className={labelClass}>This set</p>
-          <p className="mt-2 text-2xl font-semibold">
-            {score.checked === 0 ? "No answers checked." : `${score.correct} of ${score.checked} correct`}
-          </p>
-          <p className="mt-1 text-sm">{score.checked === 0 ? "Check an answer to record it." : missedLabel}</p>
-        </section>
-        <ResultsScreen
-          session={session}
-          questions={activeQuestions}
-          summary={summary}
-          saved={summarizeSessions(progress.completed, loaded)}
-          onRetry={retry}
-          onNewPractice={newPractice}
-        />
-      </div>
+      <ResultsScreen
+        session={session}
+        questions={activeQuestions}
+        summary={summarizeSession(session, activeQuestions)}
+        onRetryMissed={retryMissed}
+        onNewSet={newPractice}
+      />
     );
   }
 

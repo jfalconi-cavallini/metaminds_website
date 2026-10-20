@@ -206,6 +206,10 @@ describe("practice session", () => {
     };
 
     const summary = summarizeSession(session, practiceSet);
+    assert.deepEqual(summary.bySection, [
+      { key: "math", correct: 1, checked: 1 },
+      { key: "reading_writing", correct: 0, checked: 1 },
+    ]);
     assert.deepEqual(summary.bySkill, [
       { key: "Words in context", correct: 0, checked: 1 },
       { key: "Linear equations in one variable", correct: 1, checked: 1 },

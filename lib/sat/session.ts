@@ -44,6 +44,7 @@ export interface QuestionRef {
 }
 
 export interface SessionSummary {
+  bySection: AccuracyRow[];
   bySkill: AccuracyRow[];
   byDifficulty: AccuracyRow[];
   missed: QuestionRef[];
@@ -162,6 +163,7 @@ export function summarizeSession(
   questions: readonly SatQuestion[],
 ): SessionSummary {
   const byId = new Map(questions.map((question) => [question.id, question]));
+  const bySection = new Map<string, AccuracyRow>();
   const bySkill = new Map<string, AccuracyRow>();
   const byDifficulty = new Map<string, AccuracyRow>();
   const missed: QuestionRef[] = [];
@@ -185,13 +187,18 @@ export function summarizeSession(
       continue;
     }
     const correct = answer.correct === true;
+    row(bySection, question.section, correct);
     row(bySkill, question.skill, correct);
     row(byDifficulty, question.difficulty, correct);
     if (!correct) missed.push(ref);
   }
 
+  const sectionOrder: SatSection[] = ["math", "reading_writing"];
   const difficultyOrder: SatDifficulty[] = ["easy", "medium", "hard"];
   return {
+    bySection: sectionOrder
+      .map((section) => bySection.get(section))
+      .filter((entry): entry is AccuracyRow => entry !== undefined),
     bySkill: [...bySkill.values()],
     byDifficulty: difficultyOrder
       .map((difficulty) => byDifficulty.get(difficulty))
