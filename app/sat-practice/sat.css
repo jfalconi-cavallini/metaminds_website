@@ -4,9 +4,21 @@
 }
 
 .sat-html {
+  min-width: 0;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+.sat-html math,
+.sat-practice .katex-display {
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
+}
+
+.sat-html math {
+  display: inline-block;
 }
 
 .sat-html p {

@@ -24,7 +24,7 @@ export function QuestionContent({ format, text }: { format: SatFormat; text: str
   }, [format, text]);
 
   if (format === "html") {
-    return <div className="sat-html" dangerouslySetInnerHTML={{ __html: html }} />;
+    return <div className="sat-html min-w-0 max-w-full" dangerouslySetInnerHTML={{ __html: html }} />;
   }
   return <MathText text={text} />;
 }

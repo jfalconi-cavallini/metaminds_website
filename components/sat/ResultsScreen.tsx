@@ -40,9 +40,11 @@ function AnswerValue({ question, response }: { question: SatQuestion; response: 
     );
   }
   return (
-    <div className="mt-1 flex gap-2 text-sm leading-6 text-gray-900">
-      <span className="font-semibold">{choice.label}.</span>
-      <QuestionContent format={question.format} text={choice.text} />
+    <div className="mt-1 flex min-w-0 gap-2 text-sm leading-6 text-gray-900">
+      <span className="shrink-0 font-semibold">{choice.label}.</span>
+      <span className="min-w-0 flex-1">
+        <QuestionContent format={question.format} text={choice.text} />
+      </span>
     </div>
   );
 }
@@ -124,10 +126,10 @@ function ReviewItem({
   const Icon = style.Icon;
 
   return (
-    <li className="rounded-2xl border border-gray-100 bg-white shadow-sm">
+    <li className="min-w-0 rounded-2xl border border-gray-100 bg-white shadow-sm">
       <button
         type="button"
-        className="flex w-full items-start gap-3 rounded-2xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+        className="flex w-full min-w-0 items-start gap-3 rounded-2xl p-4 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
@@ -150,7 +152,7 @@ function ReviewItem({
         />
       </button>
       {open && (
-        <div className="border-t border-gray-100 px-4 pb-4 pt-3">
+        <div className="min-w-0 border-t border-gray-100 px-4 pb-4 pt-3">
           {question.passage?.trim() && (
             <div className="mb-3 text-sm leading-6 text-gray-800">
               <QuestionContent format={question.format} text={question.passage} />
@@ -159,7 +161,7 @@ function ReviewItem({
           <div className="text-sm leading-6 text-gray-900">
             <QuestionContent format={question.format} text={question.stem.trim() ? question.stem : "Question"} />
           </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-gray-100 bg-gray-50 p-3">
               <p className={labelClass}>Your answer</p>
               <AnswerValue question={question} response={answer.response} />

@@ -59,9 +59,9 @@ export function QuestionScreen({
   const timeUp = session.timed && now !== null && remaining <= 0;
 
   return (
-    <div className="flex min-w-0 max-w-full flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p className={labelClass}>
             Question {index + 1} of {questions.length}
           </p>
@@ -84,7 +84,7 @@ export function QuestionScreen({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         {timerHidden ? (
           <button type="button" className={secondaryClass} onClick={onToggleTimer}>
             Show timer
@@ -105,7 +105,7 @@ export function QuestionScreen({
         )}
       </div>
 
-      <section aria-label="Questions" className={cardClass}>
+      <section aria-label="Questions" className={`${cardClass} min-w-0`}>
         <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-500">
           <span className="inline-flex items-center gap-2">
             <span className="h-3 w-3 rounded-sm ring-2 ring-blue-600" />
@@ -158,18 +158,18 @@ export function QuestionScreen({
         </div>
       </section>
 
-      <div className={`grid grid-cols-1 gap-4 ${question.passage ? "lg:grid-cols-2" : ""}`}>
+      <div className={`grid min-w-0 grid-cols-1 gap-4 ${question.passage ? "lg:grid-cols-2" : ""}`}>
         {question.passage && (
-          <section aria-label="Passage" className={`${cardClass} lg:max-h-[70vh] lg:overflow-y-auto`}>
+          <section aria-label="Passage" className={`${cardClass} min-w-0 lg:max-h-[70vh] lg:overflow-y-auto`}>
             <p className={labelClass}>Passage</p>
-            <div className="mt-3 text-sm leading-7 text-gray-900">
+            <div className="mt-3 min-w-0 text-sm leading-7 text-gray-900">
               <QuestionContent format={question.format} text={question.passage} />
             </div>
           </section>
         )}
 
-        <section aria-label="Question" className={`${cardClass} ${question.passage ? "" : "lg:max-w-3xl"}`}>
-          <h2 className="text-base font-medium leading-7 text-gray-900">
+        <section aria-label="Question" className={`${cardClass} min-w-0 ${question.passage ? "" : "lg:max-w-3xl"}`}>
+          <h2 className="min-w-0 text-base font-medium leading-7 text-gray-900">
             <QuestionContent format={question.format} text={question.stem} />
           </h2>
 
@@ -192,7 +192,7 @@ export function QuestionScreen({
                   crossed ? "line-through opacity-60" : "",
                 ].join(" ");
                 return (
-                  <li key={choice.label} className="flex items-stretch gap-2">
+                  <li key={choice.label} className="flex min-w-0 items-stretch gap-2">
                     <button
                       type="button"
                       className={`${choiceClass} min-w-0 flex-1`}
@@ -211,7 +211,7 @@ export function QuestionScreen({
                       }`}>
                         {choice.label}
                       </span>
-                      <span className="pt-1 text-sm leading-6 text-gray-900">
+                      <span className="min-w-0 flex-1 pt-1 text-sm leading-6 text-gray-900">
                         <QuestionContent format={question.format} text={choice.text} />
                         {showCorrect && <span className="mt-1 block text-xs font-semibold text-emerald-700">Correct answer</span>}
                         {showWrong && <span className="mt-1 block text-xs font-semibold text-red-600">Your answer</span>}
@@ -282,11 +282,11 @@ export function QuestionScreen({
         </section>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-4 flex gap-3 border-t border-gray-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0">
-        <button type="button" className={`${secondaryClass} flex-1`} disabled={index === 0} onClick={onPrevious}>
+      <div className="sticky bottom-0 z-10 -mx-4 flex w-full min-w-0 gap-3 border-t border-gray-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:w-auto sm:border-0 sm:bg-transparent sm:px-0">
+        <button type="button" className={`${secondaryClass} min-w-0 flex-1`} disabled={index === 0} onClick={onPrevious}>
           Previous
         </button>
-        <button type="button" className={`${primaryClass} flex-1`} onClick={last ? onFinish : onNext}>
+        <button type="button" className={`${primaryClass} min-w-0 flex-1`} onClick={last ? onFinish : onNext}>
           {last ? "See results" : "Next"}
         </button>
       </div>

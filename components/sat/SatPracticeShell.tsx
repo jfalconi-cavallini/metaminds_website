@@ -18,7 +18,7 @@ export function SatPracticeShell({ children }: { children: React.ReactNode }) {
       activeTab=""
       onTabChange={() => {}}
     >
-      <div className="sat-practice text-gray-900">{children}</div>
+      <div className="sat-practice w-full min-w-0 max-w-full text-gray-900">{children}</div>
     </DashboardShell>
   );
 }
