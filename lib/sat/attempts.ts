@@ -155,12 +155,92 @@ export interface SatAttemptSummary {
 
 const SECTION_ORDER: SatSection[] = ["math", "reading_writing"];
 
+const STRUCTURAL_TAGS = new Set(["mfrac", "msup", "msub", "msubsup", "msqrt", "mroot", "mfenced", "mrow"]);
+const SKIP_TAGS = new Set(["annotation", "annotation-xml", "script", "style"]);
+const SPACED_OPERATORS = new Set(["=", "+", "-", "−", "–", "×", "·", "÷", "<", ">", "≤", "≥", "≠", "≈"]);
+
+/**
+ * Readable excerpt. Math tokens stay glued (`f(x)`, `25x`), and operators keep
+ * a single space. Replacing every tag with a space turns `f(x)` into `f ( x )`.
+ */
 export function plainStem(value: string): string {
   const decoded = decodeHtmlEntities(value).replace(/&nbsp;/gi, " ");
-  return decoded
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+  return mathAwareText(decoded).replace(/\s+/g, " ").trim();
+}
+
+function tokenText(text: string): string {
+  const trimmed = text.trim();
+  if (SPACED_OPERATORS.has(trimmed)) return ` ${trimmed} `;
+  return text;
+}
+
+function fractionPart(value: string): string {
+  const compact = value.replace(/\s+/g, " ").trim();
+  return /[\s+\-=<>/]/.test(compact) ? `(${compact})` : compact;
+}
+
+function formatFrame(tag: string, chunks: string[]): string {
+  if (tag === "mrow") return chunks.join("");
+  const bits = chunks.map((chunk) => chunk.replace(/\s+/g, " ").trim()).filter(Boolean);
+  if (tag === "mfrac") return `${fractionPart(bits[0] ?? "")}/${fractionPart(bits[1] ?? "")}`;
+  if (tag === "msup") return `${bits[0] ?? ""}^${bits[1] ?? ""}`;
+  if (tag === "msub") return `${bits[0] ?? ""}_${bits[1] ?? ""}`;
+  if (tag === "msubsup") return `${bits[0] ?? ""}_${bits[1] ?? ""}^${bits[2] ?? ""}`;
+  if (tag === "msqrt" || tag === "mroot") return `sqrt(${bits[0] ?? ""})`;
+  if (tag === "mfenced") return `(${bits.join(", ")})`;
+  return bits.join(" ");
+}
+
+function mathAwareText(html: string): string {
+  const parts = html.split(/(<[^>]+>)/);
+  const stack: { tag: string; chunks: string[] }[] = [{ tag: "#root", chunks: [] }];
+  let skipTag = "";
+  let skipDepth = 0;
+
+  const pushText = (text: string) => {
+    stack[stack.length - 1]?.chunks.push(text);
+  };
+
+  for (const part of parts) {
+    if (!part) continue;
+    if (!part.startsWith("<")) {
+      if (skipDepth === 0) pushText(tokenText(part));
+      continue;
+    }
+    const tag = (part.match(/^<\/?\s*([a-zA-Z][\w:-]*)/)?.[1] ?? "").toLowerCase();
+    if (!tag) continue;
+    const closing = part.startsWith("</");
+    if (skipDepth > 0) {
+      if (!closing && tag === skipTag) skipDepth += 1;
+      else if (closing && tag === skipTag) skipDepth -= 1;
+      continue;
+    }
+    if (!closing && SKIP_TAGS.has(tag)) {
+      if (!/\/>$/.test(part)) {
+        skipTag = tag;
+        skipDepth = 1;
+      }
+      continue;
+    }
+    if (!closing) {
+      if (tag === "br" || tag === "hr") pushText(" ");
+      if (STRUCTURAL_TAGS.has(tag)) stack.push({ tag, chunks: [] });
+      continue;
+    }
+    if (tag === "p" || tag === "div" || tag === "li" || tag === "tr" || tag === "h1" || tag === "h2" || tag === "h3") {
+      pushText(" ");
+    }
+    if (stack.length > 1 && stack[stack.length - 1]?.tag === tag) {
+      const frame = stack.pop();
+      if (frame) pushText(formatFrame(frame.tag, frame.chunks));
+    }
+  }
+
+  while (stack.length > 1) {
+    const frame = stack.pop();
+    if (frame) pushText(formatFrame(frame.tag, frame.chunks));
+  }
+  return stack[0]?.chunks.join("") ?? "";
 }
 
 function clip(value: string, max = 180): string {

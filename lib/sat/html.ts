@@ -10,12 +10,13 @@ const HTML_TAGS = [
 ];
 
 const MATHML_TAGS = [
-  "math", "mi", "mn", "mo", "mtext", "mspace", "ms", "mglyph",
+  "math", "mi", "mn", "mo", "mtext", "mspace", "ms", "mglyph", "maction",
   "mrow", "mfrac", "msqrt", "mroot", "mstyle", "merror", "mpadded",
   "mphantom", "mfenced", "menclose",
   "msub", "msup", "msubsup", "munder", "mover", "munderover",
   "mmultiscripts", "mprescripts", "none",
   "mtable", "mtr", "mtd", "mlabeledtr",
+  "mlongdiv", "mscarries", "mscarry", "msgroup", "msline", "msrow", "mstack",
   "maligngroup", "malignmark",
   "semantics", "annotation", "annotation-xml",
 ];
@@ -64,10 +65,82 @@ export function decodeHtmlEntities(input: string): string {
 
 /**
  * HTML questions only. Text questions stay on the KaTeX path and are not decoded.
- * Decode escaped markup, then sanitize. MathML stays; scripts do not.
+ * Decode escaped markup, then sanitize. MathML structure stays; scripts do not.
+ * `mfenced` is rewritten to an `mrow` of operators because browsers lay out that form.
  */
 export function prepareSatHtml(input: string): string {
-  return sanitizeSatHtml(decodeHtmlEntities(input));
+  return expandMfenced(sanitizeSatHtml(decodeHtmlEntities(input)));
+}
+
+function readAttr(attrs: string, name: string): string | undefined {
+  const match = attrs.match(new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)')`, "i"));
+  if (!match) return undefined;
+  return decodeHtmlEntities(match[1] ?? match[2] ?? "");
+}
+
+function escapeText(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
+/** Top-level elements inside one MathML parent. Whitespace between them is ignored. */
+function topLevelPieces(inner: string): string[] {
+  const pieces: string[] = [];
+  let depth = 0;
+  let chunkStart = -1;
+  for (let i = 0; i < inner.length; i++) {
+    if (inner[i] !== "<") continue;
+    const end = inner.indexOf(">", i);
+    if (end === -1) break;
+    const raw = inner.slice(i, end + 1);
+    const name = raw.match(/^<\/?\s*([A-Za-z][\w:-]*)/)?.[1];
+    if (!name) {
+      i = end;
+      continue;
+    }
+    const closing = raw.startsWith("</");
+    const selfClosing = /\/>$/.test(raw);
+    if (!closing) {
+      if (depth === 0) chunkStart = i;
+      if (!selfClosing) depth += 1;
+      else if (depth === 0 && chunkStart >= 0) {
+        pieces.push(inner.slice(chunkStart, end + 1));
+        chunkStart = -1;
+      }
+    } else {
+      depth = Math.max(0, depth - 1);
+      if (depth === 0 && chunkStart >= 0) {
+        pieces.push(inner.slice(chunkStart, end + 1));
+        chunkStart = -1;
+      }
+    }
+    i = end;
+  }
+  return pieces;
+}
+
+/** Chrome lays out `mrow` and leaves `mfenced` as ordinary boxes. */
+export function expandMfenced(html: string): string {
+  const innerFence = /<mfenced\b([^>]*)>((?:(?!<mfenced\b)[\s\S])*?)<\/mfenced>/gi;
+  let current = html;
+  for (let pass = 0; pass < 20; pass++) {
+    const next = current.replace(innerFence, (_match, attrs: string, inner: string) => {
+      const open = escapeText(readAttr(attrs, "open") ?? "(");
+      const close = escapeText(readAttr(attrs, "close") ?? ")");
+      const separators = readAttr(attrs, "separators") ?? ",";
+      const pieces = topLevelPieces(inner);
+      const body = pieces.length <= 1
+        ? inner
+        : pieces.map((piece, index) => {
+          if (index === 0) return piece;
+          const separator = separators[index - 1] ?? separators[separators.length - 1] ?? ",";
+          return `<mo>${escapeText(separator)}</mo>${piece}`;
+        }).join("");
+      return `<mrow><mo>${open}</mo>${body}<mo>${close}</mo></mrow>`;
+    });
+    if (next === current) return current;
+    current = next;
+  }
+  return current;
 }
 
 function mathAttributes(): Record<string, string[]> {

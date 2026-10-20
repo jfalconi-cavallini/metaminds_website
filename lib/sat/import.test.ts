@@ -204,6 +204,25 @@ describe("html questions", () => {
     assert.doesNotMatch(clean, /script|alert|&lt;p/);
     assert.equal(prepareSatHtml("<p>Already &amp; real</p>"), "<p>Already &amp; real</p>");
   });
+
+  it("keeps MathML structure, display, and mathvariant", () => {
+    const clean = prepareSatHtml([
+      '<math display="block">',
+      '<mstyle mathvariant="bold"><semantics>',
+      "<mrow><msup><mi>x</mi><mn>2</mn></msup><mo>+</mo>",
+      "<mfrac><mn>1</mn><mn>2</mn></mfrac></mrow>",
+      '<annotation encoding="application/x-tex">x^2</annotation>',
+      "</semantics></mstyle></math>",
+      "<math><mi>f</mi><mfenced><mi>x</mi></mfenced></math>",
+    ].join(""));
+    assert.match(clean, /<math display="block">/);
+    assert.match(clean, /<mstyle mathvariant="bold">/);
+    assert.match(clean, /<mrow><msup><mi>x<\/mi><mn>2<\/mn><\/msup>/);
+    assert.match(clean, /<mfrac><mn>1<\/mn><mn>2<\/mn><\/mfrac>/);
+    assert.match(clean, /<annotation encoding="application\/x-tex">/);
+    assert.match(clean, /<mrow><mo>\(<\/mo><mi>x<\/mi><mo>\)<\/mo><\/mrow>/);
+    assert.doesNotMatch(clean, /<mfenced/);
+  });
 });
 
 describe("question query", () => {

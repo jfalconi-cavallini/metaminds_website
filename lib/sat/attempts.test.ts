@@ -164,6 +164,14 @@ describe("summarizeAttempts", () => {
     assert.equal(summary.missed[1]?.stem, "What is x?");
     assert.equal(plainStem("<p>Hello&nbsp;there</p>"), "Hello there");
     assert.equal(plainStem("&lt;p&gt;Hello&amp;nbsp;there&#39;s&lt;/p&gt;"), "Hello there's");
+    assert.equal(
+      plainStem("<p>The function <math><mi>f</mi><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><mn>25</mn><mi>x</mi><mo>+</mo><mn>30</mn></math>.</p>"),
+      "The function f(x) = 25x + 30.",
+    );
+    assert.equal(
+      plainStem("<math><mfrac><mrow><mn>12</mn><mi>x</mi><mo>+</mo><mn>28</mn></mrow><mn>4</mn></mfrac></math>"),
+      "(12x + 28)/4",
+    );
   });
 
   it("returns an empty summary when the student has no attempts", () => {

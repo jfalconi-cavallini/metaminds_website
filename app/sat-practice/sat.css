@@ -9,16 +9,27 @@
   overflow-wrap: break-word;
 }
 
-.sat-html math,
 .sat-practice .katex-display {
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* The scroll box is the wrapper. display or overflow on math itself drops the
+   MathML formatting context, and the tokens then stack as blocks. */
+.sat-html .sat-math {
+  display: inline-block;
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   vertical-align: middle;
 }
 
-.sat-html math {
-  display: inline-block;
+.sat-html math[display="block"] {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .sat-html p {
