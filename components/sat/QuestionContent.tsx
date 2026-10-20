@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { sanitizeSatHtml } from "@/lib/sat/html";
+import { prepareSatHtml } from "@/lib/sat/html";
 import type { SatFormat } from "@/lib/sat/types";
 import { MathText } from "./MathText";
 
@@ -17,7 +17,7 @@ export function QuestionContent({ format, text }: { format: SatFormat; text: str
   const html = useMemo(() => {
     if (format !== "html") return "";
     try {
-      return sanitizeSatHtml(text);
+      return prepareSatHtml(text);
     } catch {
       return plainText(text);
     }

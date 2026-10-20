@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
-import { sanitizeSatHtml } from "./html.ts";
+import { prepareSatHtml, sanitizeSatHtml } from "./html.ts";
 import {
   mapImportDocument,
   mergeImportFiles,
@@ -96,6 +96,24 @@ describe("import rows", () => {
     assert.equal(row?.source_ref, "english_qa_normalized.json#sample-html-1");
     assert.equal(row?.explanation, "");
     assert.equal(sectionFromFileName("math_qa_normalized.json"), "math");
+
+    const withHtmlChoices = mapImportDocument([{
+      questionId: "sample-html-choices",
+      domain_desc: "Algebra",
+      skill_desc: "Linear equations",
+      difficulty: "E",
+      type: "mcq",
+      stem_html: "<p>Which value?</p>",
+      choices: [
+        { key: "A", text: "plain fifty", text_html: "<p><math><mn>50</mn></math></p>" },
+        "<p>2</p>",
+      ],
+      correct_letters: ["A"],
+    }], "math_qa_normalized.json");
+    const choiceRow = withHtmlChoices.rows[0];
+    assert.equal(choiceRow?.choices?.[0]?.text, "<p><math><mn>50</mn></math></p>");
+    assert.equal(choiceRow?.choices?.[1]?.text, "<p>2</p>");
+    assert.match(prepareSatHtml(choiceRow?.choices?.[0]?.text ?? ""), /<math><mn>50<\/mn><\/math>/);
   });
 
   it("rejects a repeated id inside one file and across files", () => {
@@ -175,6 +193,16 @@ describe("html questions", () => {
     assert.match(clean, /data:image\/png;base64,aaaa/);
     assert.doesNotMatch(clean, /http:\/\/example.com/);
     assert.doesNotMatch(clean, /data:text\/html/);
+  });
+
+  it("decodes escaped html once, then sanitizes", () => {
+    const escaped = "&lt;p&gt;Hello&amp;nbsp;there&#39;s &lt;math&gt;&lt;mi&gt;x&lt;/mi&gt;&lt;/math&gt;.&lt;/p&gt;&lt;script&gt;alert(1)&lt;/script&gt;";
+    const clean = prepareSatHtml(escaped);
+    assert.match(clean, /<p>Hello/);
+    assert.match(clean, /there's/);
+    assert.match(clean, /<math><mi>x<\/mi><\/math>/);
+    assert.doesNotMatch(clean, /script|alert|&lt;p/);
+    assert.equal(prepareSatHtml("<p>Already &amp; real</p>"), "<p>Already &amp; real</p>");
   });
 });
 

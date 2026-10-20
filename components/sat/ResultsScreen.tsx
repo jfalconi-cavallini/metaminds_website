@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, ChevronDown, Minus, X } from "lucide-react";
 import StatCard from "@/components/portal/StatCard";
 import { difficultyLabel, sectionLabel, skillTitle } from "@/lib/sat/catalog";
+import { plainStem } from "@/lib/sat/attempts";
 import { sessionScore, type SessionSummary, type StoredAnswer, type StoredSession } from "@/lib/sat/session";
 import type { SatQuestion, SatSection } from "@/lib/sat/types";
 import { QuestionContent } from "./QuestionContent";
@@ -15,19 +16,9 @@ function percentLabel(correct: number, checked: number): string {
 }
 
 const displayMath = /\$\$[\s\S]*?\$\$|\$[^$\n]+\$/g;
-const tags = /<[^>]+>/g;
-const spaces = /\s+/g;
 
 function plainPreview(text: string): string {
-  return text
-    .replace(displayMath, " ")
-    .replace(tags, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(spaces, " ")
-    .trim();
+  return plainStem(text.replace(displayMath, " "));
 }
 
 function shortAnswer(question: SatQuestion, response: string): string {
@@ -236,7 +227,7 @@ export function ResultsScreen({
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 max-w-full flex-col gap-4">
       <div>
         <p className={labelClass}>Practice</p>
         <h2 className="mt-1 text-2xl font-bold text-gray-900">Results</h2>

@@ -163,6 +163,7 @@ describe("summarizeAttempts", () => {
     assert.equal(summary.missed[1]?.source, "college_board_test");
     assert.equal(summary.missed[1]?.stem, "What is x?");
     assert.equal(plainStem("<p>Hello&nbsp;there</p>"), "Hello there");
+    assert.equal(plainStem("&lt;p&gt;Hello&amp;nbsp;there&#39;s&lt;/p&gt;"), "Hello there's");
   });
 
   it("returns an empty summary when the student has no attempts", () => {

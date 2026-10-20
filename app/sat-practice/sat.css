@@ -4,7 +4,13 @@
 }
 
 .sat-html {
+  max-width: 100%;
   overflow-wrap: anywhere;
+  overflow-x: auto;
+}
+
+.sat-html p {
+  margin: 0;
 }
 
 .sat-html :where(p, ul, ol, table, figure, blockquote) + :where(p, ul, ol, table, figure, blockquote) {

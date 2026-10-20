@@ -32,6 +32,44 @@ const MATHML_ATTRIBUTES = [
 
 const SAFE_IMAGE = /^data:image\/(png|jpe?g|gif|webp);base64,/i;
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: "\"",
+  apos: "'",
+  nbsp: "\u00A0",
+  rsquo: "\u2019",
+  lsquo: "\u2018",
+  rdquo: "\u201D",
+  ldquo: "\u201C",
+  mdash: "\u2014",
+  ndash: "\u2013",
+  hellip: "\u2026",
+};
+
+/** One decode pass. `&amp;nbsp;` becomes `&nbsp;`, and `&lt;p&gt;` becomes `<p>`. */
+export function decodeHtmlEntities(input: string): string {
+  return input.replace(/&(#x[0-9a-fA-F]+|#\d+|[a-zA-Z]+);/g, (entity, body: string) => {
+    if (body.startsWith("#")) {
+      const code = body[1] === "x" || body[1] === "X"
+        ? Number.parseInt(body.slice(2), 16)
+        : Number.parseInt(body.slice(1), 10);
+      if (!Number.isInteger(code) || code < 0 || code > 0x10ffff) return entity;
+      return String.fromCodePoint(code);
+    }
+    return Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, body) ? NAMED_ENTITIES[body] : entity;
+  });
+}
+
+/**
+ * HTML questions only. Text questions stay on the KaTeX path and are not decoded.
+ * Decode escaped markup, then sanitize. MathML stays; scripts do not.
+ */
+export function prepareSatHtml(input: string): string {
+  return sanitizeSatHtml(decodeHtmlEntities(input));
+}
+
 function mathAttributes(): Record<string, string[]> {
   const attributes: Record<string, string[]> = {};
   for (const tag of MATHML_TAGS) attributes[tag] = MATHML_ATTRIBUTES;

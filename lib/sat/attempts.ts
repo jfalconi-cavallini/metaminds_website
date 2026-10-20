@@ -1,3 +1,4 @@
+import { decodeHtmlEntities } from "./html.ts";
 import type { SatDifficulty, SatSection, SatSource } from "./types.ts";
 import { checkAnswer } from "./session.ts";
 
@@ -155,14 +156,9 @@ export interface SatAttemptSummary {
 const SECTION_ORDER: SatSection[] = ["math", "reading_writing"];
 
 export function plainStem(value: string): string {
-  return value
+  const decoded = decodeHtmlEntities(value).replace(/&nbsp;/gi, " ");
+  return decoded
     .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&#39;/g, "'")
-    .replace(/&quot;/gi, "\"")
     .replace(/\s+/g, " ")
     .trim();
 }

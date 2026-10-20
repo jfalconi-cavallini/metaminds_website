@@ -224,7 +224,11 @@ function mapChoices(value: unknown, answer: string, label: string): SatChoice[] 
       if (!isRecord(item)) throw new QuestionBankError(`${label} choice ${index + 1} must be an object.`);
       const choiceLabel = optionalString(item.label) ?? optionalString(item.letter) ?? optionalString(item.key)
         ?? String.fromCharCode(65 + index);
-      const text = optionalString(item.text) ?? optionalString(item.html) ?? optionalString(item.body) ?? optionalString(item.content);
+      const text = optionalString(item.text_html)
+        ?? optionalString(item.html)
+        ?? optionalString(item.text)
+        ?? optionalString(item.body)
+        ?? optionalString(item.content);
       if (!text) throw new QuestionBankError(`${label} choice ${choiceLabel} needs text.`);
       return { label: choiceLabel, text };
     });

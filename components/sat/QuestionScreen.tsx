@@ -59,7 +59,7 @@ export function QuestionScreen({
   const timeUp = session.timed && now !== null && remaining <= 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex min-w-0 max-w-full flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className={labelClass}>
@@ -247,7 +247,10 @@ export function QuestionScreen({
               />
               <p className="mt-2 text-xs text-gray-500">Number or fraction.</p>
               {answer.checked && answer.correct === false && (
-                <p className="mt-2 text-sm text-gray-900">Correct answer: {question.correctAnswer}</p>
+                <div className="mt-2 text-sm text-gray-900">
+                  <p className="font-semibold">Correct answer</p>
+                  <QuestionContent format={question.format} text={question.correctAnswer} />
+                </div>
               )}
             </div>
           )}
