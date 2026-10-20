@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, Fragment } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
+import { ADMIN_NAV_ITEMS, consumePortalTabParam, portalTabIds } from "@/components/portal/portalNav";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
@@ -30,17 +31,7 @@ import {
 } from "@/lib/portal/db";
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, PurchaseRequest, Course, EmailLogEntry, EmailType } from "@/lib/portal/types";
 
-const navItems = [
-  { id: "overview",   label: "Overview"   },
-  { id: "analytics",  label: "Analytics"  },
-  { id: "students",   label: "Students"   },
-  { id: "tutors",     label: "Tutors"     },
-  { id: "sessions",   label: "Sessions"   },
-  { id: "packages",   label: "Packages"   },
-  { id: "courses",    label: "Courses"    },
-  { id: "curriculum", label: "Curriculum" },
-  { id: "emails",     label: "Emails"     },
-];
+const navItems = ADMIN_NAV_ITEMS;
 
 
 export default function AdminPortal() {
@@ -50,6 +41,11 @@ export default function AdminPortal() {
 
   const handleTabChange = useCallback((id: string) => {
     setTab(id);
+  }, []);
+
+  useEffect(() => {
+    const requested = consumePortalTabParam(portalTabIds(navItems));
+    if (requested) setTab(requested);
   }, []);
 
   const [students,         setStudents]         = useState<Student[]>([]);

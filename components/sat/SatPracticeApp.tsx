@@ -22,7 +22,7 @@ import type { SatQuestion } from "@/lib/sat/types";
 import { QuestionScreen } from "./QuestionScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SetupScreen } from "./SetupScreen";
-import { cardClass, displayClass, labelClass } from "./styles";
+import { cardClass, labelClass } from "./styles";
 
 type Phase = "setup" | "practice" | "results";
 
@@ -45,7 +45,6 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
     domain: "any",
     skill: "any",
     difficulty: "any",
-    source: "any",
     count: 5,
     timed: false,
   });
@@ -117,7 +116,6 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
 
   const loaded = bank ?? [];
   const matching = filterQuestions(loaded, filters);
-  const sourceQuestions = loaded.filter((question) => filters.source === "any" || question.source === filters.source);
   const activeQuestions = session ? questionsForSession(session, byId) : null;
   const continueSession = progress.active && questionsForSession(progress.active, byId) ? progress.active : null;
   const latestSession = [...progress.completed].reverse().find((item) => questionsForSession(item, byId)) ?? null;
@@ -332,15 +330,16 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
   if (bank === null) {
     return (
       <section className={cardClass} aria-busy="true">
-        <p className="text-sm text-[#D9D3C7]">Loading questions.</p>
+        <p className="text-sm text-gray-500">Loading questions.</p>
       </section>
     );
   }
 
   if (loadError) {
     return (
-      <section className={cardClass} aria-labelledby="sat-load-error-title">
-        <h2 id="sat-load-error-title" className={`${displayClass} text-3xl text-[#F4EFE4]`}>
+      <section aria-labelledby="sat-load-error-title">
+        <p className={labelClass}>Practice</p>
+        <h2 id="sat-load-error-title" className="mt-1 text-2xl font-bold text-gray-900">
           Questions could not be loaded.
         </h2>
       </section>
@@ -356,7 +355,7 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
     )}
     <SetupScreen
       filters={filters}
-      questions={sourceQuestions}
+      questions={loaded}
       available={matching.length}
       bankEmpty={bank.length === 0}
       canContinue={hydrated && continueSession !== null}
