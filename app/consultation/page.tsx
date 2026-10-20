@@ -108,11 +108,11 @@ const faqs = [
     },
     {
         q: "Who will I be speaking with?",
-        a: "You'll speak directly with Jose, the founder of MetaMinds — a UCSD Computer Science graduate with 7+ years of tutoring experience in test prep, coding, and STEM.",
+        a: "You'll speak directly with Jose, the founder of MetaMinds, a UCSD Computer Science graduate with 8 plus years of tutoring experience in test prep, coding, and STEM.",
     },
     {
         q: "We're not focused on SAT/ACT — can we still book?",
-        a: "Absolutely. The consultation works for any goal: improving grades in a specific class, learning to code, AP exam prep, GED prep, or exploring 3D printing and robotics. We'll talk through whatever your student needs.",
+        a: "Absolutely. The consultation works for any goal: improving grades in a specific class, learning to code, AP exam prep, GED prep, or exploring 3D printing. We'll talk through whatever your student needs.",
     },
     {
         q: "Can my student join the call?",
@@ -380,7 +380,11 @@ export default function ConsultationPage() {
                             />
                         </motion.div>
                         <p className="text-center text-gray-400 text-xs mt-6">
-                            Questions? Email us at{" "}
+                            Questions? Call{" "}
+                            <a href={siteData.brand.phoneHref} className="text-blue-600 hover:underline">
+                                {siteData.brand.phone}
+                            </a>
+                            {" "}or email{" "}
                             <a href={`mailto:${siteData.brand.email}`} className="text-blue-600 hover:underline">
                                 {siteData.brand.email}
                             </a>

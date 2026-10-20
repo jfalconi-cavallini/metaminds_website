@@ -50,17 +50,6 @@ const programs = [
         ]
     },
     {
-        icon: Cpu,
-        title: "Robotics",
-        description: "Design, build, and program robots with mentors who work in engineering — from first build to competition-ready.",
-        details: [
-            "VEX robotics systems",
-            "Mechanical engineering",
-            "Autonomous programming",
-            "Competition preparation"
-        ]
-    },
-    {
         icon: Zap,
         title: "3D Printing & Design",
         description: "CAD design and hands-on 3D printing, taught by a practicing design engineer — from first sketch to a real printed part.",
@@ -69,6 +58,20 @@ const programs = [
             "3D modeling design",
             "Design thinking",
             "Real-world prototyping"
+        ]
+    },
+];
+
+const comingSoon = [
+    {
+        icon: Cpu,
+        title: "Robotics",
+        description: "Design, build, and program robots with mentors who work in engineering, from first build to competition ready.",
+        details: [
+            "VEX robotics systems",
+            "Mechanical engineering",
+            "Autonomous programming",
+            "Competition preparation"
         ]
     },
 ];
@@ -83,7 +86,7 @@ export default function ProgramsAndResults() {
                         <span className="text-xs font-bold text-blue-600 uppercase tracking-widest">What We Teach</span>
                     </motion.div>
                     <motion.h2 initial={{ opacity: 0, y: -10 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
-                        One tutor, six directions your kid could go.
+                        One tutor, five directions your kid could go.
                     </motion.h2>
                     <motion.p initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
                         Test prep, math, code, and hardware — taught by tutors who work in the field, not just teach it.
@@ -109,6 +112,32 @@ export default function ProgramsAndResults() {
                             </ul>
                         </motion.div>
                     ))}
+                </div>
+
+                <div className="max-w-6xl mx-auto mt-12">
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest text-center mb-5">
+                        Coming to MetaMinds Lab
+                    </p>
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        {comingSoon.map((program, idx) => (
+                            <motion.div key={program.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-50px" }} transition={{ delay: idx * 0.08 }}
+                                className="bg-gradient-to-br from-blue-50 to-white rounded-xl p-5 border border-blue-200 hover:shadow-md transition-shadow">
+                                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center text-blue-600 mb-4">
+                                    <program.icon className="w-5 h-5" />
+                                </div>
+                                <h3 className="text-base font-bold text-gray-900 mb-2">{program.title}</h3>
+                                <p className="text-gray-600 text-sm mb-3 leading-relaxed">{program.description}</p>
+                                <ul className="space-y-1.5">
+                                    {program.details.map((detail) => (
+                                        <li key={detail} className="flex items-start gap-2 text-sm text-gray-700">
+                                            <CheckCircle className="w-3.5 h-3.5 text-green-600 flex-shrink-0 mt-0.5" />
+                                            <span>{detail}</span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </motion.div>
+                        ))}
+                    </div>
                 </div>
             </Section>
         </>
