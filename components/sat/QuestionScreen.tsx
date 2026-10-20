@@ -18,6 +18,7 @@ export function QuestionScreen({
   onToggleCross,
   onToggleMark,
   onCheck,
+  checkPending = false,
   onPrevious,
   onNext,
   onJump,
@@ -34,6 +35,7 @@ export function QuestionScreen({
   onToggleCross: (label: string) => void;
   onToggleMark: () => void;
   onCheck: () => void;
+  checkPending?: boolean;
   onPrevious: () => void;
   onNext: () => void;
   onJump: (index: number) => void;
@@ -246,10 +248,10 @@ export function QuestionScreen({
             <button
               type="button"
               className={primaryClass}
-              disabled={answer.response.trim() === "" || answer.checked}
+              disabled={answer.response.trim() === "" || answer.checked || checkPending}
               onClick={onCheck}
             >
-              Check answer
+              {checkPending ? "Checking…" : "Check answer"}
             </button>
             {answer.checked && (
               <p role="status" className={`text-sm font-semibold ${answer.correct ? "text-[#C9A86A]" : "text-[#E7B4B4]"}`}>

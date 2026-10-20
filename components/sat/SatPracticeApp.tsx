@@ -2,13 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { readGradeResponse } from "@/lib/sat/attempts";
+import { mockPracticeQuestions } from "@/lib/sat/mockBank";
 import { emptyProgress, loadProgress, saveProgress, type SatProgressV1 } from "@/lib/sat/progress";
 import { fetchSatQuestions, type SatQuestionsClient } from "@/lib/sat/query";
 import {
-  checkAnswer,
   createSession,
   emptyAnswer,
   filterQuestions,
+  sessionScore,
   summarizeSession,
   summarizeSessions,
   takeQuestions,
@@ -20,7 +22,7 @@ import type { SatQuestion } from "@/lib/sat/types";
 import { QuestionScreen } from "./QuestionScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SetupScreen } from "./SetupScreen";
-import { cardClass, displayClass } from "./styles";
+import { cardClass, displayClass, labelClass } from "./styles";
 
 type Phase = "setup" | "practice" | "results";
 
@@ -34,7 +36,7 @@ function questionsForSession(session: StoredSession, byId: Map<string, SatQuesti
   return picked;
 }
 
-export function SatPracticeApp({ userId }: { userId: string }) {
+export function SatPracticeApp({ userId, mockFallback = false }: { userId: string; mockFallback?: boolean }) {
   const [bank, setBank] = useState<SatQuestion[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const byId = useMemo(() => new Map((bank ?? []).map((question) => [question.id, question])), [bank]);
@@ -54,7 +56,16 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   const [now, setNow] = useState<number | null>(null);
   const [hydrated, setHydrated] = useState(false);
   const [progress, setProgress] = useState<SatProgressV1>(emptyProgress);
+  const [usingMock, setUsingMock] = useState(false);
+  const [checkPendingId, setCheckPendingId] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<string | null>(null);
   const finishingRef = useRef(false);
+  const checkingRef = useRef(false);
+  const progressRef = useRef(progress);
+  const sessionRef = useRef<StoredSession | null>(null);
+  const shownAtRef = useRef(Date.now());
+  progressRef.current = progress;
+  sessionRef.current = session;
 
   useEffect(() => {
     setProgress(loadProgress(window.localStorage, userId));
@@ -74,13 +85,23 @@ export function SatPracticeApp({ userId }: { userId: string }) {
       })
       .catch(() => {
         if (cancelled) return;
+        if (mockFallback) {
+          const questions = mockPracticeQuestions();
+          setUsingMock(true);
+          setBank(questions);
+          setFilters((current) => ({
+            ...current,
+            count: Math.min(current.count, Math.max(questions.length, 1)),
+          }));
+          return;
+        }
         setLoadError(true);
         setBank([]);
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [mockFallback]);
 
   useEffect(() => {
     if (phase !== "practice") return;
@@ -89,6 +110,11 @@ export function SatPracticeApp({ userId }: { userId: string }) {
     return () => window.clearInterval(timer);
   }, [phase, session?.id]);
 
+  useEffect(() => {
+    shownAtRef.current = Date.now();
+    setCheckError(null);
+  }, [index, session?.id]);
+
   const loaded = bank ?? [];
   const matching = filterQuestions(loaded, filters);
   const sourceQuestions = loaded.filter((question) => filters.source === "any" || question.source === filters.source);
@@ -96,7 +122,7 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   const continueSession = progress.active && questionsForSession(progress.active, byId) ? progress.active : null;
   const latestSession = [...progress.completed].reverse().find((item) => questionsForSession(item, byId)) ?? null;
 
-  function commit(nextSession: StoredSession | null, completed = progress.completed) {
+  function commit(nextSession: StoredSession | null, completed = progressRef.current.completed) {
     const stored: SatProgressV1 = {
       version: 1,
       active: nextSession && nextSession.finishedAt === null ? nextSession : null,
@@ -108,7 +134,7 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   }
 
   function updateCurrent(mutate: (current: StoredAnswer) => StoredAnswer, allowChecked = false) {
-    if (!session) return;
+    if (!session || checkingRef.current) return;
     const question = activeQuestions?.[index];
     if (!question) return;
     const current = session.answers[question.id] ?? emptyAnswer();
@@ -148,11 +174,71 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   }
 
   function finishPractice() {
-    if (finishingRef.current || !session || !activeQuestions || session.finishedAt) return;
+    const latest = sessionRef.current;
+    if (finishingRef.current || checkingRef.current || !latest || !activeQuestions || latest.finishedAt) return;
     finishingRef.current = true;
-    const done: StoredSession = { ...session, finishedAt: new Date().toISOString() };
+    const done: StoredSession = { ...latest, finishedAt: new Date().toISOString() };
     setPhase("results");
-    commit(done, [...progress.completed, done]);
+    commit(done, [...progressRef.current.completed, done]);
+  }
+
+  async function checkCurrent(question: SatQuestion | undefined) {
+    const latest = sessionRef.current;
+    if (!question || !latest || checkingRef.current || finishingRef.current) return;
+    const current = latest.answers[question.id] ?? emptyAnswer();
+    if (current.checked || current.response.trim() === "") return;
+    checkingRef.current = true;
+    setCheckPendingId(question.id);
+    setCheckError(null);
+    const practiceSetId = latest.practiceSetId ?? globalThis.crypto.randomUUID();
+    const elapsed = Math.round((Date.now() - shownAtRef.current) / 1000);
+    const timeSpentSeconds = Math.max(0, Math.min(86400, elapsed));
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token ?? null;
+      const response = await fetch("/api/sat/attempts", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(token ? { authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          questionId: question.id,
+          selectedAnswer: current.response,
+          timeSpentSeconds,
+          practiceSetId,
+        }),
+      });
+      const payload: unknown = await response.json().catch(() => null);
+      const graded = readGradeResponse(payload);
+      if (!response.ok || !graded) {
+        const message = typeof payload === "object" && payload !== null && "error" in payload && typeof payload.error === "string"
+          ? payload.error
+          : "This answer could not be recorded. Try again.";
+        setCheckError(message);
+        return;
+      }
+      const base = sessionRef.current ?? latest;
+      const answer = base.answers[question.id] ?? current;
+      commit({
+        ...base,
+        practiceSetId,
+        answers: {
+          ...base.answers,
+          [question.id]: {
+            ...answer,
+            response: current.response,
+            checked: true,
+            correct: graded.isCorrect,
+          },
+        },
+      });
+    } catch {
+      setCheckError("This answer could not be recorded. Try again.");
+    } finally {
+      checkingRef.current = false;
+      setCheckPendingId(null);
+    }
   }
 
   function retry() {
@@ -173,12 +259,15 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   if (phase === "practice" && session && activeQuestions) {
     const question = activeQuestions[index];
     return (
+      <div className="flex flex-col gap-4">
+      {checkError && <p className={cardClass} role="alert">{checkError}</p>}
       <QuestionScreen
         session={session}
         questions={activeQuestions}
         index={index}
         now={now}
         timerHidden={timerHidden}
+        checkPending={checkPendingId === question?.id}
         onToggleTimer={() => setTimerHidden((hidden) => !hidden)}
         onSelect={(label) => {
           updateCurrent((current) => ({
@@ -203,35 +292,40 @@ export function SatPracticeApp({ userId }: { userId: string }) {
         onToggleMark={() => {
           updateCurrent((current) => ({ ...current, marked: !current.marked }), true);
         }}
-        onCheck={() => {
-          if (!question) return;
-          updateCurrent((current) => {
-            if (current.response.trim() === "" || current.checked) return current;
-            return {
-              ...current,
-              checked: true,
-              correct: checkAnswer(question, current.response),
-            };
-          });
-        }}
+        onCheck={() => { void checkCurrent(question); }}
         onPrevious={() => setIndex((value) => Math.max(0, value - 1))}
         onNext={() => setIndex((value) => Math.min(activeQuestions.length - 1, value + 1))}
         onJump={(next) => setIndex(next)}
         onFinish={finishPractice}
       />
+      </div>
     );
   }
 
   if (phase === "results" && session && activeQuestions) {
+    const summary = summarizeSession(session, activeQuestions);
+    const score = sessionScore(summary);
+    const missedLabel = summary.missed.length === 0
+      ? "No missed questions."
+      : `Missed ${summary.missed.length}: ${summary.missed.map((item) => item.questionId).join(", ")}.`;
     return (
-      <ResultsScreen
-        session={session}
-        questions={activeQuestions}
-        summary={summarizeSession(session, activeQuestions)}
-        saved={summarizeSessions(progress.completed, loaded)}
-        onRetry={retry}
-        onNewPractice={newPractice}
-      />
+      <div className="flex flex-col gap-4">
+        <section className={cardClass} aria-label="Score">
+          <p className={labelClass}>This set</p>
+          <p className="mt-2 text-2xl font-semibold">
+            {score.checked === 0 ? "No answers checked." : `${score.correct} of ${score.checked} correct`}
+          </p>
+          <p className="mt-1 text-sm">{score.checked === 0 ? "Check an answer to record it." : missedLabel}</p>
+        </section>
+        <ResultsScreen
+          session={session}
+          questions={activeQuestions}
+          summary={summary}
+          saved={summarizeSessions(progress.completed, loaded)}
+          onRetry={retry}
+          onNewPractice={newPractice}
+        />
+      </div>
     );
   }
 
@@ -254,6 +348,12 @@ export function SatPracticeApp({ userId }: { userId: string }) {
   }
 
   return (
+    <>
+    {usingMock && (
+      <p className={`${cardClass} mb-4 text-sm`}>
+        Sample questions for local preview. Answers are graded in the app and are not saved.
+      </p>
+    )}
     <SetupScreen
       filters={filters}
       questions={sourceQuestions}
@@ -266,5 +366,6 @@ export function SatPracticeApp({ userId }: { userId: string }) {
       onContinue={continuePractice}
       onReview={openLatest}
     />
+    </>
   );
 }

@@ -20,6 +20,8 @@ export interface StoredAnswer {
 
 export interface StoredSession {
   id: string;
+  /** Groups the attempts recorded for this run. Absent on sessions saved before attempt tracking. */
+  practiceSetId?: string;
   startedAt: string;
   finishedAt: string | null;
   timed: boolean;
@@ -93,6 +95,7 @@ export function createSession(
   for (const question of questions) answers[question.id] = emptyAnswer();
   return {
     id: `set-${now.getTime()}`,
+    practiceSetId: globalThis.crypto.randomUUID(),
     startedAt: now.toISOString(),
     finishedAt: null,
     timed,
@@ -100,6 +103,13 @@ export function createSession(
     questionIds: questions.map((question) => question.id),
     answers,
   };
+}
+
+export function sessionScore(summary: Pick<SessionSummary, "bySkill">): { correct: number; checked: number } {
+  return summary.bySkill.reduce(
+    (total, row) => ({ correct: total.correct + row.correct, checked: total.checked + row.checked }),
+    { correct: 0, checked: 0 },
+  );
 }
 
 export function formatClock(totalSeconds: number): string {

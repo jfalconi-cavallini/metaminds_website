@@ -15,6 +15,7 @@ import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
 import OnboardStudentWizard from "@/components/portal/OnboardStudentWizard";
 import CurriculumBuilder from "@/components/curriculum/CurriculumBuilder";
 import CoursesOverview from "@/components/portal/CoursesOverview";
+import SatStudentAttempts from "@/components/portal/SatStudentAttempts";
 import {
   fetchStudents, fetchTutors, fetchSessions, fetchAllPackages,
   insertSession, logCompletedSession, cancelSession,
@@ -2277,6 +2278,7 @@ export default function AdminPortal() {
                   <ProfileRow label="Phone" value={ps.parentPhone} />
                 </div>
               )}
+              <SatStudentAttempts studentId={ps.id} viewerRole="admin" />
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Hours Left</p>
