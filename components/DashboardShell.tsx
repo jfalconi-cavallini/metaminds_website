@@ -235,7 +235,7 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         <main className={`flex-1 min-w-0 overflow-hidden flex flex-col ${fullBleed ? "" : "p-4 md:p-6 overflow-auto"}`}>
           {fullBleed
             ? <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-            : <div className={contentMaxWidthClassName ?? "max-w-5xl mx-auto"}>{children}</div>
+            : <div className={`w-full min-w-0 ${contentMaxWidthClassName ?? "max-w-5xl mx-auto"}`}>{children}</div>
           }
         </main>
       </div>

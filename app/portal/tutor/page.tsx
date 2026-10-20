@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
 import { TUTOR_NAV_ITEMS, consumePortalTabParam, portalTabIds } from "@/components/portal/portalNav";
 import CoursesOverview from "@/components/portal/CoursesOverview";
+import SatStudentAttempts from "@/components/portal/SatStudentAttempts";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail as _sendSessionConfirmationEmail } from "@/lib/portal/utils";
@@ -491,7 +492,7 @@ export default function TutorPortal() {
 
   // ── STUDENT PANEL ────────────────────────────────────────────────
   const [selectedStudentId,   setSelectedStudentId]   = useState<number | null>(null);
-  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan" | "skills">("homework");
+  const [studentPanelTab,     setStudentPanelTab]     = useState<"homework" | "sessions" | "update" | "accountability" | "plan" | "skills" | "sat">("homework");
   const [tutorSkillId,        setTutorSkillId]        = useState<number | null>(null);
   const [previewLoadingId,    setPreviewLoadingId]    = useState<number | null>(null);
 
@@ -1872,8 +1873,8 @@ export default function TutorPortal() {
                   {isOpen && (
                     <div className="border-t border-gray-100">
                       {/* Sub-tabs */}
-                      <div className="flex border-b border-gray-100">
-                        {(["homework", "sessions", "update", "accountability", "plan", "skills"] as const).map((t2) => (
+                      <div className="flex border-b border-gray-100 overflow-x-auto">
+                        {(["homework", "sessions", "update", "accountability", "plan", "skills", "sat"] as const).map((t2) => (
                           <button
                             key={t2}
                             onClick={() => setStudentPanelTab(t2)}
@@ -1883,7 +1884,7 @@ export default function TutorPortal() {
                                 : "border-transparent text-gray-500 hover:text-gray-700"
                             }`}
                           >
-                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : t2 === "accountability" ? "Accountability" : t2 === "plan" ? "Learning Plan" : "Skills"}
+                            {t2 === "homework" ? `Homework (${sHw.length})` : t2 === "sessions" ? `Sessions (${sSess.length})` : t2 === "update" ? "Parent Update" : t2 === "accountability" ? "Accountability" : t2 === "plan" ? "Learning Plan" : t2 === "sat" ? "SAT" : "Skills"}
                           </button>
                         ))}
                       </div>
@@ -2800,6 +2801,12 @@ export default function TutorPortal() {
                       {/* ── Skills sub-tab ── */}
                       {studentPanelTab === "skills" && (
                         <StudentSkillPanel studentId={s.id} allSkillNodes={allSkillNodes} />
+                      )}
+
+                      {studentPanelTab === "sat" && (
+                        <div className="p-4">
+                          <SatStudentAttempts studentId={s.id} viewerRole="tutor" />
+                        </div>
                       )}
                     </div>
                   )}

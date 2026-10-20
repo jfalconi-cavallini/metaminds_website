@@ -39,6 +39,9 @@ export function isStoredSession(value: unknown): value is StoredSession {
   if (typeof value.durationSeconds !== "number" || !Number.isFinite(value.durationSeconds)) return false;
   if (!Array.isArray(value.questionIds) || value.questionIds.some((id) => typeof id !== "string")) return false;
   if (!isRecord(value.answers)) return false;
+  if ("practiceSetId" in value && value.practiceSetId !== undefined) {
+    if (typeof value.practiceSetId !== "string" || value.practiceSetId === "") return false;
+  }
   return true;
 }
 

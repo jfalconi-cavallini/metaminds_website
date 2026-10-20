@@ -19,6 +19,8 @@ export interface StoredAnswer {
 
 export interface StoredSession {
   id: string;
+  /** Groups the attempts recorded for this run. Absent on sessions saved before attempt tracking. */
+  practiceSetId?: string;
   startedAt: string;
   finishedAt: string | null;
   timed: boolean;
@@ -42,6 +44,7 @@ export interface QuestionRef {
 }
 
 export interface SessionSummary {
+  bySection: AccuracyRow[];
   bySkill: AccuracyRow[];
   byDifficulty: AccuracyRow[];
   missed: QuestionRef[];
@@ -91,6 +94,7 @@ export function createSession(
   for (const question of questions) answers[question.id] = emptyAnswer();
   return {
     id: `set-${now.getTime()}`,
+    practiceSetId: globalThis.crypto.randomUUID(),
     startedAt: now.toISOString(),
     finishedAt: null,
     timed,
@@ -98,6 +102,13 @@ export function createSession(
     questionIds: questions.map((question) => question.id),
     answers,
   };
+}
+
+export function sessionScore(summary: Pick<SessionSummary, "bySkill">): { correct: number; checked: number } {
+  return summary.bySkill.reduce(
+    (total, row) => ({ correct: total.correct + row.correct, checked: total.checked + row.checked }),
+    { correct: 0, checked: 0 },
+  );
 }
 
 export function formatClock(totalSeconds: number): string {
@@ -152,6 +163,7 @@ export function summarizeSession(
   questions: readonly SatQuestion[],
 ): SessionSummary {
   const byId = new Map(questions.map((question) => [question.id, question]));
+  const bySection = new Map<string, AccuracyRow>();
   const bySkill = new Map<string, AccuracyRow>();
   const byDifficulty = new Map<string, AccuracyRow>();
   const missed: QuestionRef[] = [];
@@ -175,13 +187,18 @@ export function summarizeSession(
       continue;
     }
     const correct = answer.correct === true;
+    row(bySection, question.section, correct);
     row(bySkill, question.skill, correct);
     row(byDifficulty, question.difficulty, correct);
     if (!correct) missed.push(ref);
   }
 
+  const sectionOrder: SatSection[] = ["math", "reading_writing"];
   const difficultyOrder: SatDifficulty[] = ["easy", "medium", "hard"];
   return {
+    bySection: sectionOrder
+      .map((section) => bySection.get(section))
+      .filter((entry): entry is AccuracyRow => entry !== undefined),
     bySkill: [...bySkill.values()],
     byDifficulty: difficultyOrder
       .map((difficulty) => byDifficulty.get(difficulty))

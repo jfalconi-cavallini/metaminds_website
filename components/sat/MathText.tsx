@@ -7,7 +7,7 @@ import { splitMath } from "@/lib/sat/math";
 export function MathText({ text }: { text: string }) {
   const segments = splitMath(text);
   return (
-    <span className="whitespace-pre-wrap">
+    <span className="block min-w-0 max-w-full whitespace-pre-wrap">
       {segments.map((segment, index) => {
         if (segment.kind === "text") {
           return <span key={index}>{segment.value}</span>;
