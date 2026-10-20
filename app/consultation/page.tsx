@@ -77,7 +77,7 @@ const services = [
     { icon: Target,  label: "SAT & ACT Prep" },
     { icon: Layers,  label: "AP Exam Prep" },
     { icon: BookOpen,label: "GED Prep" },
-    { icon: Brain,   label: "K–12 Math & Science" },
+    { icon: Brain,   label: "K through 12 Math and Science" },
     { icon: Code,    label: "Coding & Programming" },
     { icon: Lightbulb, label: "3D Printing & STEM" },
 ];
@@ -100,7 +100,7 @@ const proofPoints = [
 const faqs = [
     {
         q: "How long is the consultation?",
-        a: "30 minutes via Zoom. We keep it focused — no fluff. If you have more questions, we're happy to go a few minutes over.",
+        a: "Free 15 to 30 minute call. No commitment.",
     },
     {
         q: "Is it really free?",
@@ -343,7 +343,7 @@ export default function ConsultationPage() {
                             ))}
                         </div>
                         <p className="text-center text-sm text-gray-500 max-w-2xl mx-auto mt-8 leading-relaxed">
-                            One on one tutoring online for families anywhere, with in person available with select tutors in Dallas Fort Worth.
+                            In person available with select tutors at MetaMinds Lab, Haltom City
                         </p>
                     </div>
                 </section>

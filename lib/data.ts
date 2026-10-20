@@ -64,7 +64,7 @@ export const siteData = {
         },
         {
             question: "What's the cost of tutoring?",
-            answer: "Packages of 1, 4, or 8 hours. Book a free consultation and we'll help you choose.",
+            answer: "Elementary from $35/hr, Middle School from $40/hr, and High School from $50/hr. Packages of 1, 4, or 8 hours. Book a free consultation and we'll help you choose.",
         },
         {
             question: "How much can I improve my SAT/ACT score?",
@@ -81,10 +81,6 @@ export const siteData = {
         {
             question: "Do you have a referral program?",
             answer: "Yes! Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account as a thank-you. There's no limit to how many people you can refer.",
-        },
-        {
-            question: "What if I'm not satisfied?",
-            answer: "We offer a money-back guarantee if you're not satisfied after your first session. No questions asked. Your satisfaction is our priority.",
         },
         {
             question: "What technology do I need?",

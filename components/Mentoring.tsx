@@ -9,7 +9,6 @@ export default function Mentoring() {
     const packages = [
         {
             name: "Single Session",
-            price: "$70",
             duration: "1 Hour",
             sessions: "1 Session",
             icon: <Video className="w-8 h-8" />,
@@ -27,8 +26,7 @@ export default function Mentoring() {
             bgGradient: "from-blue-50 to-cyan-50",
         },
         {
-            name: "4-Hour Package",
-            price: "$260",
+            name: "4 Hour Package",
             duration: "4 Hours Total",
             sessions: "4 Sessions",
             icon: <Users className="w-8 h-8" />,
@@ -44,11 +42,9 @@ export default function Mentoring() {
             popular: true,
             gradient: "from-indigo-500 to-purple-500",
             bgGradient: "from-indigo-50 to-purple-50",
-            savings: "Save $20",
         },
         {
-            name: "8-Hour Package",
-            price: "$480",
+            name: "8 Hour Package",
             duration: "8 Hours Total",
             sessions: "8 Sessions",
             icon: <Trophy className="w-8 h-8" />,
@@ -64,7 +60,6 @@ export default function Mentoring() {
             popular: false,
             gradient: "from-purple-500 to-pink-500",
             bgGradient: "from-purple-50 to-pink-50",
-            savings: "Save $80",
         },
     ];
 
@@ -134,18 +129,10 @@ export default function Mentoring() {
                             </div>
                             <h3 className="text-2xl font-black text-gray-900 mb-2">{pkg.name}</h3>
                             <p className="text-gray-600 text-sm mb-4">{pkg.description}</p>
-                            <div className="flex items-baseline justify-center gap-2 mb-2">
-                                <span className="text-5xl font-black text-gray-900">{pkg.price}</span>
-                            </div>
                             <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                                 <Clock className="w-4 h-4" />
                                 <span>{pkg.duration}</span>
                             </div>
-                            {pkg.savings && (
-                                <div className="mt-3 inline-block bg-green-100 text-green-700 text-xs font-bold px-3 py-1 rounded-full">
-                                    {pkg.savings}
-                                </div>
-                            )}
                         </div>
 
                         {/* Features */}

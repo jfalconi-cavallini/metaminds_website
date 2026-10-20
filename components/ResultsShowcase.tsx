@@ -21,7 +21,7 @@ const programs = [
         title: "AP Courses",
         description: "AP-level instruction from tutors who studied this material at the college level, not just taught it from a textbook.",
         details: [
-            "Calculus AB/BC, Physics, Chemistry & more",
+            "Every AP class except world languages.",
             "Free-response & essay strategy",
             "Exam-day pacing",
             "College-credit strategy"

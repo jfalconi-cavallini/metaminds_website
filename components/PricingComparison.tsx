@@ -18,6 +18,12 @@ const tiers = [
     },
 ] as const;
 
+const gradeRates = [
+    { label: "Elementary", rate: "from $35/hr" },
+    { label: "Middle School", rate: "from $40/hr" },
+    { label: "High School", rate: "from $50/hr" },
+] as const;
+
 const includedInAll = [
     "Session notes after every session",
     "Homework assignments with feedback",
@@ -62,6 +68,18 @@ export default function PricingComparison() {
                             </CalendlyButton>
                         </div>
                     </motion.div>
+                ))}
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4 max-w-4xl mx-auto mb-8">
+                {gradeRates.map((tier) => (
+                    <div
+                        key={tier.label}
+                        className="bg-white rounded-2xl border border-gray-200 shadow-sm px-5 py-4 text-center"
+                    >
+                        <p className="text-sm font-bold text-gray-900">{tier.label}</p>
+                        <p className="text-lg font-black text-blue-600 mt-1">{tier.rate}</p>
+                    </div>
                 ))}
             </div>
 
