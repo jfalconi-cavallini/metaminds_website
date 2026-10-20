@@ -1,10 +1,10 @@
 "use client";
 
-import { difficultyLabel, sectionLabel, skillTitle, sourceLabel } from "@/lib/sat/catalog";
+import { difficultyLabel, sectionLabel, skillTitle } from "@/lib/sat/catalog";
 import { formatClock, secondsRemaining, type StoredAnswer, type StoredSession } from "@/lib/sat/session";
 import type { SatQuestion } from "@/lib/sat/types";
 import { QuestionContent } from "./QuestionContent";
-import { cardClass, displayClass, primaryClass, secondaryClass } from "./styles";
+import { cardClass, labelClass, primaryClass, secondaryClass } from "./styles";
 
 export function QuestionScreen({
   session,
@@ -60,11 +60,11 @@ export function QuestionScreen({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">
+          <p className={labelClass}>
             Question {index + 1} of {questions.length}
           </p>
-          <p className="mt-1 text-xs text-[#D9D3C7]">
-            {sectionLabel(question.section)}, {skillTitle(question.skill)}, {difficultyLabel(question.difficulty)}, {sourceLabel(question.source)}
+          <p className="mt-1 text-xs text-gray-500">
+            {sectionLabel(question.section)}, {skillTitle(question.skill)}, {difficultyLabel(question.difficulty)}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -82,7 +82,7 @@ export function QuestionScreen({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C9A86A]/30 bg-[#121C31] px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
         {timerHidden ? (
           <button type="button" className={secondaryClass} onClick={onToggleTimer}>
             Show timer
@@ -90,11 +90,11 @@ export function QuestionScreen({
         ) : (
           <>
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">
+              <p className={labelClass}>
                 {session.timed ? "Time left" : "Elapsed"}
               </p>
-              <p className={`${displayClass} text-3xl text-[#F4EFE4]`}>{clock}</p>
-              {timeUp && <p className="text-xs text-[#E7B4B4]">Time is up</p>}
+              <p className="text-3xl font-bold text-gray-900">{clock}</p>
+              {timeUp && <p className="text-xs font-semibold text-red-600">Time is up</p>}
             </div>
             <button type="button" className={secondaryClass} onClick={onToggleTimer}>
               Hide timer
@@ -104,17 +104,17 @@ export function QuestionScreen({
       </div>
 
       <section aria-label="Questions" className={cardClass}>
-        <div className="mb-3 flex flex-wrap gap-4 text-xs text-[#D9D3C7]">
+        <div className="mb-3 flex flex-wrap gap-4 text-xs text-gray-500">
           <span className="inline-flex items-center gap-2">
-            <span className="h-3 w-3 rounded-sm ring-2 ring-[#C9A86A]" />
+            <span className="h-3 w-3 rounded-sm ring-2 ring-blue-600" />
             Current
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-3 w-3 rounded-sm bg-[#C9A86A]" />
+            <span className="h-3 w-3 rounded-sm bg-blue-600" />
             Answered
           </span>
           <span className="inline-flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[#C9A86A]" />
+            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
             Marked
           </span>
         </div>
@@ -125,9 +125,9 @@ export function QuestionScreen({
             const marked = Boolean(itemAnswer?.marked);
             const current = itemIndex === index;
             const classes = [
-              "relative flex h-11 items-center justify-center rounded-lg text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F4EFE4]",
-              current ? "ring-2 ring-[#C9A86A]" : "",
-              answered ? "bg-[#C9A86A] text-[#0B1426]" : "border border-[#C9A86A]/35 text-[#F4EFE4]",
+              "relative flex h-11 items-center justify-center rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
+              current ? "ring-2 ring-blue-600" : "",
+              answered ? "bg-blue-600 text-white" : "border border-gray-200 bg-white text-gray-700",
             ].join(" ");
             const status = [
               `Question ${itemIndex + 1}`,
@@ -147,7 +147,7 @@ export function QuestionScreen({
                 {itemIndex + 1}
                 {marked && (
                   <span
-                    className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${answered ? "bg-[#0B1426]" : "bg-[#C9A86A]"}`}
+                    className={`absolute right-1 top-1 h-1.5 w-1.5 rounded-full ${answered ? "bg-white" : "bg-amber-500"}`}
                   />
                 )}
               </button>
@@ -159,15 +159,15 @@ export function QuestionScreen({
       <div className={`grid grid-cols-1 gap-4 ${question.passage ? "lg:grid-cols-2" : ""}`}>
         {question.passage && (
           <section aria-label="Passage" className={`${cardClass} lg:max-h-[70vh] lg:overflow-y-auto`}>
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">Passage</p>
-            <div className="mt-3 text-sm leading-7 text-[#F4EFE4]">
+            <p className={labelClass}>Passage</p>
+            <div className="mt-3 text-sm leading-7 text-gray-900">
               <QuestionContent format={question.format} text={question.passage} />
             </div>
           </section>
         )}
 
         <section aria-label="Question" className={`${cardClass} ${question.passage ? "" : "lg:max-w-3xl"}`}>
-          <h2 className={`${displayClass} text-2xl leading-snug text-[#F4EFE4]`}>
+          <h2 className="text-base font-medium leading-7 text-gray-900">
             <QuestionContent format={question.format} text={question.stem} />
           </h2>
 
@@ -179,14 +179,14 @@ export function QuestionScreen({
                 const showCorrect = answer.checked && choice.label === question.correctAnswer;
                 const showWrong = answer.checked && selected && answer.correct === false;
                 const choiceClass = [
-                  "flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A86A]",
+                  "flex w-full items-start gap-3 rounded-xl border px-3 py-3 text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
                   showCorrect
-                    ? "border-[#C9A86A] bg-[#C9A86A]/20"
+                    ? "border-emerald-500 bg-emerald-50"
                     : showWrong
-                      ? "border-[#E7B4B4] bg-[#E7B4B4]/10"
+                      ? "border-red-300 bg-red-50"
                       : selected
-                        ? "border-[#C9A86A] bg-[#C9A86A]/10"
-                        : "border-[#C9A86A]/30",
+                        ? "border-blue-600 bg-blue-50"
+                        : "border-gray-200 bg-white",
                   crossed ? "line-through opacity-60" : "",
                 ].join(" ");
                 return (
@@ -198,13 +198,21 @@ export function QuestionScreen({
                       disabled={answer.checked}
                       onClick={() => onSelect(choice.label)}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#C9A86A] text-sm font-semibold text-[#C9A86A]">
+                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-sm font-semibold ${
+                        showCorrect
+                          ? "border-emerald-600 text-emerald-700"
+                          : showWrong
+                            ? "border-red-400 text-red-600"
+                            : selected
+                              ? "border-blue-600 text-blue-700"
+                              : "border-gray-300 text-gray-700"
+                      }`}>
                         {choice.label}
                       </span>
-                      <span className="pt-1 text-sm leading-6 text-[#F4EFE4]">
+                      <span className="pt-1 text-sm leading-6 text-gray-900">
                         <QuestionContent format={question.format} text={choice.text} />
-                        {showCorrect && <span className="mt-1 block text-xs font-semibold text-[#C9A86A]">Correct answer</span>}
-                        {showWrong && <span className="mt-1 block text-xs font-semibold text-[#E7B4B4]">Your answer</span>}
+                        {showCorrect && <span className="mt-1 block text-xs font-semibold text-emerald-700">Correct answer</span>}
+                        {showWrong && <span className="mt-1 block text-xs font-semibold text-red-600">Your answer</span>}
                       </span>
                     </button>
                     <button
@@ -223,21 +231,21 @@ export function QuestionScreen({
             </ul>
           ) : (
             <div className="mt-5">
-              <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]" htmlFor="sat-spr">
+              <label className={labelClass} htmlFor="sat-spr">
                 Your answer
               </label>
               <input
                 id="sat-spr"
-                className="mt-2 w-full rounded-xl border border-[#C9A86A]/35 bg-[#0B1426] px-3 py-3 text-sm text-[#F4EFE4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A86A] disabled:opacity-70"
+                className="mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:opacity-70"
                 value={answer.response}
                 inputMode="text"
                 autoComplete="off"
                 disabled={answer.checked}
                 onChange={(event) => onResponse(event.target.value)}
               />
-              <p className="mt-2 text-xs text-[#D9D3C7]">Number or fraction.</p>
+              <p className="mt-2 text-xs text-gray-500">Number or fraction.</p>
               {answer.checked && answer.correct === false && (
-                <p className="mt-2 text-sm text-[#F4EFE4]">Correct answer: {question.correctAnswer}</p>
+                <p className="mt-2 text-sm text-gray-900">Correct answer: {question.correctAnswer}</p>
               )}
             </div>
           )}
@@ -252,16 +260,16 @@ export function QuestionScreen({
               Check answer
             </button>
             {answer.checked && (
-              <p role="status" className={`text-sm font-semibold ${answer.correct ? "text-[#C9A86A]" : "text-[#E7B4B4]"}`}>
+              <p role="status" className={`text-sm font-semibold ${answer.correct ? "text-emerald-700" : "text-red-600"}`}>
                 {answer.correct ? "Correct" : "Incorrect"}
               </p>
             )}
           </div>
 
           {answer.checked && (
-            <div className="mt-5 rounded-xl border border-[#C9A86A]/30 bg-[#0B1426] p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]">Explanation</p>
-              <div className="mt-2 text-sm leading-6 text-[#F4EFE4]">
+            <div className="mt-5 rounded-xl border border-gray-100 bg-gray-50 p-4">
+              <p className={labelClass}>Explanation</p>
+              <div className="mt-2 text-sm leading-6 text-gray-900">
                 <QuestionContent format={question.format} text={question.explanation} />
               </div>
             </div>
@@ -269,7 +277,7 @@ export function QuestionScreen({
         </section>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-4 flex gap-3 border-t border-[#C9A86A]/30 bg-[#0B1426]/95 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0">
+      <div className="sticky bottom-0 z-10 -mx-4 flex gap-3 border-t border-gray-200 bg-white px-4 py-3 sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0">
         <button type="button" className={`${secondaryClass} flex-1`} disabled={index === 0} onClick={onPrevious}>
           Previous
         </button>

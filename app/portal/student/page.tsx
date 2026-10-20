@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, Fragment } from "react";
 import DashboardShell from "@/components/DashboardShell";
+import { STUDENT_NAV_ITEMS, consumePortalTabParam, portalTabIds } from "@/components/portal/portalNav";
 import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
@@ -32,12 +33,12 @@ import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionN
 import { useAuth } from "@/lib/auth";
 import { motion } from "framer-motion";
 import {
-  LayoutDashboard, Calendar, FileText, Bell, BookOpen,
+  Calendar, FileText, Bell, BookOpen,
   Clock, FlaskConical, Plus, ChevronRight, CalendarDays,
   Video, RotateCcw, X, Timer, CheckCircle, AlertCircle,
   Paperclip, Lightbulb, TrendingUp, Star, Zap, MapPin,
   Search, ThumbsUp, ThumbsDown, ExternalLink, MessageCircle,
-  User, Settings as SettingsIcon, Camera, Download, Trash2,
+  User, Camera, Download, Trash2,
   Map as MapIcon,
 } from "lucide-react";
 import type { CalendarSessionAction } from "@/components/portal/WeeklyCalendar";
@@ -55,19 +56,7 @@ function noteMatchesSession(n: SessionNote, s: Session): boolean {
   return false;
 }
 
-const ALL_NAV_ITEMS = [
-  { id: "overview",  label: "Dashboard",     icon: LayoutDashboard },
-  { id: "sessions",  label: "Schedule",      icon: Calendar        },
-  { id: "homework",  label: "Homework",      icon: BookOpen        },
-  { id: "notes",     label: "Session Notes", icon: FileText        },
-  { id: "updates",   label: "Updates",       icon: Bell            },
-  { id: "progress",  label: "Progress",      icon: TrendingUp      },
-  { id: "hours",     label: "Hours",         icon: Clock           },
-  { id: "path",      label: "Learning Path", icon: MapIcon         },
-  { id: "lab",       label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon" },
-  { id: "profile",   label: "Profile",       icon: User            },
-  { id: "settings",  label: "Settings",      icon: SettingsIcon    },
-];
+const ALL_NAV_ITEMS = STUDENT_NAV_ITEMS;
 
 // Tabs parents are allowed to see (read-only view of their child's portal)
 const PARENT_TABS = new Set(["overview", "sessions", "homework", "notes", "updates", "progress", "hours", "path"]);
@@ -104,6 +93,11 @@ export default function StudentPortal() {
 
   const handleTabChange = useCallback((id: string) => {
     setTab(id);
+  }, []);
+
+  useEffect(() => {
+    const requested = consumePortalTabParam(portalTabIds(STUDENT_NAV_ITEMS));
+    if (requested) setTab(requested);
   }, []);
 
   // Remote data
