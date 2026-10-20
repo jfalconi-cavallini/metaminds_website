@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ElementType } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { signOut } from "@/lib/auth";
 
@@ -10,6 +11,66 @@ interface NavItem {
   label: string;
   icon?: ElementType<{ className?: string }>;
   badge?: string;
+  /** When set, the item navigates here instead of switching a portal tab. */
+  href?: string;
+}
+
+function navItemClass(active: boolean, compact: boolean): string {
+  return `w-full text-left px-3 ${compact ? "py-3" : "py-2.5"} rounded-xl text-sm font-medium transition-all flex items-center gap-3 ${
+    active
+      ? "bg-blue-600 text-white shadow-sm"
+      : "text-slate-300 hover:bg-slate-800 hover:text-white"
+  }`;
+}
+
+function itemIsActive(item: NavItem, activeTab: string, pathname: string): boolean {
+  if (!item.href) return activeTab === item.id;
+  const [path, query = ""] = item.href.split("?");
+  // Portal tab links only leave this page. They are not the current view.
+  if (new URLSearchParams(query).has("tab")) return false;
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+function NavEntry({
+  item,
+  active,
+  compact,
+  onActivate,
+}: {
+  item: NavItem;
+  active: boolean;
+  compact: boolean;
+  onActivate: () => void;
+}) {
+  const Icon = item.icon;
+  const className = navItemClass(active, compact);
+  const content = (
+    <>
+      {Icon && (
+        <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+      )}
+      <span className="flex-1 truncate">{item.label}</span>
+      {item.badge && (
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+          {item.badge}
+        </span>
+      )}
+    </>
+  );
+
+  if (item.href) {
+    return (
+      <Link href={item.href} onClick={onActivate} className={className} aria-current={active ? "page" : undefined}>
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <button type="button" onClick={onActivate} className={className} aria-current={active ? "page" : undefined}>
+      {content}
+    </button>
+  );
 }
 
 interface Props {
@@ -33,6 +94,7 @@ const roleMeta = {
 export default function DashboardShell({ role, userName, navItems, activeTab, onTabChange, children, fullBleed, contentMaxWidthClassName }: Props) {
   const meta   = roleMeta[role];
   const router = useRouter();
+  const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   async function handleSignOut() {
@@ -79,31 +141,18 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onTabChange(item.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-all flex items-center gap-3 ${
-                  isActive
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                {Icon && (
-                  <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
-                )}
-                <span className="flex-1 truncate">{item.label}</span>
-                {item.badge && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+          {navItems.map((item) => (
+            <NavEntry
+              key={item.id}
+              item={item}
+              active={itemIsActive(item, activeTab, pathname)}
+              compact={false}
+              onActivate={() => {
+                if (item.href) return;
+                onTabChange(item.id);
+              }}
+            />
+          ))}
         </nav>
 
         <div className="p-4 border-t border-slate-700/60">
@@ -148,31 +197,21 @@ export default function DashboardShell({ role, userName, navItems, activeTab, on
           {mobileMenuOpen && (
             <div className="absolute top-full left-0 right-0 bg-slate-900 border-t border-slate-700/60 shadow-xl max-h-[calc(100vh-3.5rem)] overflow-y-auto">
               <nav className="p-3 space-y-0.5">
-                {navItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => handleMobileTabChange(item.id)}
-                      className={`w-full text-left px-3 py-3 rounded-xl text-sm font-medium transition-all flex items-center gap-3 ${
-                        isActive
-                          ? "bg-blue-600 text-white shadow-sm"
-                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                      }`}
-                    >
-                      {Icon && (
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? "text-white" : "text-slate-400"}`} />
-                      )}
-                      <span className="flex-1 truncate">{item.label}</span>
-                      {item.badge && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
-                          {item.badge}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                {navItems.map((item) => (
+                  <NavEntry
+                    key={item.id}
+                    item={item}
+                    active={itemIsActive(item, activeTab, pathname)}
+                    compact
+                    onActivate={() => {
+                      if (item.href) {
+                        setMobileMenuOpen(false);
+                        return;
+                      }
+                      handleMobileTabChange(item.id);
+                    }}
+                  />
+                ))}
               </nav>
               <div className="p-4 border-t border-slate-700/60">
                 <button

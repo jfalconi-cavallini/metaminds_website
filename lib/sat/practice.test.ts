@@ -16,7 +16,6 @@ import {
   skillOptions,
   skillTitle,
   skillsInQuestions,
-  sourceLabel,
 } from "./catalog.ts";
 import { splitMath } from "./math.ts";
 import { SAT_PROGRESS_STORAGE_KEY, loadProgress, progressStorageKey, readProgress, saveProgress, type ProgressStorage } from "./progress.ts";
@@ -132,33 +131,31 @@ describe("parseQuestion", () => {
 });
 
 describe("practice session", () => {
-  it("filters by section, domain, skill, difficulty, and source", () => {
+  it("filters by section, domain, skill, and difficulty across every source", () => {
+    const mixed = filterQuestions(practiceSet, {
+      section: "any",
+      domain: "any",
+      skill: "any",
+      difficulty: "any",
+    });
+    assert.deepEqual(mixed.map((question) => question.id), ["Q-RW", "Q-M", "Q-SPR"]);
+
     const mathOnly = filterQuestions(practiceSet, {
       section: "math",
       domain: "any",
       skill: "any",
       difficulty: "any",
-      source: "any",
     });
     assert.deepEqual(mathOnly.map((question) => question.id), ["Q-M", "Q-SPR"]);
+    assert.deepEqual(mathOnly.map((question) => question.source), ["metaminds", "college_board_test"]);
 
     const oneSkill = filterQuestions(practiceSet, {
       section: "math",
       domain: "Algebra",
       skill: "Linear equations in one variable",
       difficulty: "medium",
-      source: "metaminds",
     });
     assert.deepEqual(oneSkill.map((question) => question.id), ["Q-M"]);
-
-    const testSet = filterQuestions(practiceSet, {
-      section: "any",
-      domain: "any",
-      skill: "any",
-      difficulty: "any",
-      source: "college_board_test",
-    });
-    assert.deepEqual(testSet.map((question) => question.id), ["Q-SPR"]);
   });
 
   it("takes the requested count in bank order", () => {
@@ -325,8 +322,6 @@ describe("access", () => {
 describe("catalog", () => {
   it("lists math domains and the skill title used by filters", () => {
     assert.equal(sectionLabel("reading_writing"), "Reading and Writing");
-    assert.equal(sourceLabel("metaminds"), "MetaMinds");
-    assert.equal(sourceLabel("college_board_test"), "Test set");
     assert.deepEqual(
       domainOptions("math").map((domain) => domain.slug),
       ["sat-math-algebra", "sat-math-advanced", "sat-math-data", "sat-math-geometry"],

@@ -7,16 +7,11 @@ import {
   skillsInQuestions,
 } from "@/lib/sat/catalog";
 import type { PracticeFilters } from "@/lib/sat/session";
-import type { SatDifficulty, SatQuestion, SatSection, SatSource } from "@/lib/sat/types";
-import { cardClass, displayClass, fieldClass, labelClass, primaryClass, secondaryClass } from "./styles";
+import type { SatDifficulty, SatQuestion, SatSection } from "@/lib/sat/types";
+import { cardClass, fieldClass, labelClass, primaryClass, secondaryClass } from "./styles";
 
 const SECTIONS: SatSection[] = ["math", "reading_writing"];
 const DIFFICULTIES: SatDifficulty[] = ["easy", "medium", "hard"];
-const SOURCES: { value: SatSource | "any"; label: string }[] = [
-  { value: "any", label: "All" },
-  { value: "metaminds", label: "MetaMinds" },
-  { value: "college_board_test", label: "Test set" },
-];
 
 export function SetupScreen({
   filters,
@@ -43,11 +38,12 @@ export function SetupScreen({
 }) {
   if (bankEmpty) {
     return (
-      <section className={cardClass} aria-labelledby="sat-empty-title">
-        <h2 id="sat-empty-title" className={`${displayClass} text-3xl text-[#F4EFE4]`}>
+      <section aria-labelledby="sat-empty-title">
+        <p className={labelClass}>Practice</p>
+        <h2 id="sat-empty-title" className="mt-1 text-2xl font-bold text-gray-900">
           Questions coming soon
         </h2>
-        <p className="mt-3 max-w-xl text-sm leading-6 text-[#D9D3C7]">
+        <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500">
           Practice questions will appear here once the bank is ready.
         </p>
       </section>
@@ -59,40 +55,22 @@ export function SetupScreen({
   const startCount = Math.min(filters.count, available);
 
   return (
-    <section className={cardClass} aria-labelledby="sat-setup-title">
-      <h2 id="sat-setup-title" className={`${displayClass} text-3xl text-[#F4EFE4] sm:text-4xl`}>
+    <section aria-labelledby="sat-setup-title">
+      <p className={labelClass}>Practice</p>
+      <h1 id="sat-setup-title" className="mt-1 text-2xl font-bold text-gray-900">
         Set up practice
-      </h2>
-      <p className="mt-3 max-w-2xl text-sm leading-6 text-[#D9D3C7]">
-        Choose a source, section, domain, skill, and difficulty. Then choose how many questions and whether the set is timed.
+      </h1>
+      <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+        Choose a section, domain, skill, and difficulty. Then choose how many questions and whether the set is timed.
       </p>
 
       <form
-        className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2"
+        className={`${cardClass} mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2`}
         onSubmit={(event) => {
           event.preventDefault();
           if (startCount > 0) onStart();
         }}
       >
-        <div>
-          <label className={labelClass} htmlFor="sat-source">Source</label>
-          <select
-            id="sat-source"
-            className={fieldClass}
-            value={filters.source}
-            onChange={(event) => onChange({
-              ...filters,
-              source: event.target.value as PracticeFilters["source"],
-              domain: "any",
-              skill: "any",
-            })}
-          >
-            {SOURCES.map((source) => (
-              <option key={source.value} value={source.value}>{source.label}</option>
-            ))}
-          </select>
-        </div>
-
         <div>
           <label className={labelClass} htmlFor="sat-section">Section</label>
           <select
@@ -191,7 +169,7 @@ export function SetupScreen({
               });
             }}
           />
-          <p className="mt-2 text-xs text-[#D9D3C7]">{available} available</p>
+          <p className="mt-2 text-xs text-gray-500">{available} available</p>
         </div>
 
         <fieldset>
@@ -217,7 +195,7 @@ export function SetupScreen({
         </fieldset>
 
         {available === 0 && (
-          <p className="sm:col-span-2 text-sm text-[#D9D3C7]" role="status">
+          <p className="sm:col-span-2 text-sm text-gray-500" role="status">
             No questions match these filters.
           </p>
         )}

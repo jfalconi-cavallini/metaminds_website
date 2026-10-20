@@ -1,11 +1,3 @@
-.sat-display {
-  font-family: var(--font-sat-display), Georgia, "Times New Roman", serif;
-}
-
-.sat-body {
-  font-family: var(--font-sat-body), "Segoe UI", sans-serif;
-}
-
 .sat-practice .katex {
   color: inherit;
   font-size: 1.05em;
@@ -36,7 +28,7 @@
 }
 
 .sat-html a {
-  color: #C9A86A;
+  color: #2563eb;
   text-decoration: underline;
 }
 

@@ -1,15 +1,15 @@
-export const displayClass = "sat-display";
+/** Portal field, button, and card classes. Matches DashboardShell pages. */
 
 export const labelClass =
-  "block text-[11px] font-semibold uppercase tracking-[0.16em] text-[#C9A86A]";
+  "block text-[10px] font-bold uppercase tracking-widest text-gray-400";
 
 export const fieldClass =
-  "mt-2 w-full rounded-xl border border-[#C9A86A]/35 bg-[#0B1426] px-3 py-3 text-sm text-[#F4EFE4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A86A]";
+  "mt-2 w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500";
 
 export const primaryClass =
-  "inline-flex min-h-11 items-center justify-center rounded-xl bg-[#C9A86A] px-4 py-3 text-sm font-semibold text-[#0B1426] transition-colors hover:bg-[#D7BC86] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F4EFE4] disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
 export const secondaryClass =
-  "inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C9A86A]/50 bg-transparent px-4 py-3 text-sm font-semibold text-[#F4EFE4] transition-colors hover:border-[#C9A86A] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C9A86A] disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex min-h-11 items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
 
-export const cardClass = "rounded-2xl border border-[#C9A86A]/30 bg-[#121C31] p-4 sm:p-6";
+export const cardClass = "rounded-2xl border border-gray-100 bg-white p-4 shadow-sm sm:p-6";

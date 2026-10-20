@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import DashboardShell from "@/components/DashboardShell";
+import { TUTOR_NAV_ITEMS, consumePortalTabParam, portalTabIds } from "@/components/portal/portalNav";
 import CoursesOverview from "@/components/portal/CoursesOverview";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
@@ -101,15 +102,7 @@ const TIME_OPTIONS = (() => {
   return opts;
 })();
 
-const navItems = [
-  { id: "overview",  label: "Overview"       },
-  { id: "students",  label: "My Students"    },
-  { id: "schedule",  label: "Schedule"       },
-  { id: "notes",     label: "Session Notes"  },
-  { id: "homework",  label: "Homework"       },
-  { id: "courses",   label: "Courses"        },
-  { id: "settings",  label: "Settings"       },
-];
+const navItems = TUTOR_NAV_ITEMS;
 
 
 export default function TutorPortal() {
@@ -119,6 +112,11 @@ export default function TutorPortal() {
 
   const handleTabChange = useCallback((id: string) => {
     setTab(id);
+  }, []);
+
+  useEffect(() => {
+    const requested = consumePortalTabParam(portalTabIds(navItems));
+    if (requested) setTab(requested);
   }, []);
 
   // ── ADMIN "VIEW AS TUTOR" PREVIEW ─────────────────────────────────
