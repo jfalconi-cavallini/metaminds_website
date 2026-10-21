@@ -20,7 +20,8 @@ describe("purchasedHoursError", () => {
     assert.match(purchasedHoursError(Number.NaN), /valid number/);
     assert.match(purchasedHoursError(0), /at least/);
     assert.match(purchasedHoursError(-1), /at least/);
-    assert.match(purchasedHoursError(0.25), /half-hour/);
+    assert.match(purchasedHoursError(0.25), /at least/);
+    assert.match(purchasedHoursError(0.75), /half-hour/);
     assert.match(purchasedHoursError(3.7), /half-hour/);
     assert.match(purchasedHoursError(100.5), /exceed/);
     assert.match(purchasedHoursError(101), /exceed/);
