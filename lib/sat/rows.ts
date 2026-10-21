@@ -82,11 +82,22 @@ function parseChoices(value: unknown): SatChoice[] {
   if (!Array.isArray(value)) throw new QuestionBankError("choices must be an array.");
   return value.map((choice, index) => {
     if (!isRecord(choice)) throw new QuestionBankError(`choice ${index + 1} must be an object.`);
+    const text = choiceMarkup(choice);
+    if (!text) throw new QuestionBankError(`choice ${index + 1} text must be a non-empty string.`);
     return {
       label: required(choice.label, `choice ${index + 1} label`),
-      text: required(choice.text, `choice ${index + 1} text`),
+      text,
     };
   });
+}
+
+/** Markup wins when a stored choice still carries both spoken text and HTML. */
+function choiceMarkup(choice: Record<string, unknown>): string | null {
+  for (const key of ["text_html", "html", "text", "body", "content"]) {
+    const value = choice[key];
+    if (typeof value === "string" && value.trim() !== "") return value;
+  }
+  return null;
 }
 
 function required(value: unknown, label: string): string {

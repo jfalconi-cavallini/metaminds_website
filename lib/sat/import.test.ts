@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { prepareSatHtml, sanitizeSatHtml } from "./html.ts";
+import { mathmlToLatex, renderSatMath } from "./mathml.ts";
 import {
   mapImportDocument,
   mergeImportFiles,
@@ -222,6 +223,80 @@ describe("html questions", () => {
     assert.match(clean, /<annotation encoding="application\/x-tex">/);
     assert.match(clean, /<mrow><mo>\(<\/mo><mi>x<\/mi><mo>\)<\/mo><\/mrow>/);
     assert.doesNotMatch(clean, /<mfenced/);
+  });
+
+  it("keeps figures and hides the screen-reader copy of a blank", () => {
+    const clean = prepareSatHtml([
+      '<svg viewBox="0 0 10 10" role="img" aria-label="A line">',
+      "<style>*{stroke-linecap:butt;} .small { font: italic 13px Crimson; }</style>",
+      '<line class="x-axis-line" x1="0" y1="0" x2="10" y2="10"></line>',
+      '<use xlink:href="#axis"></use>',
+      '<use xlink:href="javascript:alert(1)"></use>',
+      "<text>20</text>",
+      "</svg>",
+      '<span aria-hidden="true">______</span><span class="sr-only">blank</span> have',
+      "<script>alert(1)</script>",
+    ].join(""));
+    assert.match(clean, /<svg[^>]*viewBox="0 0 10 10"/);
+    assert.match(clean, /<line[^>]*class="x-axis-line"/);
+    assert.match(clean, /<text>20<\/text>/);
+    assert.match(clean, /xlink:href="#axis"/);
+    assert.match(clean, /aria-hidden="true"/);
+    assert.match(clean, /class="sr-only"/);
+    assert.match(clean, /______/);
+    assert.match(clean, />blank</);
+    assert.match(clean, /\.sat-html svg/);
+    assert.doesNotMatch(clean, /<script|javascript:/i);
+    const visible = clean.replace(/<span class="sr-only">[\s\S]*?<\/span>/g, "");
+    assert.doesNotMatch(visible, />blank</);
+  });
+
+  it("renders MathML with KaTeX and keeps spoken alt text for screen readers", () => {
+    const html = prepareSatHtml(
+      '<p><math alttext="7 x plus 18 y equals 630"><mrow><mn>7</mn><mi>x</mi><mo>+</mo><mn>18</mn><mi>y</mi><mo>=</mo><mn>630</mn></mrow></math></p>',
+    );
+    assert.equal(mathmlToLatex(html.match(/<math[\s\S]*<\/math>/)?.[0] ?? ""), "7x+18y=630");
+    const rendered = renderSatMath(html);
+    assert.match(rendered, /class="sr-only"/);
+    assert.match(rendered, /7 x plus 18 y equals 630/);
+    assert.match(rendered, /katex/);
+    const visible = rendered.replace(/<span class="sr-only">[\s\S]*?<\/span>/g, "");
+    assert.doesNotMatch(visible, /plus|equals/);
+    assert.equal(
+      mathmlToLatex('<math><mfrac><mrow><mn>12</mn><mi>x</mi><mo>+</mo><mn>28</mn></mrow><mn>4</mn></mfrac></math>'),
+      "\\frac{12x+28}{4}",
+    );
+    assert.equal(
+      mathmlToLatex('<math><menclose notation="top"><mi>A</mi><mi>B</mi></menclose></math>'),
+      "\\overline{AB}",
+    );
+    assert.equal(mathmlToLatex('<math><mn>170</mn><mo>°</mo></math>'), "170^{\\circ}");
+  });
+
+  it("prefers choice markup over spoken text when both are stored", () => {
+    const row = parseQuestionRow({
+      id: "SAMPLE-MARKUP",
+      section: "math",
+      domain: "Algebra",
+      skill: "Linear equations",
+      skill_code: null,
+      difficulty: "easy",
+      type: "mcq",
+      passage: null,
+      question: "<p>Which equation?</p>",
+      choices: [
+        { label: "A", text: "y equals 7 x plus 18", text_html: "<p><math><mi>y</mi><mo>=</mo><mn>7</mn><mi>x</mi><mo>+</mo><mn>18</mn></math></p>" },
+        { label: "B", text: "<p>18</p>" },
+      ],
+      answer: "A",
+      explanation: "",
+      format: "html",
+      source: "college_board_test",
+      source_ref: "sample#markup",
+      active: true,
+    });
+    assert.match(row.choices?.[0]?.text ?? "", /<math>/);
+    assert.equal(row.choices?.[1]?.text, "<p>18</p>");
   });
 });
 
