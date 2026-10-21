@@ -7,6 +7,7 @@ import { usePortalViewerContext } from "@/lib/portal/usePortalViewerContext";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { purchaseOptions, formatDate, resolveZoomUrl, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { formatHours } from "@/lib/portal/hours";
 import { convertSessionDisplay } from "@/lib/portal/timezone";
 import WeeklyCalendar, { parseTimeToHour } from "@/components/portal/WeeklyCalendar";
 import Modal from "@/components/portal/Modal";
@@ -1061,7 +1062,7 @@ export default function StudentPortal() {
                   <p className="text-blue-200 text-[10px] font-bold uppercase tracking-widest mb-1.5">Upcoming Session</p>
                   <p className="font-bold text-sm leading-snug">{fmtSessionDate(nextSession.date, nextSession.time)}</p>
                   <p className="text-blue-100 text-sm mt-0.5">{fmtSessionTime(nextSession.date, nextSession.time)} · {nextSession.subject}</p>
-                  <p className="text-blue-200 text-xs mt-0.5">{nextSession.durationHours} hr · {nextSession.sessionType}</p>
+                  <p className="text-blue-200 text-xs mt-0.5">{formatHours(nextSession.durationHours)} hr · {nextSession.sessionType}</p>
                   <div className="mt-3 space-y-1.5">
                     {(nextSession.zoomLink ?? tutor?.zoomLink) ? (
                       <button
@@ -1089,7 +1090,7 @@ export default function StudentPortal() {
             {/* Stats row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                { label: "Hours Left",     value: balance?.remaining ?? 0, sub: `of ${balance?.totalPurchased ?? 0} purchased`, Icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   valColor: "text-blue-700"  },
+                { label: "Hours Left",     value: formatHours(balance?.remaining ?? 0), sub: `of ${formatHours(balance?.totalPurchased ?? 0)} purchased`, Icon: Clock,        iconBg: "bg-blue-50",   iconColor: "text-blue-600",   valColor: "text-blue-700"  },
                 { label: "Sessions Done",  value: completed.length,         sub: "total completed",                              Icon: CalendarDays, iconBg: "bg-green-50",  iconColor: "text-green-600",  valColor: "text-gray-900"  },
                 { label: "HW Pending",     value: pendingHwCount,           sub: pendingHwCount === 0 ? "all done! 🎉" : "assignments pending", Icon: BookOpen, iconBg: pendingHwCount > 0 ? "bg-amber-50" : "bg-green-50", iconColor: pendingHwCount > 0 ? "text-amber-500" : "text-green-600", valColor: pendingHwCount > 0 ? "text-amber-700" : "text-green-700" },
                 { label: "Upcoming",       value: upcoming.length,          sub: "sessions booked",                              Icon: Calendar,     iconBg: "bg-purple-50", iconColor: "text-purple-600", valColor: "text-gray-900"  },
@@ -1128,7 +1129,7 @@ export default function StudentPortal() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-gray-900 truncate">{sessionToday.subject} Session</p>
-                        <p className="text-xs text-gray-400">{fmtSessionTime(sessionToday.date, sessionToday.time)} · {sessionToday.durationHours} hr</p>
+                        <p className="text-xs text-gray-400">{fmtSessionTime(sessionToday.date, sessionToday.time)} · {formatHours(sessionToday.durationHours)} hr</p>
                       </div>
                       <div className="flex flex-col items-end gap-0.5 shrink-0">
                         {(sessionToday.zoomLink ?? tutor?.zoomLink) && (
@@ -1491,8 +1492,8 @@ export default function StudentPortal() {
                 },
                 {
                   label: "Hours Remaining",
-                  value: `${balance?.remaining ?? 0}`,
-                  sub: `of ${balance?.totalPurchased ?? 0} hrs purchased`,
+                  value: formatHours(balance?.remaining ?? 0),
+                  sub: `of ${formatHours(balance?.totalPurchased ?? 0)} hrs purchased`,
                   Icon: Timer,
                   iconBg: (balance?.remaining ?? 0) > 0 ? "bg-blue-50" : "bg-red-50",
                   iconColor: (balance?.remaining ?? 0) > 0 ? "text-blue-600" : "text-red-500",
@@ -1648,7 +1649,7 @@ export default function StudentPortal() {
                           <p className="font-bold text-gray-900 text-sm truncate">{s.subject}</p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <Clock className="w-3 h-3 text-gray-400 shrink-0" />
-                            <p className="text-xs text-gray-500">{fmtSessionTime(s.date, s.time)} · {s.durationHours} hr</p>
+                            <p className="text-xs text-gray-500">{fmtSessionTime(s.date, s.time)} · {formatHours(s.durationHours)} hr</p>
                           </div>
                         </div>
 
@@ -1727,7 +1728,7 @@ export default function StudentPortal() {
                           >
                             <td className="px-5 py-3 text-gray-600 font-medium whitespace-nowrap">{fmtSessionDate(s.date, s.time)}</td>
                             <td className="px-5 py-3 text-gray-900 font-semibold">{s.subject}</td>
-                            <td className="px-5 py-3 text-gray-400 hidden sm:table-cell">{s.durationHours} hr</td>
+                            <td className="px-5 py-3 text-gray-400 hidden sm:table-cell">{formatHours(s.durationHours)} hr</td>
                             <td className="px-5 py-3 text-right">
                               <div className="flex items-center justify-end gap-2">
                                 {hasNotes && <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Notes</span>}
@@ -1783,7 +1784,7 @@ export default function StudentPortal() {
                     placeholder="Any notes for your tutor? (optional)" rows={2}
                     className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" />
                   {(balance?.remaining ?? 0) < bookDuration && (
-                    <p className="text-xs text-amber-600">You only have {balance?.remaining ?? 0} hr remaining. Select a shorter duration.</p>
+                    <p className="text-xs text-amber-600">You only have {formatHours(balance?.remaining ?? 0)} hr remaining. Select a shorter duration.</p>
                   )}
                   {bookError && <p className="text-xs text-red-500">{bookError}</p>}
                   <button onClick={submitBooking} disabled={!ctx.canManageSchedule || (balance?.remaining ?? 0) < bookDuration}
@@ -1919,7 +1920,7 @@ export default function StudentPortal() {
               {mkCircle(
                 balance ? Math.min((balance.totalUsed / Math.max(balance.totalPurchased, 1)) * 100, 100) : 0,
                 "#f43f5e",
-                `${balance?.totalUsed ?? 0}h`,
+                `${formatHours(balance?.totalUsed ?? 0)}h`,
                 "Hours Invested",
               )}
             </div>
@@ -2065,7 +2066,7 @@ export default function StudentPortal() {
                     <p className="text-[10px] text-blue-200">HW Rate</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-lg font-bold">{balance?.totalUsed ?? 0}h</p>
+                    <p className="text-lg font-bold">{formatHours(balance?.totalUsed ?? 0)}h</p>
                     <p className="text-[10px] text-blue-200">Hours</p>
                   </div>
                 </div>
@@ -3772,12 +3773,12 @@ export default function StudentPortal() {
                       strokeDasharray={`${(ringPct / 100) * ringCirc} ${ringCirc}`} strokeLinecap="round" />
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-xl font-bold text-gray-900">{balance.remaining}</p>
+                    <p className="text-xl font-bold text-gray-900">{formatHours(balance.remaining)}</p>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide">hrs left</p>
                   </div>
                 </div>
                 <div className="min-w-0">
-                  <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Package</p>
+                  <p className="font-semibold text-gray-900">{formatHours(balance.totalPurchased)}-Hour Package</p>
                   <p className="text-xs text-gray-400 mt-0.5">Expires {balance.expiresAt ? formatDate(balance.expiresAt) : "—"}</p>
                   <button
                     onClick={() => setTab("sessions")}
@@ -3792,7 +3793,7 @@ export default function StudentPortal() {
                 <div className="w-9 h-9 rounded-lg bg-blue-50 flex items-center justify-center mb-3">
                   <Clock className="w-4 h-4 text-blue-600" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{hoursUsedThisMonth}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatHours(hoursUsedThisMonth)}</p>
                 <p className="text-xs text-gray-400 mt-1">Hours used this month</p>
               </div>
 
@@ -3808,7 +3809,7 @@ export default function StudentPortal() {
                 <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center mb-3">
                   <Timer className="w-4 h-4 text-amber-600" />
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{balance.remaining}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatHours(balance.remaining)}</p>
                 <p className="text-xs text-gray-400 mt-1">Hours remaining</p>
               </div>
             </div>
@@ -3821,7 +3822,7 @@ export default function StudentPortal() {
           {balance && (
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
               <div className="flex items-center justify-between mb-3">
-                <p className="font-semibold text-gray-900">{balance.totalPurchased}-Hour Package</p>
+                <p className="font-semibold text-gray-900">{formatHours(balance.totalPurchased)}-Hour Package</p>
                 <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-600">Active</span>
               </div>
               <div className="flex items-center gap-4 mb-3">
@@ -3829,11 +3830,11 @@ export default function StudentPortal() {
                   <div className="bg-blue-600 h-2.5 rounded-full" style={{ width: `${Math.min(100, pct)}%` }} />
                 </div>
                 <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-                  {balance.totalUsed}/{balance.totalPurchased} hrs used
+                  {formatHours(balance.totalUsed)}/{formatHours(balance.totalPurchased)} hrs used
                 </span>
               </div>
               <div className="flex items-center gap-6 text-sm text-gray-500">
-                <span><span className="font-semibold text-gray-900">{balance.remaining}</span> remaining</span>
+                <span><span className="font-semibold text-gray-900">{formatHours(balance.remaining)}</span> remaining</span>
                 <span><span className="font-semibold text-gray-900">{completed.length}</span> sessions</span>
               </div>
             </div>
@@ -3860,7 +3861,7 @@ export default function StudentPortal() {
                     <tr key={s.id}>
                       <td className="px-6 py-3 text-gray-700">{fmtSessionDate(s.date, s.time)}</td>
                       <td className="px-6 py-3 text-gray-700">{s.subject}</td>
-                      <td className="px-6 py-3 text-gray-700">{s.durationHours} hr</td>
+                      <td className="px-6 py-3 text-gray-700">{formatHours(s.durationHours)} hr</td>
                     </tr>
                   ))}
                 </tbody>
@@ -3884,7 +3885,7 @@ export default function StudentPortal() {
                       <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
                       <p className="text-xs text-gray-400">{tutor?.name ?? "Your tutor"} · {fmtSessionDate(s.date, s.time)} · {fmtSessionTime(s.date, s.time)}</p>
                     </div>
-                    <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{s.durationHours} hr</span>
+                    <span className="text-xs font-medium text-gray-500 whitespace-nowrap">{formatHours(s.durationHours)} hr</span>
                   </div>
                 ))}
               </div>
@@ -3911,7 +3912,7 @@ export default function StudentPortal() {
                     ))}
                   </svg>
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-2xl font-bold text-gray-900">{totalCompletedHours}</p>
+                    <p className="text-2xl font-bold text-gray-900">{formatHours(totalCompletedHours)}</p>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wide">hours used</p>
                   </div>
                 </div>
@@ -3923,7 +3924,7 @@ export default function StudentPortal() {
                         <span className="text-gray-700 truncate">{seg.subject}</span>
                       </div>
                       <span className="text-gray-500 whitespace-nowrap">
-                        {seg.hrs}h · {totalCompletedHours > 0 ? Math.round((seg.hrs / totalCompletedHours) * 100) : 0}%
+                        {formatHours(seg.hrs)}h · {totalCompletedHours > 0 ? Math.round((seg.hrs / totalCompletedHours) * 100) : 0}%
                       </span>
                     </div>
                   ))}
@@ -4316,7 +4317,7 @@ export default function StudentPortal() {
                 },
                 {
                   label: "Total Hours Used",
-                  value: balance ? String(balance.totalUsed) : "—",
+                  value: balance ? formatHours(balance.totalUsed) : "—",
                   sub: "session hours",
                   accent: "text-gray-700",
                   Icon: TrendingUp,
@@ -4598,7 +4599,7 @@ export default function StudentPortal() {
             <div>
               <p className="text-lg font-bold text-gray-900">{ps.subject}</p>
               <p className="text-sm text-gray-500">
-                {ps.durationHours} hr · {ps.sessionType}
+                {formatHours(ps.durationHours)} hr · {ps.sessionType}
                 {tutor ? ` · with ${tutor.name}` : ""}
               </p>
             </div>
@@ -4750,7 +4751,7 @@ export default function StudentPortal() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {([
                 { label: "Sessions", value: completedCount, sub: "completed", color: "text-blue-600" },
-                { label: "Hours Used", value: hoursUsedAmt, sub: `of ${balance?.totalPurchased ?? 0} purchased`, color: "text-violet-600" },
+                { label: "Hours Used", value: formatHours(hoursUsedAmt), sub: `of ${formatHours(balance?.totalPurchased ?? 0)} purchased`, color: "text-violet-600" },
                 { label: "Homework", value: gradedHwCount, sub: "graded complete", color: "text-emerald-600" },
                 { label: "Subjects", value: student.subjects.length, sub: "currently studying", color: "text-amber-600" },
               ] as const).map((stat) => (
@@ -4868,7 +4869,7 @@ export default function StudentPortal() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-sm font-semibold text-gray-900 truncate">{s.subject}</p>
-                              <p className="text-xs text-gray-400">{fmtSessionTime(s.date, s.time)} · {s.durationHours}h</p>
+                              <p className="text-xs text-gray-400">{fmtSessionTime(s.date, s.time)} · {formatHours(s.durationHours)}h</p>
                             </div>
                             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${s.sessionType === "in-person" ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}>
                               {s.sessionType === "in-person" ? "In-Person" : "Online"}
@@ -4907,7 +4908,7 @@ export default function StudentPortal() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-gray-800 truncate">{s.subject} session</p>
-                            <p className="text-xs text-gray-400">{fmtSessionDate(s.date, s.time)} · {s.durationHours}h</p>
+                            <p className="text-xs text-gray-400">{fmtSessionDate(s.date, s.time)} · {formatHours(s.durationHours)}h</p>
                           </div>
                         </div>
                       ))}
@@ -4920,7 +4921,7 @@ export default function StudentPortal() {
                     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Hours Package</h3>
                     <div className="flex items-end justify-between mb-2">
                       <div>
-                        <p className="text-2xl font-bold text-gray-900">{balance.remaining}</p>
+                        <p className="text-2xl font-bold text-gray-900">{formatHours(balance.remaining)}</p>
                         <p className="text-xs text-gray-400">hours remaining</p>
                       </div>
                       <button onClick={() => setTab("hours")} className="text-xs text-blue-600 hover:text-blue-700 font-medium">
@@ -4933,7 +4934,7 @@ export default function StudentPortal() {
                         style={{ width: `${Math.round((balance.remaining / balance.totalPurchased) * 100)}%` }}
                       />
                     </div>
-                    <p className="text-xs text-gray-400 mt-1.5">{balance.totalUsed} of {balance.totalPurchased} hours used</p>
+                    <p className="text-xs text-gray-400 mt-1.5">{formatHours(balance.totalUsed)} of {formatHours(balance.totalPurchased)} hours used</p>
                   </div>
                 )}
               </div>

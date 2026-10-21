@@ -9,6 +9,7 @@ import SatStudentAttempts from "@/components/portal/SatStudentAttempts";
 import Badge from "@/components/portal/Badge";
 import StatCard from "@/components/portal/StatCard";
 import { formatDate, formatTime24to12, resolveZoomUrl, sendSessionConfirmationEmail as _sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { formatHours } from "@/lib/portal/hours";
 import { ownedParentUpdateSessionIds } from "@/lib/portal/parentUpdateSessions";
 import { US_TIMEZONES } from "@/lib/portal/timezone";
 import AvailabilityGrid from "@/components/portal/AvailabilityGrid";
@@ -1611,7 +1612,7 @@ export default function TutorPortal() {
                                 </button>
                               </div>
                             </div>
-                            <p className="text-sm text-gray-500 mb-3">{s.subject} · {s.time} · {s.durationHours} hr</p>
+                            <p className="text-sm text-gray-500 mb-3">{s.subject} · {s.time} · {formatHours(s.durationHours)} hr</p>
                             <div className="flex flex-wrap gap-2">
                               {zoomLink ? (
                                 <a href={resolveZoomUrl(zoomLink)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
@@ -1774,7 +1775,7 @@ export default function TutorPortal() {
                 { label: "Total Students",   value: myStudents.length,  Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"   },
                 { label: "Upcoming Sessions", value: totalUpcoming,      Icon: CalendarDays, iconBg: "bg-violet-50",  iconColor: "text-violet-500" },
                 { label: "To Grade",         value: totalPendingHw,     Icon: CheckCircle,  iconBg: totalPendingHw > 0 ? "bg-amber-50" : "bg-gray-50", iconColor: totalPendingHw > 0 ? "text-amber-500" : "text-gray-400" },
-                { label: "Hours Remaining",  value: `${totalHrsRemain}h`, Icon: Clock,       iconBg: totalHrsRemain <= 4 ? "bg-red-50" : "bg-emerald-50", iconColor: totalHrsRemain <= 4 ? "text-red-500" : "text-emerald-500" },
+                { label: "Hours Remaining",  value: `${formatHours(totalHrsRemain)}h`, Icon: Clock,       iconBg: totalHrsRemain <= 4 ? "bg-red-50" : "bg-emerald-50", iconColor: totalHrsRemain <= 4 ? "text-red-500" : "text-emerald-500" },
               ] as const).map(card => (
                 <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
                   <div>
@@ -1840,7 +1841,7 @@ export default function TutorPortal() {
                     {/* Chips + actions */}
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${(bal?.remaining ?? 0) <= 2 ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"}`}>
-                        {bal?.remaining ?? 0} hrs
+                        {formatHours(bal?.remaining ?? 0)} hrs
                       </span>
                       {submittedHwCount > 0 && (
                         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700">
@@ -2024,7 +2025,7 @@ export default function TutorPortal() {
                                   <div key={sess.id} className="bg-gray-50 rounded-lg border border-gray-200 p-3 flex items-center justify-between">
                                     <div>
                                       <p className="text-sm font-semibold text-gray-900">{formatDate(sess.date)} at {sess.time}</p>
-                                      <p className="text-xs text-gray-500">{sess.subject} · {sess.durationHours} hr · {sess.sessionType}</p>
+                                      <p className="text-xs text-gray-500">{sess.subject} · {formatHours(sess.durationHours)} hr · {sess.sessionType}</p>
                                     </div>
                                     <button onClick={() => {
                                       setSdNoteTopic(""); setSdNoteText(""); setSdNoteKamiLink("");
@@ -2088,7 +2089,7 @@ export default function TutorPortal() {
                                             className="w-4 h-4 accent-blue-600 shrink-0"
                                           />
                                           <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                            {formatDate(sess.date)} at {sess.time} · {sess.subject} · {sess.durationHours} hr
+                                            {formatDate(sess.date)} at {sess.time} · {sess.subject} · {formatHours(sess.durationHours)} hr
                                           </span>
                                         </label>
                                       );
@@ -4474,7 +4475,7 @@ export default function TutorPortal() {
               <div>
                 <p className="text-lg font-bold text-gray-900">{sdStudent?.name ?? "Student"}</p>
                 {!editingSession && (
-                  <p className="text-sm text-gray-500">{sd.subject} · {sd.durationHours} hr · {sd.sessionType}</p>
+                  <p className="text-sm text-gray-500">{sd.subject} · {formatHours(sd.durationHours)} hr · {sd.sessionType}</p>
                 )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -4719,7 +4720,7 @@ export default function TutorPortal() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Hours Remaining</p>
-                <p className="text-2xl font-bold text-blue-600">{balance?.remaining ?? 0} <span className="text-sm font-normal text-gray-500">hrs</span></p>
+                <p className="text-2xl font-bold text-blue-600">{formatHours(balance?.remaining ?? 0)} <span className="text-sm font-normal text-gray-500">hrs</span></p>
               </div>
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Upcoming Sessions</p>
