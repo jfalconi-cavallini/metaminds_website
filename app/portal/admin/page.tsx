@@ -9,6 +9,7 @@ import StatCard from "@/components/portal/StatCard";
 import { Users, CalendarDays, Clock, TrendingUp, TrendingDown, AlertTriangle, BookOpen, Activity, ChevronRight } from "lucide-react";
 import Modal from "@/components/portal/Modal";
 import { formatDate, formatTime24to12, DISPLAY_GROUP_ORDER, displayGroupFor, sendSessionConfirmationEmail } from "@/lib/portal/utils";
+import { formatHours, purchasedHoursError } from "@/lib/portal/hours";
 import { US_TIMEZONES } from "@/lib/portal/timezone";
 import { useAuth } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
@@ -650,7 +651,10 @@ export default function AdminPortal() {
   const [addHoursError,  setAddHoursError]  = useState("");
 
   async function submitAddHours() {
-    if (!addHoursFor || !addHoursExpiry) { setAddHoursError("Select an expiry date."); return; }
+    if (!addHoursFor) return;
+    if (!addHoursExpiry) { setAddHoursError("Select an expiry date."); return; }
+    const hoursError = purchasedHoursError(addHoursAmt);
+    if (hoursError) { setAddHoursError(hoursError); return; }
     setAddHoursLoading(true); setAddHoursError("");
     try {
       const updated = await addPackageHours(addHoursFor, Number(addHoursAmt), addHoursExpiry);
@@ -667,14 +671,17 @@ export default function AdminPortal() {
           .catch(console.error);
       }
       setAddHoursFor(null);
-    } catch { setFulfillingRequestId(null); setAddHoursError("Failed to add hours."); }
+    } catch (err) {
+      setFulfillingRequestId(null);
+      setAddHoursError(err instanceof Error ? err.message : "Failed to add hours.");
+    }
     finally { setAddHoursLoading(false); }
   }
 
   function openFulfillRequest(req: PurchaseRequest) {
     setFulfillingRequestId(req.id);
     setAddHoursFor(req.studentId);
-    setAddHoursAmt(String(req.hours));
+    setAddHoursAmt(formatHours(req.hours));
     setAddHoursExpiry("");
     setAddHoursError("");
   }
@@ -835,7 +842,7 @@ export default function AdminPortal() {
                 { label: "Active Students",   value: activeStudents.length,                   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
                 { label: "Active Tutors",     value: tutors.filter((t) => !t.archived).length, Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
                 { label: "Upcoming Sessions", value: upcoming.length,                          Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
-                { label: "Hours Sold",        value: `${totalHoursSold}h`,                     Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+                { label: "Hours Sold",        value: `${formatHours(totalHoursSold)}h`,            Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
               ] as const).map((card) => (
                 <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
                   <div>
@@ -923,7 +930,7 @@ export default function AdminPortal() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-gray-900 text-sm">{lowHours.length} student{lowHours.length > 1 ? "s" : ""} running low on hours</p>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {lowHours.map((s) => `${s.name} (${packages.find((p) => p.studentId === s.id)?.remaining ?? 0}h)`).join(", ")}
+                          {lowHours.map((s) => `${s.name} (${formatHours(packages.find((p) => p.studentId === s.id)?.remaining ?? 0)}h)`).join(", ")}
                         </p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
@@ -1066,8 +1073,8 @@ export default function AdminPortal() {
                 { label: "Active Students",   value: activeStudents.length,   Icon: Users,        iconBg: "bg-blue-50",    iconColor: "text-blue-500"    },
                 { label: "Active Tutors",     value: activeTutors.length,     Icon: Users,        iconBg: "bg-violet-50",  iconColor: "text-violet-500"  },
                 { label: "Sessions / Month",  value: sessThisMonth.length,    Icon: CalendarDays, iconBg: "bg-emerald-50", iconColor: "text-emerald-500" },
-                { label: "Hours Sold",        value: `${totalSold}h`,         Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
-                { label: "Hours Used",        value: `${totalUsed}h`,         Icon: Activity,     iconBg: "bg-orange-50",  iconColor: "text-orange-500"  },
+                { label: "Hours Sold",        value: `${formatHours(totalSold)}h`,         Icon: Clock,        iconBg: "bg-amber-50",   iconColor: "text-amber-500"   },
+                { label: "Hours Used",        value: `${formatHours(totalUsed)}h`,         Icon: Activity,     iconBg: "bg-orange-50",  iconColor: "text-orange-500"  },
                 { label: "Utilization",       value: `${utilPct}%`,           Icon: TrendingUp,   iconBg: utilPct >= 70 ? "bg-emerald-50" : "bg-gray-50", iconColor: utilPct >= 70 ? "text-emerald-500" : "text-gray-400" },
               ] as const).map((card) => (
                 <div key={card.label} className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm flex items-start justify-between gap-2">
@@ -1107,7 +1114,7 @@ export default function AdminPortal() {
                         <div
                           className={`w-full rounded-t-lg transition-all duration-700 ${isThisMonth ? "bg-blue-500" : "bg-blue-200"}`}
                           style={{ height: `${barPct}%` }}
-                          title={`${m.label}: ${m.count} sessions, ${m.hrs}h`}
+                          title={`${m.label}: ${m.count} sessions, ${formatHours(m.hrs)}h`}
                         />
                         <span className="text-[10px] text-gray-400">{m.label}</span>
                       </div>
@@ -1116,7 +1123,7 @@ export default function AdminPortal() {
                 </div>
                 <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
                   <span>Total sessions: <strong className="text-gray-900">{completed.length}</strong></span>
-                  <span>Total hours: <strong className="text-gray-900">{completed.reduce((s, c) => s + c.durationHours, 0)}h</strong></span>
+                  <span>Total hours: <strong className="text-gray-900">{formatHours(completed.reduce((s, c) => s + c.durationHours, 0))}h</strong></span>
                 </div>
               </div>
 
@@ -1129,13 +1136,13 @@ export default function AdminPortal() {
                 {/* Aggregate bar */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between text-xs text-gray-500 mb-1.5">
-                    <span>{totalUsed}h used</span>
-                    <span>{totalRemaining}h remaining</span>
+                    <span>{formatHours(totalUsed)}h used</span>
+                    <span>{formatHours(totalRemaining)}h remaining</span>
                   </div>
                   <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                     <div className="h-full bg-emerald-400 rounded-full transition-all duration-700" style={{ width: `${utilPct}%` }} />
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">{utilPct}% of {totalSold}h total purchased used</p>
+                  <p className="text-xs text-gray-400 mt-1">{utilPct}% of {formatHours(totalSold)}h total purchased used</p>
                 </div>
                 {/* Per-student bars — show active students with packages, sorted by remaining */}
                 <div className="space-y-2">
@@ -1153,7 +1160,7 @@ export default function AdminPortal() {
                           <div className="flex items-center justify-between text-xs mb-0.5">
                             <span className="font-medium text-gray-700 truncate">{s.name}</span>
                             <span className={`font-semibold shrink-0 ml-2 ${bal!.remaining < 3 ? "text-red-600" : bal!.remaining < 6 ? "text-amber-600" : "text-emerald-600"}`}>
-                              {bal!.remaining}h left
+                              {formatHours(bal!.remaining)}h left
                             </span>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
@@ -1193,7 +1200,7 @@ export default function AdminPortal() {
                           <p className="font-semibold text-gray-900 text-sm">{s.name}</p>
                           <p className="text-xs text-gray-400">
                             {lastSess ? `Last session ${daysSince}d ago` : "No sessions recorded"}
-                            {" · "}{remaining}h remaining
+                            {" · "}{formatHours(remaining)}h remaining
                           </p>
                         </div>
                         <div className="flex gap-1.5 shrink-0">
@@ -1285,7 +1292,7 @@ export default function AdminPortal() {
                       </td>
                       <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{studentCount}</td>
                       <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{completedCount}</td>
-                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{hrsDelivered}h</td>
+                      <td className="px-4 py-3.5 text-right font-semibold text-gray-700">{formatHours(hrsDelivered)}h</td>
                       <td className="px-4 py-3.5 text-right">
                         <span className={`font-semibold ${upcomingCount > 0 ? "text-blue-600" : "text-gray-400"}`}>{upcomingCount}</span>
                       </td>
@@ -1359,7 +1366,7 @@ export default function AdminPortal() {
                         <td className="px-4 py-3 text-gray-600">{tutor?.name ?? <span className="text-gray-300">Unassigned</span>}</td>
                         <td className="px-4 py-3">
                           <span className={`font-medium ${(balance?.remaining ?? 0) <= 2 ? "text-red-500" : "text-blue-600"}`}>
-                            {balance?.remaining ?? 0}
+                            {formatHours(balance?.remaining ?? 0)}
                           </span>
                         </td>
                         <td className="px-4 py-3">
@@ -1661,7 +1668,7 @@ export default function AdminPortal() {
                           <div key={s.id} className="flex items-center justify-between bg-gray-50 rounded-lg px-4 py-2.5">
                             <div>
                               <span className="text-sm font-medium text-gray-900">{st?.name ?? "—"}</span>
-                              <span className="text-sm text-gray-400 ml-1.5">· {s.subject} · {s.durationHours}h</span>
+                              <span className="text-sm text-gray-400 ml-1.5">· {s.subject} · {formatHours(s.durationHours)}h</span>
                             </div>
                             <div className="flex items-center gap-2.5">
                               {zoomLink && (
@@ -1881,7 +1888,7 @@ export default function AdminPortal() {
                       <td className="px-4 py-3 text-gray-600">{getTutor(s.tutorId)?.name ?? "—"}</td>
                       <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{formatDate(s.date)} {s.time}</td>
                       <td className="px-4 py-3 text-gray-600">{s.subject}</td>
-                      <td className="px-4 py-3 text-gray-600">{s.durationHours}h</td>
+                      <td className="px-4 py-3 text-gray-600">{formatHours(s.durationHours)}h</td>
                       <td className="px-4 py-3"><Badge status={s.sessionType} /></td>
                       <td className="px-4 py-3">
                         {zoomEditId === s.id ? (
@@ -2006,10 +2013,10 @@ export default function AdminPortal() {
                   return (
                     <tr key={b.studentId}>
                       <td className="px-4 py-3 font-medium text-gray-900">{student?.name ?? "—"}</td>
-                      <td className="px-4 py-3 text-gray-600">{b.totalPurchased} hr</td>
-                      <td className="px-4 py-3 text-gray-600">{b.totalUsed} hr</td>
+                      <td className="px-4 py-3 text-gray-600">{formatHours(b.totalPurchased)} hr</td>
+                      <td className="px-4 py-3 text-gray-600">{formatHours(b.totalUsed)} hr</td>
                       <td className="px-4 py-3">
-                        <span className={`font-medium ${b.remaining <= 2 ? "text-red-500" : "text-blue-600"}`}>{b.remaining} hr</span>
+                        <span className={`font-medium ${b.remaining <= 2 ? "text-red-500" : "text-blue-600"}`}>{formatHours(b.remaining)} hr</span>
                       </td>
                       <td className="px-4 py-3 text-gray-600">{b.expiresAt}</td>
                       <td className="px-4 py-3">
@@ -2051,13 +2058,34 @@ export default function AdminPortal() {
         >
           <div className="space-y-4">
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Hours to add</label>
-              <select value={addHoursAmt} onChange={(e) => setAddHoursAmt(e.target.value)} className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm">
-                <option value="1">1 hour</option>
-                <option value="4">4 hours</option>
-                <option value="8">8 hours</option>
-                <option value="20">20 hours</option>
-              </select>
+              <label htmlFor="add-hours-amount" className="block text-xs text-gray-500 mb-1">Hours to add</label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {([1, 4, 8, 20] as const).map((preset) => {
+                  const active = Number(addHoursAmt) === preset;
+                  return (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setAddHoursAmt(String(preset))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${active ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-600 border-gray-200 hover:border-blue-300"}`}
+                    >
+                      {preset} hr
+                    </button>
+                  );
+                })}
+              </div>
+              <input
+                id="add-hours-amount"
+                type="number"
+                inputMode="decimal"
+                min={0.5}
+                max={100}
+                step={0.5}
+                value={addHoursAmt}
+                onChange={(e) => setAddHoursAmt(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm"
+              />
+              <p className="text-[10px] text-gray-400 mt-1">Half-hour increments from 0.5 to 100, for example 3.5.</p>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Expiry date</label>
@@ -2278,7 +2306,7 @@ export default function AdminPortal() {
               <div className="grid grid-cols-3 gap-4">
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Hours Left</p>
-                  <p className="text-xl font-bold text-blue-600">{balance?.remaining ?? 0}</p>
+                  <p className="text-xl font-bold text-blue-600">{formatHours(balance?.remaining ?? 0)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Tutor</p>

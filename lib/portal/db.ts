@@ -1,6 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import type { Student, Tutor, Session, HoursBalance, TutorAvailability, SessionNote, Homework, BlockedDate, ParentUpdate, BlockedSlot, PurchaseRequest, StudyLog, Course, StudentCourseEnrollment, Module, Lesson, LessonResource, Skill, StudentPlan, StudentPlanLesson, SkillMastery, LessonPackage, CatalogLesson, CatalogCategory, CatalogSection, CourseCatalogFull, StudentPlanLessonFull, StudentPlanFull, SkillBaseline, SkillNode, StudentSkill, StudentSkillStatus, SkillNoteLink, HomeworkSkillLink, VocabularyWord, VocabularyAssignmentConfig, VocabularySubmissionEntry, PracticeTestResult, SatPracticeTestConfig, SatPracticeTestSubmission, SatPracticeTestAnswer, SatCategoryBreakdown, SatCategoryScore, EmailLogEntry, EmailType } from "./types";
 import { categoryScoreToMastery, masteryScoreToStudentStatus } from "./planConfig";
+import { normalizePurchasedHours, purchasedHoursError, roundHours, toHoursBalance } from "./hours";
 
 // ── TYPE MAPPERS ──────────────────────────────────────────────────────────────
 
@@ -116,15 +117,7 @@ function rowToHomework(r: any): Homework {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToBalance(r: any): HoursBalance {
-  const total = Number(r.total_hours);
-  const used  = Number(r.hours_used);
-  return {
-    studentId:      r.student_id,
-    totalPurchased: total,
-    totalUsed:      used,
-    remaining:      total - used,
-    expiresAt:      r.expires_at,
-  };
+  return toHoursBalance(r);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -784,36 +777,45 @@ export async function addPackageHours(
   hoursToAdd: number,
   expiresAt: string,
 ): Promise<HoursBalance> {
-  // Try to update existing package first
-  const { data: existing } = await supabase
-    .from("user_packages")
-    .select("id, total_hours, hours_used")
-    .eq("student_id", studentId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+  // The browser check is only for a faster message. The API re-validates
+  // and is the only writer of purchased hours.
+  const hoursError = purchasedHoursError(hoursToAdd);
+  if (hoursError) throw new Error(hoursError);
+  if (!expiresAt) throw new Error("Select an expiry date.");
 
-  if (existing) {
-    const newTotal = Number(existing.total_hours) + hoursToAdd;
-    const { data, error } = await supabase
-      .from("user_packages")
-      .update({ total_hours: newTotal, expires_at: expiresAt })
-      .eq("id", existing.id)
-      .select()
-      .single();
-    if (error) throw error;
-    return rowToBalance(data);
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Session expired — please refresh.");
+
+  const res = await fetch("/api/admin/add-package-hours", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({
+      studentId,
+      hours: normalizePurchasedHours(hoursToAdd),
+      expiresAt,
+    }),
+  });
+
+  let json: { error?: string; balance?: HoursBalance } = {};
+  try {
+    json = await res.json();
+  } catch {
+    throw new Error("Failed to add hours.");
+  }
+  if (!res.ok || !json.balance) {
+    throw new Error(json.error || "Failed to add hours.");
   }
 
-  // No existing package — create one
-  const { data, error } = await supabase.from("user_packages").insert({
-    student_id:  studentId,
-    total_hours: hoursToAdd,
-    hours_used:  0,
-    expires_at:  expiresAt,
-  }).select().single();
-  if (error) throw error;
-  return rowToBalance(data);
+  return {
+    studentId: json.balance.studentId,
+    totalPurchased: roundHours(Number(json.balance.totalPurchased)),
+    totalUsed: roundHours(Number(json.balance.totalUsed)),
+    remaining: roundHours(Number(json.balance.remaining)),
+    expiresAt: json.balance.expiresAt,
+  };
 }
 
 // ── PROFILE UPDATES ───────────────────────────────────────────────────────────

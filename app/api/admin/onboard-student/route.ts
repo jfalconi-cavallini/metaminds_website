@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import crypto from "crypto";
 import { logEmail } from "@/lib/emailLog";
+import { normalizePurchasedHours, purchasedHoursError } from "@/lib/portal/hours";
 
 function adminClient() {
   return createClient(
@@ -202,6 +203,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
+  const packageHoursError = purchasedHoursError(packageHours);
+  if (packageHoursError) {
+    return NextResponse.json({ error: packageHoursError }, { status: 400 });
+  }
+
   const studentName = `${firstName} ${lastName}`.trim();
   const studentTempPassword = generateTempPassword();
   const sameEmail = parentEmail.toLowerCase() === email.toLowerCase();
@@ -337,7 +343,7 @@ export async function POST(request: Request) {
   // ── 3. Create package ────────────────────────────────────────────
   const { error: pkgError } = await admin.from("user_packages").insert({
     student_id:  studentId,
-    total_hours: Number(packageHours),
+    total_hours: normalizePurchasedHours(Number(packageHours)),
     hours_used:  0,
     expires_at:  packageExpiry,
   });
