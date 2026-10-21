@@ -172,6 +172,10 @@ describe("summarizeAttempts", () => {
       plainStem("<math><mfrac><mrow><mn>12</mn><mi>x</mi><mo>+</mo><mn>28</mn></mrow><mn>4</mn></mfrac></math>"),
       "(12x + 28)/4",
     );
+    assert.equal(
+      plainStem('<p><svg><text>2040</text></svg><span aria-hidden="true">______</span><span class="sr-only">blank</span> have</p>'),
+      "______ have",
+    );
   });
 
   it("returns an empty summary when the student has no attempts", () => {

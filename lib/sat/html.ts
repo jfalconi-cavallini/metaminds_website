@@ -28,8 +28,65 @@ const MATHML_ATTRIBUTES = [
   "symmetric", "columnalign", "rowalign", "columnspan", "rowspan",
   "columnlines", "rowlines", "frame", "framespacing", "width", "height",
   "depth", "linethickness", "notation", "open", "close", "separators",
-  "bevelled", "align", "linebreak", "scriptlevel",
+  "bevelled", "align", "linebreak", "scriptlevel", "alttext",
 ];
+
+/** Figure markup from the question bank. foreignObject and animation stay out. */
+const SVG_TAGS = [
+  "svg", "g", "defs", "path", "use", "line", "rect", "text", "tspan",
+  "marker", "clippath", "pattern", "polygon", "polyline", "circle", "ellipse",
+  "style", "title", "desc",
+];
+
+const SVG_ATTRIBUTES = [
+  "id", "class", "style", "role", "aria-hidden", "aria-label", "aria-level",
+  "transform", "fill", "stroke", "stroke-width", "stroke-linecap", "stroke-linejoin",
+  "stroke-opacity", "stroke-dasharray", "stroke-dashoffset", "fill-opacity", "opacity",
+  "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "width", "height",
+  "d", "points", "dx", "dy", "viewbox", "preserveaspectratio", "xmlns", "xmlns:xlink",
+  "xlink:href", "href", "marker-start", "marker-end", "marker-mid",
+  "markerwidth", "markerheight", "refx", "refy", "orient", "markerunits",
+  "clip-path", "clippathunits", "patternunits", "patterncontentunits", "patterntransform",
+  "text-anchor", "dominant-baseline", "font-family", "font-size", "font-style", "font-weight",
+  "version", "type",
+];
+
+const RICH_ATTRIBUTES = ["class", "style", "role", "aria-hidden", "aria-label", "aria-level"];
+
+const STYLE_PROPS = [
+  "fill", "stroke", "stroke-width", "stroke-linejoin", "stroke-linecap",
+  "stroke-opacity", "stroke-dasharray", "stroke-dashoffset", "fill-opacity", "opacity",
+  "font", "font-family", "font-size", "font-style", "font-weight",
+  "text-anchor", "dominant-baseline", "text-align", "text-decoration",
+  "vertical-align", "caption-side", "color", "width", "height",
+  "padding-left", "margin-left", "margin-right", "margin-bottom", "margin-top",
+  "text-indent", "border-color", "border-style", "border-collapse",
+  "list-style-type", "justify-content",
+];
+
+/** Reject CSS that can load a URL or break out of a declaration. */
+const SAFE_STYLE_VALUE = /^(?!.*(?:url\s*\(|expression\s*\(|javascript:|@import|-moz-binding))[^<>]*$/i;
+
+const CLASS_TOKEN = /^[A-Za-z][\w-]*$/;
+const CLASS_DENY = new Set([
+  "absolute", "fixed", "sticky", "relative", "static",
+  "hidden", "invisible", "contents", "collapse",
+  "flex", "inline-flex", "grid", "inline-grid", "block", "inline", "inline-block",
+]);
+
+const SVG_CAMEL: Record<string, string> = {
+  viewbox: "viewBox",
+  preserveaspectratio: "preserveAspectRatio",
+  markerwidth: "markerWidth",
+  markerheight: "markerHeight",
+  refx: "refX",
+  refy: "refY",
+  markerunits: "markerUnits",
+  clippathunits: "clipPathUnits",
+  patternunits: "patternUnits",
+  patterncontentunits: "patternContentUnits",
+  patterntransform: "patternTransform",
+};
 
 const SAFE_IMAGE = /^data:image\/(png|jpe?g|gif|webp);base64,/i;
 
@@ -69,7 +126,8 @@ export function decodeHtmlEntities(input: string): string {
  * `mfenced` is rewritten to an `mrow` of operators because browsers lay out that form.
  */
 export function prepareSatHtml(input: string): string {
-  return expandMfenced(sanitizeSatHtml(decodeHtmlEntities(input)));
+  const clean = sanitizeSatHtml(decodeHtmlEntities(input));
+  return expandMfenced(normalizeSatMarkup(clean));
 }
 
 function readAttr(attrs: string, name: string): string | undefined {
@@ -149,23 +207,49 @@ function mathAttributes(): Record<string, string[]> {
   return attributes;
 }
 
+function svgAttributes(): Record<string, string[]> {
+  const attributes: Record<string, string[]> = {};
+  for (const tag of SVG_TAGS) attributes[tag] = SVG_ATTRIBUTES;
+  return attributes;
+}
+
+function styleAllowlist(): Record<string, RegExp[]> {
+  const props: Record<string, RegExp[]> = {};
+  for (const prop of STYLE_PROPS) props[prop] = [SAFE_STYLE_VALUE];
+  return props;
+}
+
+function richAttributes(): Record<string, string[]> {
+  const tags = [
+    "p", "div", "span", "li", "ul", "ol", "blockquote", "figure", "figcaption",
+    "h1", "h2", "h3", "h4", "h5", "h6", "table", "caption", "em", "strong", "i", "b", "u",
+  ];
+  const attributes: Record<string, string[]> = {};
+  for (const tag of tags) attributes[tag] = RICH_ATTRIBUTES;
+  return attributes;
+}
+
 /**
  * Render path for format "html". Keeps a small HTML set plus MathML.
  * Drops scripts, event handlers, and non-https URLs.
  */
 export function sanitizeSatHtml(input: string): string {
   return sanitizeHtml(input, {
-    allowedTags: [...HTML_TAGS, ...MATHML_TAGS],
+    allowedTags: [...HTML_TAGS, ...MATHML_TAGS, ...SVG_TAGS],
     allowedAttributes: {
       a: ["href", "title"],
       img: ["src", "alt", "width", "height"],
-      td: ["colspan", "rowspan"],
-      th: ["colspan", "rowspan"],
+      td: ["colspan", "rowspan", ...RICH_ATTRIBUTES],
+      th: ["colspan", "rowspan", "scope", ...RICH_ATTRIBUTES],
+      ...richAttributes(),
       ...mathAttributes(),
+      ...svgAttributes(),
     },
+    allowedStyles: { "*": styleAllowlist() },
     allowedSchemes: ["http", "https"],
     allowedSchemesByTag: { img: ["https", "data"] },
     allowProtocolRelative: false,
+    allowVulnerableTags: true,
     disallowedTagsMode: "discard",
     exclusiveFilter(frame) {
       if (frame.tag !== "img") return false;
@@ -173,4 +257,77 @@ export function sanitizeSatHtml(input: string): string {
       return !(src.startsWith("https://") || SAFE_IMAGE.test(src));
     },
   });
+}
+
+const FRAGMENT_REF = /^#[A-Za-z_][\w.-]*$/;
+const CLIP_REF = /^url\(\s*(#[A-Za-z_][\w.-]*)\s*\)$/i;
+
+/**
+ * Keep figure structure, hide screen-reader spans, and stop a question's
+ * `<style>` from restyling the rest of the page.
+ */
+function normalizeSatMarkup(html: string): string {
+  const styled = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, (element) => {
+    const css = element.replace(/^<style\b[^>]*>/i, "").replace(/<\/style>$/i, "");
+    const scoped = scopeSvgCss(css);
+    return scoped ? `<style>${scoped}</style>` : "";
+  });
+  return styled.replace(/<([a-zA-Z][\w:-]*)\b([^>]*)>/g, (full, tag: string, attrs: string) => {
+    const name = tag.toLowerCase();
+    let next = filterClassAttr(attrs);
+    if (SVG_TAGS.includes(name)) next = rewriteSvgAttrs(next);
+    return next === attrs ? full : `<${tag}${next}>`;
+  });
+}
+
+function filterClassAttr(attrs: string): string {
+  return attrs.replace(/\sclass\s*=\s*"([^"]*)"/gi, (_match, value: string) => {
+    const kept = value.split(/\s+/).filter((token) => CLASS_TOKEN.test(token) && !CLASS_DENY.has(token));
+    return kept.length ? ` class="${kept.join(" ")}"` : "";
+  });
+}
+
+function rewriteSvgAttrs(attrs: string): string {
+  let next = keepAttr(attrs, "xlink:href", (value) => FRAGMENT_REF.test(value) ? value : null);
+  next = keepAttr(next, "href", (value) => FRAGMENT_REF.test(value) ? value : null);
+  next = keepAttr(next, "clip-path", (value) => {
+    const match = value.match(CLIP_REF);
+    return match ? `url(${match[1]})` : null;
+  });
+  return next.replace(/\s([a-z]+)=/g, (match, name: string) => {
+    const camel = SVG_CAMEL[name];
+    return camel ? ` ${camel}=` : match;
+  });
+}
+
+function keepAttr(attrs: string, name: string, keep: (value: string) => string | null): string {
+  const pattern = new RegExp(`\\s${name}\\s*=\\s*"([^"]*)"`, "gi");
+  return attrs.replace(pattern, (_match, value: string) => {
+    const kept = keep(value);
+    return kept === null ? "" : ` ${name}="${escapeText(kept)}"`;
+  });
+}
+
+function scopeSvgCss(css: string): string {
+  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  if (/[<>]/.test(withoutComments)) return "";
+  const rules: string[] = [];
+  for (const chunk of withoutComments.split("}")) {
+    const bodyStart = chunk.indexOf("{");
+    if (bodyStart === -1) continue;
+    const selectors = chunk.slice(0, bodyStart).trim();
+    const body = chunk.slice(bodyStart + 1).trim();
+    if (!selectors || !body) continue;
+    if (/url\s*\(|expression\s*\(|javascript:|@import|-moz-binding|position\s*:/i.test(body)) continue;
+    const scoped = selectors.split(",").map((selector) => {
+      const trimmed = selector.trim();
+      if (!trimmed || trimmed.length > 80) return "";
+      if (!/^[*]?[.\w][\w\s.#:[\]_-]*$/.test(trimmed) && trimmed !== "*") return "";
+      if (trimmed === "*") return ".sat-html svg, .sat-html svg *";
+      return `.sat-html ${trimmed}`;
+    }).filter(Boolean);
+    if (scoped.length === 0) continue;
+    rules.push(`${scoped.join(",")}{${body}}`);
+  }
+  return rules.join("");
 }

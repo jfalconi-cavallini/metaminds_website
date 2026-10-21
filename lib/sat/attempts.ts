@@ -156,7 +156,7 @@ export interface SatAttemptSummary {
 const SECTION_ORDER: SatSection[] = ["math", "reading_writing"];
 
 const STRUCTURAL_TAGS = new Set(["mfrac", "msup", "msub", "msubsup", "msqrt", "mroot", "mfenced", "mrow"]);
-const SKIP_TAGS = new Set(["annotation", "annotation-xml", "script", "style"]);
+const SKIP_TAGS = new Set(["annotation", "annotation-xml", "script", "style", "svg"]);
 const SPACED_OPERATORS = new Set(["=", "+", "-", "−", "–", "×", "·", "÷", "<", ">", "≤", "≥", "≠", "≈"]);
 
 /**
@@ -166,6 +166,12 @@ const SPACED_OPERATORS = new Set(["=", "+", "-", "−", "–", "×", "·", "÷",
 export function plainStem(value: string): string {
   const decoded = decodeHtmlEntities(value).replace(/&nbsp;/gi, " ");
   return mathAwareText(decoded).replace(/\s+/g, " ").trim();
+}
+
+function classHasSrOnly(part: string): boolean {
+  const match = part.match(/\bclass\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  if (!match) return false;
+  return (match[1] ?? match[2] ?? "").split(/\s+/).includes("sr-only");
 }
 
 function tokenText(text: string): string {
@@ -215,7 +221,7 @@ function mathAwareText(html: string): string {
       else if (closing && tag === skipTag) skipDepth -= 1;
       continue;
     }
-    if (!closing && SKIP_TAGS.has(tag)) {
+    if (!closing && (SKIP_TAGS.has(tag) || classHasSrOnly(part))) {
       if (!/\/>$/.test(part)) {
         skipTag = tag;
         skipDepth = 1;
