@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AttemptHistoryList } from "@/components/sat/AttemptHistory";
 import { sectionLabel } from "@/lib/sat/catalog";
-import type { AccuracyBucket, MissedAttempt, SatAttemptSummary } from "@/lib/sat/attempts";
+import { historyPageFromPayload, type AccuracyBucket, type MissedAttempt, type SatAttemptSummary } from "@/lib/sat/attempts";
 import { supabase } from "@/lib/supabase";
 
 function sourceText(source: string): string {
@@ -137,6 +138,7 @@ export default function SatStudentAttempts({
   if (!summary) return null;
 
   const showSource = viewerRole === "admin";
+  const historyPage = historyPageFromPayload(summary);
   const stats = [
     { label: "Attempted", value: String(summary.attempted) },
     { label: "Correct", value: String(summary.correct) },
@@ -165,6 +167,16 @@ export default function SatStudentAttempts({
           <BucketList title="By domain" rows={summary.byDomain} />
           <BucketList title="By skill" rows={summary.bySkill} />
           <MissedList items={summary.missed} showSource={showSource} />
+          {historyPage && historyPage.history.length > 0 && (
+            <AttemptHistoryList
+              attempts={historyPage.history}
+              studentId={studentId}
+              showSource={showSource}
+              titleAs="h3"
+              hasMore={historyPage.hasMore}
+              nextOffset={historyPage.nextOffset}
+            />
+          )}
         </>
       )}
     </div>

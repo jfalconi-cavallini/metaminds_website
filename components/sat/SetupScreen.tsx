@@ -39,8 +39,7 @@ export function SetupScreen({
   if (bankEmpty) {
     return (
       <section aria-labelledby="sat-empty-title">
-        <p className={labelClass}>Practice</p>
-        <h2 id="sat-empty-title" className="mt-1 text-2xl font-bold text-gray-900">
+        <h2 id="sat-empty-title" className="text-2xl font-bold text-gray-900">
           Questions coming soon
         </h2>
         <p className="mt-3 max-w-xl text-sm leading-6 text-gray-500">
@@ -56,10 +55,9 @@ export function SetupScreen({
 
   return (
     <section aria-labelledby="sat-setup-title">
-      <p className={labelClass}>Practice</p>
-      <h1 id="sat-setup-title" className="mt-1 text-2xl font-bold text-gray-900">
+      <h2 id="sat-setup-title" className="text-2xl font-bold text-gray-900">
         Set up practice
-      </h1>
+      </h2>
       <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
         Choose a section, domain, skill, and difficulty. Then choose how many questions and whether the set is timed.
       </p>
