@@ -11,7 +11,6 @@ const EMAIL_MAX = 254;
 const PHONE_MAX = 40;
 
 export type SessionFormat = "online" | "in_person";
-export type ParentHelping = "yes" | "no";
 
 export type CampusLeadField =
   | "name"
@@ -20,7 +19,6 @@ export type CampusLeadField =
   | "contact"
   | "course"
   | "sessionFormat"
-  | "parentHelping"
   | "source";
 
 export type CampusLeadFieldErrors = Partial<Record<CampusLeadField, string>>;
@@ -31,7 +29,6 @@ export type NormalizedCampusLead = {
   phone: string | null;
   course: string;
   sessionFormat: SessionFormat | null;
-  parentHelping: boolean | null;
   utmSource: CampusSource;
   utmMedium: typeof CAMPUS_UTM_MEDIUM;
 };
@@ -42,7 +39,6 @@ export type CampusLeadDraft = {
   phone: unknown;
   course: unknown;
   sessionFormat: unknown;
-  parentHelping: unknown;
   source: unknown;
   website: unknown;
 };
@@ -68,7 +64,6 @@ export function validateCampusLead(
   const phone = oneLine(text(draft.phone));
   const course = oneLine(text(draft.course));
   const sessionFormat = text(draft.sessionFormat);
-  const parentHelping = text(draft.parentHelping);
   const source = text(draft.source);
 
   if (!name) fieldErrors.name = "Enter your name.";
@@ -99,12 +94,6 @@ export function validateCampusLead(
   else if (sessionFormat === "online" || sessionFormat === "in_person") format = sessionFormat;
   else fieldErrors.sessionFormat = "Choose online or in person.";
 
-  let helping: boolean | null = null;
-  if (parentHelping === "") helping = null;
-  else if (parentHelping === "yes") helping = true;
-  else if (parentHelping === "no") helping = false;
-  else fieldErrors.parentHelping = "Choose yes or no.";
-
   const campus: CampusSource | null = source === "tcu" || source === "smu" ? source : null;
   if (!campus) fieldErrors.source = "Unknown campus page.";
 
@@ -118,7 +107,6 @@ export function validateCampusLead(
       phone: phone || null,
       course,
       sessionFormat: format,
-      parentHelping: helping,
       utmSource: campus,
       utmMedium: CAMPUS_UTM_MEDIUM,
     },
