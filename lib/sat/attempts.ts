@@ -51,6 +51,7 @@ export function gradeSatResponse(question: GradeKey, selected: string): boolean 
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LEGACY_ATTEMPT_ID = /^legacy:[A-Za-z0-9_-]{1,80}$/;
 const MAX_ANSWER_LENGTH = 200;
 const MAX_TIME_SECONDS = 86400;
 
@@ -58,7 +59,8 @@ export interface ParsedAttemptBody {
   questionId: string;
   selectedAnswer: string;
   timeSpentSeconds: number | null;
-  practiceSetId: string | null;
+  /** Required for new rows. Reads still accept older rows with a null set id. */
+  practiceSetId: string;
 }
 
 export function parseAttemptBody(value: unknown): ParsedAttemptBody | null {
@@ -78,13 +80,14 @@ export function parseAttemptBody(value: unknown): ParsedAttemptBody | null {
     timeSpentSeconds = body.timeSpentSeconds;
   }
 
-  let practiceSetId: string | null = null;
-  if (body.practiceSetId !== undefined && body.practiceSetId !== null) {
-    if (typeof body.practiceSetId !== "string" || !UUID_PATTERN.test(body.practiceSetId)) return null;
-    practiceSetId = body.practiceSetId;
-  }
+  if (typeof body.practiceSetId !== "string" || !UUID_PATTERN.test(body.practiceSetId)) return null;
 
-  return { questionId, selectedAnswer, timeSpentSeconds, practiceSetId };
+  return { questionId, selectedAnswer, timeSpentSeconds, practiceSetId: body.practiceSetId };
+}
+
+/** A practice-set id, or a legacy group id built from the first saved row. */
+export function isAttemptHistoryId(value: string): boolean {
+  return UUID_PATTERN.test(value) || LEGACY_ATTEMPT_ID.test(value);
 }
 
 export interface AttemptViewer {
@@ -92,25 +95,16 @@ export interface AttemptViewer {
   linkedId: number | null;
 }
 
-export interface AttemptViewOptions {
-  /**
-   * True when a parent is linked to this student through parent_students,
-   * the same rule as my_parent_student_ids().
-   */
-  parentLinked?: boolean;
-}
-
 /**
- * Who may read one student's attempts.
- * Students read their own linked id. Tutors read students whose
- * assigned_tutor_id is the tutor's linked id (my_assigned_student_ids).
- * Admins read every student. Parents read only when parentLinked is set.
+ * Who may read one student's attempts. Matches migration 072:
+ * a student reads their own linked id, a tutor reads students whose
+ * assigned_tutor_id is the tutor's linked id, and an admin reads every student.
+ * Parents are not included.
  */
 export function canViewSatAttempts(
   viewer: AttemptViewer,
   studentId: number,
   assignedTutorId: number | null,
-  options?: AttemptViewOptions,
 ): boolean {
   if (!Number.isInteger(studentId) || studentId <= 0) return false;
   if (viewer.role === "admin") return true;
@@ -118,11 +112,11 @@ export function canViewSatAttempts(
   if (viewer.role === "tutor") {
     return viewer.linkedId !== null && assignedTutorId !== null && viewer.linkedId === assignedTutorId;
   }
-  if (viewer.role === "parent") return options?.parentLinked === true;
   return false;
 }
 
-export interface AttemptFact {
+/** Fields needed to group and score a saved answer. Question text is loaded only for an open attempt. */
+export interface AttemptGroupFact {
   id: string;
   questionId: string;
   selectedAnswer: string | null;
@@ -130,6 +124,9 @@ export interface AttemptFact {
   createdAt: string;
   /** Null on rows saved before the client sent a practice set id. */
   practiceSetId: string | null;
+}
+
+export interface AttemptFact extends AttemptGroupFact {
   section: SatSection;
   domain: string;
   skill: string;
@@ -174,16 +171,36 @@ export interface PracticeAttemptQuestion {
   source?: SatSource;
 }
 
-/** One practice run: every saved answer that belongs to the same set. */
+/**
+ * Saved answers that share a practice set, or a legacy time gap.
+ * `answered` is how many questions have a saved answer. It is not a finished-set size.
+ * `latestAnswerAt` is the newest saved row in the group, which decides which group is latest.
+ */
 export interface PracticeAttempt {
   id: string;
   practiceSetId: string | null;
   startedAt: string;
-  completedAt: string;
+  latestAnswerAt: string;
+  latestAnswerId: string;
+  answered: number;
   correct: number;
-  total: number;
   percentCorrect: number;
-  questions: PracticeAttemptQuestion[];
+}
+
+export interface AttemptHistoryPage {
+  history: PracticeAttempt[];
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  nextOffset: number | null;
+}
+
+/** How many attempt groups one history response includes. */
+export const ATTEMPT_PAGE_SIZE = 20;
+
+/** N answered, M correct (P%). Does not call the set complete. */
+export function answeredScoreLabel(attempt: Pick<PracticeAttempt, "answered" | "correct" | "percentCorrect">): string {
+  return `${attempt.answered} answered, ${attempt.correct} correct (${attempt.percentCorrect}%)`;
 }
 
 export interface SatAttemptSummary {
@@ -323,69 +340,107 @@ function timeValue(iso: string): number {
   return Number.isFinite(value) ? value : Number.NaN;
 }
 
-function byAnswerTime(a: AttemptFact, b: AttemptFact): number {
-  const aTime = timeValue(a.createdAt);
-  const bTime = timeValue(b.createdAt);
+/** Ascending save order: earlier created_at, then lower id. */
+function compareSavedOrder(aCreatedAt: string, aId: string, bCreatedAt: string, bId: string): number {
+  const aTime = timeValue(aCreatedAt);
+  const bTime = timeValue(bCreatedAt);
   const aOk = Number.isFinite(aTime);
   const bOk = Number.isFinite(bTime);
   if (aOk && bOk && aTime !== bTime) return aTime - bTime;
   if (aOk !== bOk) return aOk ? -1 : 1;
-  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+  return aCreatedAt.localeCompare(bCreatedAt) || aId.localeCompare(bId);
 }
 
-function toPracticeAttempt(
-  id: string,
-  practiceSetId: string | null,
-  rows: readonly AttemptFact[],
-  includeSource: boolean,
-): PracticeAttempt {
-  const ordered = [...rows].sort(byAnswerTime);
-  let correct = 0;
-  const questions = ordered.map((row) => {
-    if (row.isCorrect) correct += 1;
-    const question: PracticeAttemptQuestion = {
-      id: row.id,
-      questionId: row.questionId,
-      selectedAnswer: row.selectedAnswer,
-      isCorrect: row.isCorrect,
-      createdAt: row.createdAt,
-      section: row.section,
-      domain: row.domain,
-      skill: row.skill,
-      difficulty: row.difficulty,
-      stem: clip(row.stem),
-      correctAnswer: row.correctAnswer,
-    };
-    if (includeSource && row.source) question.source = row.source;
-    return question;
-  });
-  const total = questions.length;
-  const first = ordered[0];
-  const last = ordered[ordered.length - 1];
-  return {
-    id,
-    practiceSetId,
-    startedAt: first?.createdAt ?? "",
-    completedAt: last?.createdAt ?? "",
-    correct,
-    total,
-    percentCorrect: total === 0 ? 0 : Math.round((correct / total) * 100),
-    questions,
-  };
+function byAnswerTime(a: AttemptGroupFact, b: AttemptGroupFact): number {
+  return compareSavedOrder(a.createdAt, a.id, b.createdAt, b.id);
+}
+
+export interface SavedAnswerGrade {
+  id: string;
+  isCorrect: boolean;
+  createdAt: string;
 }
 
 /**
- * Group saved answers into practice attempts, newest attempt first.
- * A shared practice_set_id is one attempt. Null ids stay out of those
- * sets and are split when two neighboring answers are more than
- * LEGACY_ATTEMPT_GAP_MS apart.
+ * The first stored answer for a question. Callers pass rows already limited
+ * to one student, practice set, and question. An empty list means nothing was stored.
  */
-export function groupPracticeAttempts(
-  rows: readonly AttemptFact[],
-  options: { includeSource: boolean },
-): PracticeAttempt[] {
-  const bySet = new Map<string, AttemptFact[]>();
-  const legacy: AttemptFact[] = [];
+export function earliestSavedAnswer(
+  rows: readonly { id?: unknown; is_correct?: unknown; created_at?: unknown }[],
+): SavedAnswerGrade | null {
+  const usable = rows.flatMap((row) => {
+    if (typeof row.id !== "string" || row.id === "") return [];
+    if (typeof row.is_correct !== "boolean" || typeof row.created_at !== "string") return [];
+    return [{ id: row.id, isCorrect: row.is_correct, createdAt: row.created_at }];
+  });
+  const first = [...usable].sort((a, b) => compareSavedOrder(a.createdAt, a.id, b.createdAt, b.id))[0];
+  return first ?? null;
+}
+
+interface AttemptGroup {
+  id: string;
+  practiceSetId: string | null;
+  rows: AttemptGroupFact[];
+}
+
+/** Earliest saved row wins. Same timestamp keeps the lower id. */
+function firstSavedRow<T extends { id: string; createdAt: string }>(rows: readonly T[]): T | undefined {
+  if (rows.length === 0) return undefined;
+  return [...rows].sort((a, b) => compareSavedOrder(a.createdAt, a.id, b.createdAt, b.id))[0];
+}
+
+function lastSavedRow<T extends { id: string; createdAt: string }>(rows: readonly T[]): T | undefined {
+  if (rows.length === 0) return undefined;
+  return [...rows].sort((a, b) => compareSavedOrder(a.createdAt, a.id, b.createdAt, b.id)).at(-1);
+}
+
+/**
+ * One row per question inside a single group. The first saved answer counts.
+ * Later rows for the same question stay available for "newest saved answer" time.
+ */
+function firstAnswers(rows: readonly AttemptGroupFact[]): AttemptGroupFact[] {
+  const ordered = [...rows].sort(byAnswerTime);
+  const seen = new Set<string>();
+  const kept: AttemptGroupFact[] = [];
+  for (const row of ordered) {
+    if (seen.has(row.questionId)) continue;
+    seen.add(row.questionId);
+    kept.push(row);
+  }
+  return kept;
+}
+
+function toPracticeAttempt(group: AttemptGroup): PracticeAttempt {
+  const counted = firstAnswers(group.rows);
+  const correct = counted.reduce((sum, row) => sum + (row.isCorrect ? 1 : 0), 0);
+  const answered = counted.length;
+  const first = firstSavedRow(group.rows);
+  const last = lastSavedRow(group.rows);
+  return {
+    id: group.id,
+    practiceSetId: group.practiceSetId,
+    startedAt: first?.createdAt ?? "",
+    latestAnswerAt: last?.createdAt ?? "",
+    latestAnswerId: last?.id ?? "",
+    answered,
+    correct,
+    percentCorrect: answered === 0 ? 0 : Math.round((correct / answered) * 100),
+  };
+}
+
+function compareAttempts(a: PracticeAttempt, b: PracticeAttempt): number {
+  const aTime = timeValue(a.latestAnswerAt);
+  const bTime = timeValue(b.latestAnswerAt);
+  const aOk = Number.isFinite(aTime);
+  const bOk = Number.isFinite(bTime);
+  if (aOk && bOk && aTime !== bTime) return bTime - aTime;
+  if (aOk !== bOk) return aOk ? -1 : 1;
+  return b.latestAnswerId.localeCompare(a.latestAnswerId) || b.id.localeCompare(a.id);
+}
+
+function collectGroups(rows: readonly AttemptGroupFact[]): AttemptGroup[] {
+  const bySet = new Map<string, AttemptGroupFact[]>();
+  const legacy: AttemptGroupFact[] = [];
   for (const row of rows) {
     const setId = row.practiceSetId?.trim() ?? "";
     if (setId !== "") {
@@ -397,13 +452,21 @@ export function groupPracticeAttempts(
     legacy.push(row);
   }
 
-  const attempts: PracticeAttempt[] = [];
-  for (const [setId, group] of bySet) {
-    attempts.push(toPracticeAttempt(setId, setId, group, options.includeSource));
+  const groups: AttemptGroup[] = [];
+  for (const [setId, groupRows] of bySet) {
+    groups.push({ id: setId, practiceSetId: setId, rows: groupRows });
   }
 
   const orderedLegacy = [...legacy].sort(byAnswerTime);
-  let current: AttemptFact[] = [];
+  let current: AttemptGroupFact[] = [];
+  const pushLegacy = () => {
+    const first = firstSavedRow(current);
+    groups.push({
+      id: `legacy:${first?.id ?? current[0]?.id ?? "legacy"}`,
+      practiceSetId: null,
+      rows: current,
+    });
+  };
   for (const row of orderedLegacy) {
     const previous = current[current.length - 1];
     const previousTime = previous ? timeValue(previous.createdAt) : Number.NaN;
@@ -412,27 +475,82 @@ export function groupPracticeAttempts(
       ? rowTime - previousTime
       : Number.POSITIVE_INFINITY;
     if (previous && gap > LEGACY_ATTEMPT_GAP_MS) {
-      const first = [...current].sort(byAnswerTime)[0];
-      attempts.push(toPracticeAttempt(`legacy:${first?.id ?? row.id}`, null, current, options.includeSource));
+      pushLegacy();
       current = [];
     }
     current.push(row);
   }
-  if (current.length > 0) {
-    const first = [...current].sort(byAnswerTime)[0];
-    attempts.push(toPracticeAttempt(`legacy:${first?.id ?? current[0]?.id ?? "legacy"}`, null, current, options.includeSource));
-  }
+  if (current.length > 0) pushLegacy();
+  return groups;
+}
 
-  attempts.sort((a, b) => {
-    const aTime = timeValue(a.completedAt);
-    const bTime = timeValue(b.completedAt);
-    const aOk = Number.isFinite(aTime);
-    const bOk = Number.isFinite(bTime);
-    if (aOk && bOk && aTime !== bTime) return bTime - aTime;
-    if (aOk !== bOk) return aOk ? -1 : 1;
-    return b.id.localeCompare(a.id);
+/**
+ * Group saved answers into practice attempts, newest group first.
+ * Newest means the latest saved row inside the group (`created_at`, then `id`).
+ * A shared practice_set_id is one attempt. Null ids stay out of those
+ * sets and are split when two neighboring answers are more than
+ * LEGACY_ATTEMPT_GAP_MS apart. Duplicate question rows inside a group
+ * count once, using the first saved answer.
+ */
+export function groupPracticeAttempts(rows: readonly AttemptGroupFact[]): PracticeAttempt[] {
+  return collectGroups(rows).map(toPracticeAttempt).sort(compareAttempts);
+}
+
+/** One page of attempt summaries. `offset` is an attempt index, not a row index. */
+export function sliceAttemptHistory(
+  attempts: readonly PracticeAttempt[],
+  offset: number,
+  limit = ATTEMPT_PAGE_SIZE,
+): AttemptHistoryPage {
+  const start = Number.isInteger(offset) && offset > 0 ? offset : 0;
+  const size = Number.isInteger(limit) && limit > 0 ? limit : ATTEMPT_PAGE_SIZE;
+  const history = attempts.slice(start, start + size);
+  const next = start + history.length;
+  const hasMore = next < attempts.length;
+  return {
+    history: [...history],
+    offset: start,
+    limit: size,
+    hasMore,
+    nextOffset: hasMore ? next : null,
+  };
+}
+
+function toQuestion(row: AttemptFact, includeSource: boolean): PracticeAttemptQuestion {
+  const question: PracticeAttemptQuestion = {
+    id: row.id,
+    questionId: row.questionId,
+    selectedAnswer: row.selectedAnswer,
+    isCorrect: row.isCorrect,
+    createdAt: row.createdAt,
+    section: row.section,
+    domain: row.domain,
+    skill: row.skill,
+    difficulty: row.difficulty,
+    stem: clip(row.stem),
+    correctAnswer: row.correctAnswer,
+  };
+  if (includeSource && row.source) question.source = row.source;
+  return question;
+}
+
+/**
+ * Per-question detail for one attempt, in first-answer order.
+ * Returns null when that attempt id is not in the rows.
+ */
+export function questionsForAttempt(
+  rows: readonly AttemptFact[],
+  attemptId: string,
+  options: { includeSource: boolean },
+): PracticeAttemptQuestion[] | null {
+  const group = collectGroups(rows).find((item) => item.id === attemptId);
+  if (!group) return null;
+  const counted = firstAnswers(group.rows);
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return counted.flatMap((row) => {
+    const fact = byId.get(row.id);
+    return fact ? [toQuestion(fact, options.includeSource)] : [];
   });
-  return attempts;
 }
 
 export function summarizeAttempts(
@@ -483,7 +601,7 @@ export function summarizeAttempts(
     byDomain: byVolume([...byDomain.values()]),
     bySkill: byVolume([...bySkill.values()]),
     missed,
-    history: groupPracticeAttempts(rows, { includeSource: options.includeSource }),
+    history: groupPracticeAttempts(rows),
   };
 }
 
@@ -552,58 +670,117 @@ function isDifficulty(value: unknown): value is SatDifficulty {
   return typeof value === "string" && DIFFICULTIES.has(value as SatDifficulty);
 }
 
-/** History array from GET /api/sat/attempts. Returns null when the shape is unusable. */
+function practiceAttemptFromRecord(item: unknown): PracticeAttempt | null {
+  const row = asRecord(item);
+  if (!row || typeof row.id !== "string" || row.id === "") return null;
+  if (typeof row.startedAt !== "string" || typeof row.latestAnswerAt !== "string") return null;
+  if (typeof row.latestAnswerId !== "string" || row.latestAnswerId === "") return null;
+  if (typeof row.correct !== "number" || typeof row.answered !== "number" || typeof row.percentCorrect !== "number") return null;
+  if (!Number.isInteger(row.correct) || !Number.isInteger(row.answered) || row.answered < 0 || row.correct < 0) return null;
+  if (row.correct > row.answered) return null;
+  if (row.practiceSetId !== null && typeof row.practiceSetId !== "string") return null;
+  return {
+    id: row.id,
+    practiceSetId: typeof row.practiceSetId === "string" ? row.practiceSetId : null,
+    startedAt: row.startedAt,
+    latestAnswerAt: row.latestAnswerAt,
+    latestAnswerId: row.latestAnswerId,
+    answered: row.answered,
+    correct: row.correct,
+    percentCorrect: row.percentCorrect,
+  };
+}
+
+function questionFromRecord(entry: unknown): PracticeAttemptQuestion | null {
+  const question = asRecord(entry);
+  if (!question || typeof question.id !== "string" || typeof question.questionId !== "string") return null;
+  if (typeof question.isCorrect !== "boolean" || typeof question.createdAt !== "string") return null;
+  if (question.selectedAnswer !== null && typeof question.selectedAnswer !== "string") return null;
+  if (!isSection(question.section) || !isDifficulty(question.difficulty)) return null;
+  if (typeof question.domain !== "string" || typeof question.skill !== "string") return null;
+  if (typeof question.stem !== "string" || typeof question.correctAnswer !== "string") return null;
+  const parsed: PracticeAttemptQuestion = {
+    id: question.id,
+    questionId: question.questionId,
+    selectedAnswer: typeof question.selectedAnswer === "string" ? question.selectedAnswer : null,
+    isCorrect: question.isCorrect,
+    createdAt: question.createdAt,
+    section: question.section,
+    domain: question.domain,
+    skill: question.skill,
+    difficulty: question.difficulty,
+    stem: question.stem,
+    correctAnswer: question.correctAnswer,
+  };
+  if (typeof question.source === "string" && SOURCES.has(question.source as SatSource)) {
+    parsed.source = question.source as SatSource;
+  }
+  return parsed;
+}
+
+/**
+ * History summaries from GET /api/sat/attempts.
+ * Returns null when `history` is missing or a row is unusable. An empty list is valid.
+ * Summaries do not include per-question detail.
+ */
 export function historyFromPayload(payload: unknown): PracticeAttempt[] | null {
   const body = asRecord(payload);
   if (!body || !Array.isArray(body.history)) return null;
   const attempts: PracticeAttempt[] = [];
   for (const item of body.history) {
-    const row = asRecord(item);
-    if (!row || typeof row.id !== "string" || row.id === "") return null;
-    if (typeof row.startedAt !== "string" || typeof row.completedAt !== "string") return null;
-    if (typeof row.correct !== "number" || typeof row.total !== "number" || typeof row.percentCorrect !== "number") return null;
-    if (!Number.isInteger(row.correct) || !Number.isInteger(row.total) || row.total < 0 || row.correct < 0) return null;
-    if (row.practiceSetId !== null && typeof row.practiceSetId !== "string") return null;
-    if (!Array.isArray(row.questions)) return null;
-    const questions: PracticeAttemptQuestion[] = [];
-    for (const entry of row.questions) {
-      const question = asRecord(entry);
-      if (!question || typeof question.id !== "string" || typeof question.questionId !== "string") return null;
-      if (typeof question.isCorrect !== "boolean" || typeof question.createdAt !== "string") return null;
-      if (question.selectedAnswer !== null && typeof question.selectedAnswer !== "string") return null;
-      if (!isSection(question.section) || !isDifficulty(question.difficulty)) return null;
-      if (typeof question.domain !== "string" || typeof question.skill !== "string") return null;
-      if (typeof question.stem !== "string" || typeof question.correctAnswer !== "string") return null;
-      const parsed: PracticeAttemptQuestion = {
-        id: question.id,
-        questionId: question.questionId,
-        selectedAnswer: typeof question.selectedAnswer === "string" ? question.selectedAnswer : null,
-        isCorrect: question.isCorrect,
-        createdAt: question.createdAt,
-        section: question.section,
-        domain: question.domain,
-        skill: question.skill,
-        difficulty: question.difficulty,
-        stem: question.stem,
-        correctAnswer: question.correctAnswer,
-      };
-      if (typeof question.source === "string" && SOURCES.has(question.source as SatSource)) {
-        parsed.source = question.source as SatSource;
-      }
-      questions.push(parsed);
-    }
-    attempts.push({
-      id: row.id,
-      practiceSetId: typeof row.practiceSetId === "string" ? row.practiceSetId : null,
-      startedAt: row.startedAt,
-      completedAt: row.completedAt,
-      correct: row.correct,
-      total: row.total,
-      percentCorrect: row.percentCorrect,
-      questions,
-    });
+    const parsed = practiceAttemptFromRecord(item);
+    if (!parsed) return null;
+    attempts.push(parsed);
   }
   return attempts;
+}
+
+/** Paged history. Null when the payload has no usable history array. */
+export function historyPageFromPayload(payload: unknown): AttemptHistoryPage | null {
+  const history = historyFromPayload(payload);
+  if (!history) return null;
+  const body = asRecord(payload);
+  const offsetRaw = body?.historyOffset;
+  const offset = typeof offsetRaw === "number" && Number.isInteger(offsetRaw) && offsetRaw >= 0 ? offsetRaw : 0;
+  const nextRaw = body?.historyNextOffset;
+  const nextOffset = typeof nextRaw === "number" && Number.isInteger(nextRaw) && nextRaw >= 0 ? nextRaw : null;
+  const hasMore = body?.historyHasMore === true && nextOffset !== null;
+  return {
+    history,
+    offset,
+    limit: history.length,
+    hasMore,
+    nextOffset: hasMore ? nextOffset : null,
+  };
+}
+
+/** Questions returned for one expanded attempt. */
+export function questionsFromPayload(payload: unknown): PracticeAttemptQuestion[] | null {
+  const body = asRecord(payload);
+  if (!body || !Array.isArray(body.questions)) return null;
+  const questions: PracticeAttemptQuestion[] = [];
+  for (const entry of body.questions) {
+    const parsed = questionFromRecord(entry);
+    if (!parsed) return null;
+    questions.push(parsed);
+  }
+  return questions;
+}
+
+/** Grouping fields from a sat_attempts row that was not joined to the question bank. */
+export function attemptGroupFactFromRow(value: unknown): AttemptGroupFact | null {
+  const row = asRecord(value);
+  if (!row || typeof row.id !== "string" || typeof row.question_id !== "string") return null;
+  if (typeof row.is_correct !== "boolean" || typeof row.created_at !== "string") return null;
+  const setId = typeof row.practice_set_id === "string" ? row.practice_set_id.trim() : "";
+  return {
+    id: row.id,
+    questionId: row.question_id,
+    selectedAnswer: typeof row.selected_answer === "string" ? row.selected_answer : null,
+    isCorrect: row.is_correct,
+    createdAt: row.created_at,
+    practiceSetId: setId === "" ? null : setId,
+  };
 }
 
 export function isMissingAttemptsTable(error: { code?: string; message?: string } | null): boolean {

@@ -4,12 +4,19 @@ import { adminClient, authenticate, isAuthError } from "@/lib/apiAuth";
 import { allowsPracticeDevBypass } from "@/lib/sat/access";
 import {
   attemptFactFromRow,
+  attemptGroupFactFromRow,
   canViewSatAttempts,
+  earliestSavedAnswer,
   gradeSatResponse,
+  groupPracticeAttempts,
+  isAttemptHistoryId,
   isMissingAttemptsTable,
   parseAttemptBody,
+  questionsForAttempt,
+  sliceAttemptHistory,
   summarizeAttempts,
   type AttemptFact,
+  type AttemptGroupFact,
   type GradeKey,
 } from "@/lib/sat/attempts";
 import { mockQuestionKey } from "@/lib/sat/mockBank";
@@ -32,7 +39,8 @@ function attemptColumns(includeSource: boolean): string {
 }
 
 const PAGE_SIZE = 1000;
-const MAX_ROWS = 20000;
+/** Stop and report an error instead of returning a silently shortened history. */
+const MAX_FACTS = 50000;
 
 function supabaseConfigured(): boolean {
   return Boolean(
@@ -133,7 +141,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "This account is not linked to a student." }, { status: 409 });
   }
 
-  const { data, error } = await userClient(token)
+  const client = userClient(token);
+  // No unique index: existing production rows may already repeat a question.
+  // If one is already stored, keep it and skip the insert. A parallel insert
+  // can still land twice; history then counts the earliest row.
+  const { data: existing, error: existingError } = await client
+    .from("sat_attempts")
+    .select("id, is_correct, created_at")
+    .eq("student_id", caller.linkedId)
+    .eq("practice_set_id", body.practiceSetId)
+    .eq("question_id", body.questionId)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(20);
+  if (existingError) {
+    if (isMissingAttemptsTable(existingError)) return migrationRequired();
+    return NextResponse.json({ error: "Could not record this answer." }, { status: 500 });
+  }
+  const prior = earliestSavedAnswer(existing ?? []);
+  if (prior) {
+    return NextResponse.json({ isCorrect: prior.isCorrect, recorded: true });
+  }
+
+  const { data, error } = await client
     .from("sat_attempts")
     .insert({
       student_id: caller.linkedId,
@@ -141,8 +171,6 @@ export async function POST(request: Request) {
       selected_answer: body.selectedAnswer,
       is_correct: isCorrect,
       time_spent_seconds: body.timeSpentSeconds,
-      // The practice app sends one id for every answer in a set. Null is kept
-      // for older clients; history groups those rows by a time gap.
       practice_set_id: body.practiceSetId,
     })
     .select("is_correct")
@@ -156,67 +184,149 @@ export async function POST(request: Request) {
   return NextResponse.json({ isCorrect: data.is_correct, recorded: true });
 }
 
+function historyPayload(attempts: ReturnType<typeof groupPracticeAttempts>, offset: number) {
+  const page = sliceAttemptHistory(attempts, offset);
+  return {
+    history: page.history,
+    historyOffset: page.offset,
+    historyHasMore: page.hasMore,
+    historyNextOffset: page.nextOffset,
+  };
+}
+
+function tooLarge() {
+  return NextResponse.json({ error: "SAT practice history is too large to load." }, { status: 500 });
+}
+
+async function loadAttemptPages(options: {
+  studentId: number;
+  columns: string;
+  practiceSetId?: string;
+  onlyNullSet?: boolean;
+}): Promise<{ rows: unknown[] } | { error: NextResponse }> {
+  const admin = adminClient();
+  const rows: unknown[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    let query = admin
+      .from("sat_attempts")
+      .select(options.columns)
+      .eq("student_id", options.studentId)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
+    if (options.practiceSetId) query = query.eq("practice_set_id", options.practiceSetId);
+    if (options.onlyNullSet) query = query.is("practice_set_id", null);
+    const { data, error } = await query.range(from, from + PAGE_SIZE - 1);
+    if (error) {
+      if (isMissingAttemptsTable(error)) return { error: migrationRequired() };
+      return { error: NextResponse.json({ error: "Could not load SAT practice results." }, { status: 500 }) };
+    }
+    const page = data ?? [];
+    if (rows.length + page.length > MAX_FACTS) return { error: tooLarge() };
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) return { rows };
+    if (from + PAGE_SIZE >= MAX_FACTS) {
+      let probe = admin
+        .from("sat_attempts")
+        .select("id")
+        .eq("student_id", options.studentId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false });
+      if (options.practiceSetId) probe = probe.eq("practice_set_id", options.practiceSetId);
+      if (options.onlyNullSet) probe = probe.is("practice_set_id", null);
+      const extra = await probe.range(MAX_FACTS, MAX_FACTS);
+      if (extra.error) {
+        if (isMissingAttemptsTable(extra.error)) return { error: migrationRequired() };
+        return { error: NextResponse.json({ error: "Could not load SAT practice results." }, { status: 500 }) };
+      }
+      if ((extra.data ?? []).length > 0) return { error: tooLarge() };
+      return { rows };
+    }
+  }
+}
+
 export async function GET(request: Request) {
   if (!supabaseConfigured()) {
     return NextResponse.json({ error: "Practice results are not configured." }, { status: 503 });
   }
 
-  const studentId = Number(new URL(request.url).searchParams.get("studentId"));
+  const url = new URL(request.url);
+  const studentId = Number(url.searchParams.get("studentId"));
   if (!Number.isInteger(studentId) || studentId <= 0) {
     return NextResponse.json({ error: "Invalid student" }, { status: 400 });
   }
+  const offsetRaw = url.searchParams.get("offset");
+  if (offsetRaw !== null && !/^\d+$/.test(offsetRaw)) {
+    return NextResponse.json({ error: "Invalid offset" }, { status: 400 });
+  }
+  const offset = offsetRaw === null ? 0 : Number(offsetRaw);
+  const attemptId = url.searchParams.get("attemptId");
+  if (attemptId !== null && !isAttemptHistoryId(attemptId)) {
+    return NextResponse.json({ error: "Invalid attempt" }, { status: 400 });
+  }
+  const historyOnly = url.searchParams.get("scope") === "history" || offset > 0;
 
   const caller = await authenticate(request);
   if (isAuthError(caller)) return caller;
+  if (caller.role === "parent") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const admin = adminClient();
-  const studentQuery = admin
+  const studentResult = await admin
     .from("students")
     .select("id, assigned_tutor_id")
     .eq("id", studentId)
     .maybeSingle();
-  const parentQuery = caller.role === "parent"
-    ? admin
-      .from("parent_students")
-      .select("student_id")
-      .eq("parent_profile_id", caller.id)
-      .eq("student_id", studentId)
-      .maybeSingle()
-    : Promise.resolve({ data: null, error: null });
-
-  const [studentResult, parentResult] = await Promise.all([studentQuery, parentQuery]);
   if (studentResult.error) return NextResponse.json({ error: "Could not load this student." }, { status: 500 });
   if (!studentResult.data) return NextResponse.json({ error: "Student not found" }, { status: 404 });
-  if (parentResult.error) return NextResponse.json({ error: "Could not verify access." }, { status: 500 });
 
   const assignedTutorId = typeof studentResult.data.assigned_tutor_id === "number"
     ? studentResult.data.assigned_tutor_id
     : null;
-  const parentLinked = caller.role === "parent" && Boolean(parentResult.data);
-  if (!canViewSatAttempts(caller, studentId, assignedTutorId, { parentLinked })) {
+  if (!canViewSatAttempts(caller, studentId, assignedTutorId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const includeSource = caller.role === "admin";
-  const facts: AttemptFact[] = [];
-  for (let from = 0; from < MAX_ROWS; from += PAGE_SIZE) {
-    const { data, error } = await admin
-      .from("sat_attempts")
-      .select(attemptColumns(includeSource))
-      .eq("student_id", studentId)
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE_SIZE - 1);
-    if (error) {
-      if (isMissingAttemptsTable(error)) return migrationRequired();
-      return NextResponse.json({ error: "Could not load SAT practice results." }, { status: 500 });
-    }
-    const page = data ?? [];
-    for (const row of page) {
+  const legacyDetail = attemptId?.startsWith("legacy:") === true;
+  const loaded = await loadAttemptPages({
+    studentId,
+    columns: historyOnly && attemptId === null
+      ? "id, question_id, selected_answer, is_correct, practice_set_id, created_at"
+      : attemptColumns(includeSource),
+    practiceSetId: attemptId !== null && !legacyDetail ? attemptId : undefined,
+    onlyNullSet: legacyDetail,
+  });
+  if ("error" in loaded) return loaded.error;
+
+  if (attemptId !== null) {
+    const facts: AttemptFact[] = [];
+    for (const row of loaded.rows) {
       const fact = attemptFactFromRow(row, includeSource);
       if (fact) facts.push(fact);
     }
-    if (page.length < PAGE_SIZE) break;
+    const questions = questionsForAttempt(facts, attemptId, { includeSource });
+    if (!questions) return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
+    return NextResponse.json({ questions });
   }
 
-  return NextResponse.json(summarizeAttempts(studentId, facts, { includeSource }));
+  if (historyOnly) {
+    const facts: AttemptGroupFact[] = [];
+    for (const row of loaded.rows) {
+      const fact = attemptGroupFactFromRow(row);
+      if (fact) facts.push(fact);
+    }
+    return NextResponse.json(historyPayload(groupPracticeAttempts(facts), offset));
+  }
+
+  const facts: AttemptFact[] = [];
+  for (const row of loaded.rows) {
+    const fact = attemptFactFromRow(row, includeSource);
+    if (fact) facts.push(fact);
+  }
+  const summary = summarizeAttempts(studentId, facts, { includeSource });
+  return NextResponse.json({
+    ...summary,
+    ...historyPayload(summary.history, 0),
+  });
 }
