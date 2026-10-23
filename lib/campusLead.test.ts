@@ -13,7 +13,6 @@ const valid = {
   phone: "",
   course: "Calculus",
   sessionFormat: "online",
-  parentHelping: "yes",
   source: "tcu",
   website: "",
 };
@@ -28,7 +27,6 @@ describe("validateCampusLead", () => {
     assert.equal(result.lead.email, "ada@example.com");
     assert.equal(result.lead.phone, null);
     assert.equal(result.lead.sessionFormat, "online");
-    assert.equal(result.lead.parentHelping, true);
   });
 
   it("accepts a phone without an email", () => {
@@ -38,14 +36,12 @@ describe("validateCampusLead", () => {
       phone: "(214) 555-0100",
       source: "smu",
       sessionFormat: "",
-      parentHelping: "",
     });
     assert.equal(result.ok, true);
     if (!result.ok) return;
     assert.equal(result.lead.utmSource, "smu");
     assert.equal(result.lead.phone, "(214) 555-0100");
     assert.equal(result.lead.sessionFormat, null);
-    assert.equal(result.lead.parentHelping, null);
   });
 
   it("requires a name, a course, and at least one way to reach the person", () => {
