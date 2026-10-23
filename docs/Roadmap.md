@@ -264,6 +264,16 @@ Prompts tutors to fill gaps.
 
 ---
 
+## Planning Backlog
+
+Not scheduled. No build work has started.
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| College course database | Not started — planning only | Map all US university courses (code, title, subject) so MetaMinds can tutor college students, and let the Knowledge Vault map to real course codes, not just subjects. First target: TCU (classes.tcu.edu, Fall 2026 REG). Before scraping, evaluate DegreeData, CourseAtlas, and CampusAnswers (licensing/terms, coverage, API, cost). Requested by Jose via CEO, Oct 2026. |
+
+---
+
 ## What We Are NOT Building
 
 To maintain focus, the following are explicitly out of scope:
