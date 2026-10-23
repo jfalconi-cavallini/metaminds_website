@@ -21,6 +21,8 @@ export interface PortalNavItem {
   badge?: string;
   /** In-app route. Rendered as a link instead of a portal tab. */
   href?: string;
+  /** Shown in the nav as plain text. The feature is not available yet. */
+  comingSoon?: boolean;
 }
 
 export const SAT_PRACTICE_HREF = "/sat-practice";
@@ -35,7 +37,7 @@ export const STUDENT_NAV_ITEMS: PortalNavItem[] = [
   { id: "hours", label: "Hours", icon: Clock },
   { id: "path", label: "Learning Path", icon: MapIcon },
   { id: "sat-practice", label: "SAT Practice", icon: PenLine, href: SAT_PRACTICE_HREF },
-  { id: "lab", label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon" },
+  { id: "lab", label: "MetaMinds Lab", icon: FlaskConical, badge: "Soon", comingSoon: true },
   { id: "profile", label: "Profile", icon: User },
   { id: "settings", label: "Settings", icon: SettingsIcon },
 ];
@@ -83,7 +85,8 @@ export function consumePortalTabParam(validIds: readonly string[]): string | nul
 export function practiceShellNav(role: "student" | "tutor" | "admin"): PortalNavItem[] {
   const portalPath = role === "admin" ? "/portal/admin" : role === "tutor" ? "/portal/tutor" : "/portal/student";
   const items = role === "admin" ? ADMIN_NAV_ITEMS : role === "tutor" ? TUTOR_NAV_ITEMS : STUDENT_NAV_ITEMS;
-  return items.map((item) => (
-    item.href ? item : { ...item, href: `${portalPath}?tab=${encodeURIComponent(item.id)}` }
-  ));
+  return items.map((item) => {
+    if (item.href || item.comingSoon) return item;
+    return { ...item, href: `${portalPath}?tab=${encodeURIComponent(item.id)}` };
+  });
 }

@@ -13,6 +13,8 @@ interface NavItem {
   badge?: string;
   /** When set, the item navigates here instead of switching a portal tab. */
   href?: string;
+  /** Plain text in the nav. Not a link or button. */
+  comingSoon?: boolean;
 }
 
 function navItemClass(active: boolean, compact: boolean): string {
@@ -43,11 +45,12 @@ function NavEntry({
   onActivate: () => void;
 }) {
   const Icon = item.icon;
-  const className = navItemClass(active, compact);
+  const shownActive = item.comingSoon ? false : active;
+  const className = navItemClass(shownActive, compact);
   const content = (
     <>
       {Icon && (
-        <Icon className={`w-4 h-4 shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+        <Icon className={`w-4 h-4 shrink-0 ${shownActive ? "text-white" : "text-slate-400"}`} />
       )}
       <span className="flex-1 truncate">{item.label}</span>
       {item.badge && (
@@ -57,6 +60,14 @@ function NavEntry({
       )}
     </>
   );
+
+  if (item.comingSoon) {
+    return (
+      <div className={`w-full px-3 ${compact ? "py-3" : "py-2.5"} rounded-xl text-sm font-medium flex items-center gap-3 text-slate-400`}>
+        {content}
+      </div>
+    );
+  }
 
   if (item.href) {
     return (
