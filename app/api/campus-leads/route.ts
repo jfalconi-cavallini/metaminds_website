@@ -51,12 +51,6 @@ function formatLabel(lead: NormalizedCampusLead): string {
   return "Not answered";
 }
 
-function parentLabel(lead: NormalizedCampusLead): string {
-  if (lead.parentHelping === true) return "Yes";
-  if (lead.parentHelping === false) return "No";
-  return "Not answered";
-}
-
 function noticeHtml(lead: NormalizedCampusLead): string {
   const rows: Array<[string, string]> = [
     ["Name", lead.name],
@@ -64,7 +58,6 @@ function noticeHtml(lead: NormalizedCampusLead): string {
     ["Phone", lead.phone ?? ""],
     ["Course", lead.course],
     ["Online or in person", formatLabel(lead)],
-    ["Parent helping", parentLabel(lead)],
     ["utm_source", lead.utmSource],
     ["utm_medium", lead.utmMedium],
   ];
@@ -96,7 +89,6 @@ async function storeLead(
       phone: lead.phone,
       course: lead.course,
       session_format: lead.sessionFormat,
-      parent_helping: lead.parentHelping,
       utm_source: lead.utmSource,
       utm_medium: lead.utmMedium,
     });
@@ -192,7 +184,6 @@ export async function POST(request: Request) {
     phone: record.phone,
     course: record.course,
     sessionFormat: record.sessionFormat,
-    parentHelping: record.parentHelping,
     source: record.source,
     website: record.mm_hp,
   });

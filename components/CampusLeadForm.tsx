@@ -27,7 +27,6 @@ export default function CampusLeadForm({
   const emailId = `${baseId}-email`;
   const phoneId = `${baseId}-phone`;
   const courseId = `${baseId}-course`;
-  const parentId = `${baseId}-parent`;
   const websiteId = `${baseId}-website`;
   const nameErrorId = `${baseId}-name-error`;
   const emailErrorId = `${baseId}-email-error`;
@@ -40,7 +39,6 @@ export default function CampusLeadForm({
   const [phone, setPhone] = useState("");
   const [course, setCourse] = useState("");
   const [sessionFormat, setSessionFormat] = useState("");
-  const [parentHelping, setParentHelping] = useState("");
   const [website, setWebsite] = useState("");
   const [errors, setErrors] = useState<CampusLeadFieldErrors>({});
   const [formError, setFormError] = useState("");
@@ -102,7 +100,6 @@ export default function CampusLeadForm({
       phone,
       course,
       sessionFormat,
-      parentHelping,
       source,
       website,
     });
@@ -124,7 +121,6 @@ export default function CampusLeadForm({
           phone,
           course,
           sessionFormat,
-          parentHelping,
           source,
           website,
         }),
@@ -339,23 +335,6 @@ export default function CampusLeadForm({
                   ))}
                 </div>
               </fieldset>
-
-              <div>
-                <label htmlFor={parentId} className="mb-1 block text-sm font-semibold text-gray-900">
-                  Is a parent helping with this?
-                </label>
-                <select
-                  id={parentId}
-                  name="parentHelping"
-                  value={parentHelping}
-                  onChange={(event) => setParentHelping(event.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Optional</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
-                </select>
-              </div>
 
               <button
                 type="submit"
