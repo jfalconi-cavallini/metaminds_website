@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AttemptHistoryList } from "@/components/sat/AttemptHistory";
 import { sectionLabel } from "@/lib/sat/catalog";
 import type { AccuracyBucket, MissedAttempt, SatAttemptSummary } from "@/lib/sat/attempts";
 import { supabase } from "@/lib/supabase";
@@ -165,6 +166,9 @@ export default function SatStudentAttempts({
           <BucketList title="By domain" rows={summary.byDomain} />
           <BucketList title="By skill" rows={summary.bySkill} />
           <MissedList items={summary.missed} showSource={showSource} />
+          {summary.history.length > 0 && (
+            <AttemptHistoryList attempts={summary.history} showSource={showSource} titleAs="h3" />
+          )}
         </>
       )}
     </div>

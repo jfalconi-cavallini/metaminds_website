@@ -4,7 +4,10 @@ import {
   attemptFactFromRow,
   canViewSatAttempts,
   gradeSatResponse,
+  groupPracticeAttempts,
+  historyFromPayload,
   isMissingAttemptsTable,
+  LEGACY_ATTEMPT_GAP_MS,
   parseAttemptBody,
   plainStem,
   readGradeResponse,
@@ -90,6 +93,11 @@ describe("canViewSatAttempts", () => {
     assert.equal(canViewSatAttempts({ role: "tutor", linkedId: null }, 4, 9), false);
     assert.equal(canViewSatAttempts({ role: "admin", linkedId: null }, 4, null), true);
     assert.equal(canViewSatAttempts({ role: "parent", linkedId: 4 }, 4, 9), false);
+    assert.equal(canViewSatAttempts({ role: "parent", linkedId: 4 }, 4, 9, { parentLinked: false }), false);
+    assert.equal(canViewSatAttempts({ role: "parent", linkedId: null }, 4, null, { parentLinked: true }), true);
+    assert.equal(canViewSatAttempts({ role: "parent", linkedId: 4 }, 8, 9, { parentLinked: true }), true);
+    assert.equal(canViewSatAttempts({ role: "tutor", linkedId: 3 }, 4, 9, { parentLinked: true }), false);
+    assert.equal(canViewSatAttempts({ role: "parent", linkedId: 4 }, 0, null, { parentLinked: true }), false);
   });
 });
 
@@ -108,6 +116,7 @@ describe("summarizeAttempts", () => {
       stem: "<p>What is x?</p>",
       correctAnswer: "B",
       source: "college_board_test",
+      practiceSetId: "11111111-1111-4111-8111-111111111111",
     },
     {
       id: "a",
@@ -122,6 +131,7 @@ describe("summarizeAttempts", () => {
       stem: "Which word?",
       correctAnswer: "A",
       source: "metaminds",
+      practiceSetId: "11111111-1111-4111-8111-111111111111",
     },
     {
       id: "c",
@@ -136,6 +146,7 @@ describe("summarizeAttempts", () => {
       stem: "Enter a value.",
       correctAnswer: "2",
       source: "metaminds",
+      practiceSetId: "11111111-1111-4111-8111-111111111111",
     },
   ];
 
@@ -154,6 +165,12 @@ describe("summarizeAttempts", () => {
     assert.equal(summary.missed[0]?.questionId, "Q-3");
     assert.equal(summary.missed[0]?.stem, "Enter a value.");
     assert.equal("source" in (summary.missed[0] ?? {}), false);
+    assert.equal(summary.history.length, 1);
+    assert.equal(summary.history[0]?.correct, 1);
+    assert.equal(summary.history[0]?.total, 3);
+    assert.equal(summary.history[0]?.percentCorrect, 33);
+    assert.deepEqual(summary.history[0]?.questions.map((question) => question.questionId), ["Q-1", "Q-2", "Q-3"]);
+    assert.equal("source" in (summary.history[0]?.questions[1] ?? {}), false);
   });
 
   it("includes question source only for an admin summary", () => {
@@ -183,6 +200,116 @@ describe("summarizeAttempts", () => {
     assert.equal(summary.attempted, 0);
     assert.equal(summary.percentCorrect, null);
     assert.deepEqual(summary.missed, []);
+    assert.deepEqual(summary.history, []);
+  });
+});
+
+function fact(overrides: Partial<AttemptFact> & Pick<AttemptFact, "id" | "createdAt">): AttemptFact {
+  return {
+    questionId: overrides.id,
+    selectedAnswer: "A",
+    isCorrect: false,
+    section: "math",
+    domain: "Algebra",
+    skill: "Linear equations",
+    difficulty: "medium",
+    stem: "<p>Stem</p>",
+    correctAnswer: "B",
+    practiceSetId: null,
+    ...overrides,
+  };
+}
+
+describe("groupPracticeAttempts", () => {
+  const setA = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const setB = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+
+  it("groups a practice set, scores it, and lists questions in answer order", () => {
+    const attempts = groupPracticeAttempts([
+      fact({ id: "2", questionId: "Q-2", createdAt: "2026-10-20T12:05:00.000Z", isCorrect: false, practiceSetId: setA, selectedAnswer: "C" }),
+      fact({ id: "1", questionId: "Q-1", createdAt: "2026-10-20T12:00:00.000Z", isCorrect: true, practiceSetId: setA, selectedAnswer: "B", correctAnswer: "B" }),
+      fact({ id: "3", questionId: "Q-3", createdAt: "2026-10-20T13:00:00.000Z", isCorrect: true, practiceSetId: setB, stem: "<b>Later</b>" }),
+    ], { includeSource: false });
+    assert.deepEqual(attempts.map((attempt) => attempt.id), [setB, setA]);
+    assert.equal(attempts[1]?.correct, 1);
+    assert.equal(attempts[1]?.total, 2);
+    assert.equal(attempts[1]?.percentCorrect, 50);
+    assert.deepEqual(attempts[1]?.questions.map((question) => question.questionId), ["Q-1", "Q-2"]);
+    assert.equal(attempts[1]?.questions[0]?.selectedAnswer, "B");
+    assert.equal(attempts[1]?.questions[0]?.isCorrect, true);
+    assert.equal(attempts[0]?.questions[0]?.stem, "Later");
+    assert.equal(attempts[0]?.startedAt, "2026-10-20T13:00:00.000Z");
+    assert.equal(attempts[1]?.completedAt, "2026-10-20T12:05:00.000Z");
+  });
+
+  it("splits null practice set ids on a 30 minute gap and keeps a gap of exactly 30 minutes together", () => {
+    const start = Date.parse("2026-10-20T12:00:00.000Z");
+    const inside = new Date(start + LEGACY_ATTEMPT_GAP_MS).toISOString();
+    const outside = new Date(start + LEGACY_ATTEMPT_GAP_MS + 1).toISOString();
+    const together = groupPracticeAttempts([
+      fact({ id: "late", createdAt: inside, isCorrect: true }),
+      fact({ id: "early", createdAt: "2026-10-20T12:00:00.000Z", isCorrect: false }),
+    ], { includeSource: false });
+    assert.equal(together.length, 1);
+    assert.equal(together[0]?.id, "legacy:early");
+    assert.equal(together[0]?.practiceSetId, null);
+    assert.equal(together[0]?.correct, 1);
+    assert.equal(together[0]?.total, 2);
+    assert.deepEqual(together[0]?.questions.map((question) => question.id), ["early", "late"]);
+
+    const split = groupPracticeAttempts([
+      fact({ id: "early", createdAt: "2026-10-20T12:00:00.000Z" }),
+      fact({ id: "late", createdAt: outside, isCorrect: true }),
+    ], { includeSource: true });
+    assert.equal(split.length, 2);
+    assert.equal(split[0]?.id, "legacy:late");
+    assert.equal(split[1]?.id, "legacy:early");
+    assert.equal(split[0]?.percentCorrect, 100);
+    assert.equal(split[1]?.percentCorrect, 0);
+  });
+
+  it("does not fold a null row into a nearby practice set", () => {
+    const attempts = groupPracticeAttempts([
+      fact({ id: "set-row", createdAt: "2026-10-20T12:01:00.000Z", practiceSetId: setA, isCorrect: true }),
+      fact({ id: "null-row", createdAt: "2026-10-20T12:02:00.000Z", practiceSetId: "  ", isCorrect: false }),
+    ], { includeSource: false });
+    assert.equal(attempts.length, 2);
+    assert.deepEqual(attempts.map((attempt) => attempt.practiceSetId), [null, setA]);
+  });
+});
+
+describe("historyFromPayload", () => {
+  it("reads a history list and drops an unusable payload", () => {
+    const parsed = historyFromPayload({
+      history: [{
+        id: "set-1",
+        practiceSetId: "set-1",
+        startedAt: "2026-10-20T12:00:00.000Z",
+        completedAt: "2026-10-20T12:05:00.000Z",
+        correct: 1,
+        total: 1,
+        percentCorrect: 100,
+        questions: [{
+          id: "row-1",
+          questionId: "Q-1",
+          selectedAnswer: "A",
+          isCorrect: true,
+          createdAt: "2026-10-20T12:00:00.000Z",
+          section: "math",
+          domain: "Algebra",
+          skill: "Linear equations",
+          difficulty: "easy",
+          stem: "Plain stem",
+          correctAnswer: "A",
+          source: "college_board_test",
+        }],
+      }],
+    });
+    assert.equal(parsed?.length, 1);
+    assert.equal(parsed?.[0]?.questions[0]?.questionId, "Q-1");
+    assert.equal(parsed?.[0]?.questions[0]?.source, "college_board_test");
+    assert.equal(historyFromPayload({ attempted: 1 }), null);
+    assert.equal(historyFromPayload({ history: [{ id: "x" }] }), null);
   });
 });
 
@@ -211,6 +338,7 @@ describe("attempt rows", () => {
       selected_answer: "B",
       is_correct: false,
       created_at: "2026-10-20T00:00:00.000Z",
+      practice_set_id: "11111111-1111-4111-8111-111111111111",
       sat_questions: {
         section: "math",
         domain: "Algebra",
@@ -222,7 +350,9 @@ describe("attempt rows", () => {
       },
     };
     const hidden = attemptFactFromRow(row, false);
+    assert.equal(hidden?.practiceSetId, "11111111-1111-4111-8111-111111111111");
     assert.equal(hidden?.source, undefined);
+    assert.equal(attemptFactFromRow({ ...row, practice_set_id: null }, false)?.practiceSetId, null);
     const shown = attemptFactFromRow(row, true);
     assert.equal(shown?.source, "college_board_test");
     assert.equal(shown?.stem, "<b>Stem</b>");

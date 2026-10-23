@@ -92,11 +92,25 @@ export interface AttemptViewer {
   linkedId: number | null;
 }
 
-/** Who may read one student's attempts. Matches the sat_attempts select policies. */
+export interface AttemptViewOptions {
+  /**
+   * True when a parent is linked to this student through parent_students,
+   * the same rule as my_parent_student_ids().
+   */
+  parentLinked?: boolean;
+}
+
+/**
+ * Who may read one student's attempts.
+ * Students read their own linked id. Tutors read students whose
+ * assigned_tutor_id is the tutor's linked id (my_assigned_student_ids).
+ * Admins read every student. Parents read only when parentLinked is set.
+ */
 export function canViewSatAttempts(
   viewer: AttemptViewer,
   studentId: number,
   assignedTutorId: number | null,
+  options?: AttemptViewOptions,
 ): boolean {
   if (!Number.isInteger(studentId) || studentId <= 0) return false;
   if (viewer.role === "admin") return true;
@@ -104,6 +118,7 @@ export function canViewSatAttempts(
   if (viewer.role === "tutor") {
     return viewer.linkedId !== null && assignedTutorId !== null && viewer.linkedId === assignedTutorId;
   }
+  if (viewer.role === "parent") return options?.parentLinked === true;
   return false;
 }
 
@@ -113,6 +128,8 @@ export interface AttemptFact {
   selectedAnswer: string | null;
   isCorrect: boolean;
   createdAt: string;
+  /** Null on rows saved before the client sent a practice set id. */
+  practiceSetId: string | null;
   section: SatSection;
   domain: string;
   skill: string;
@@ -142,6 +159,33 @@ export interface MissedAttempt {
   source?: SatSource;
 }
 
+export interface PracticeAttemptQuestion {
+  id: string;
+  questionId: string;
+  selectedAnswer: string | null;
+  isCorrect: boolean;
+  createdAt: string;
+  section: SatSection;
+  domain: string;
+  skill: string;
+  difficulty: SatDifficulty;
+  stem: string;
+  correctAnswer: string;
+  source?: SatSource;
+}
+
+/** One practice run: every saved answer that belongs to the same set. */
+export interface PracticeAttempt {
+  id: string;
+  practiceSetId: string | null;
+  startedAt: string;
+  completedAt: string;
+  correct: number;
+  total: number;
+  percentCorrect: number;
+  questions: PracticeAttemptQuestion[];
+}
+
 export interface SatAttemptSummary {
   studentId: number;
   attempted: number;
@@ -151,7 +195,15 @@ export interface SatAttemptSummary {
   byDomain: AccuracyBucket[];
   bySkill: AccuracyBucket[];
   missed: MissedAttempt[];
+  history: PracticeAttempt[];
 }
+
+/**
+ * Rows with no practice_set_id are one attempt while consecutive answers
+ * stay within this gap. A longer pause starts another attempt.
+ * Rows are not rewritten.
+ */
+export const LEGACY_ATTEMPT_GAP_MS = 30 * 60 * 1000;
 
 const SECTION_ORDER: SatSection[] = ["math", "reading_writing"];
 
@@ -266,6 +318,123 @@ function byVolume(rows: AccuracyBucket[]): AccuracyBucket[] {
   return [...rows].sort((a, b) => b.attempted - a.attempted || a.key.localeCompare(b.key));
 }
 
+function timeValue(iso: string): number {
+  const value = Date.parse(iso);
+  return Number.isFinite(value) ? value : Number.NaN;
+}
+
+function byAnswerTime(a: AttemptFact, b: AttemptFact): number {
+  const aTime = timeValue(a.createdAt);
+  const bTime = timeValue(b.createdAt);
+  const aOk = Number.isFinite(aTime);
+  const bOk = Number.isFinite(bTime);
+  if (aOk && bOk && aTime !== bTime) return aTime - bTime;
+  if (aOk !== bOk) return aOk ? -1 : 1;
+  return a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id);
+}
+
+function toPracticeAttempt(
+  id: string,
+  practiceSetId: string | null,
+  rows: readonly AttemptFact[],
+  includeSource: boolean,
+): PracticeAttempt {
+  const ordered = [...rows].sort(byAnswerTime);
+  let correct = 0;
+  const questions = ordered.map((row) => {
+    if (row.isCorrect) correct += 1;
+    const question: PracticeAttemptQuestion = {
+      id: row.id,
+      questionId: row.questionId,
+      selectedAnswer: row.selectedAnswer,
+      isCorrect: row.isCorrect,
+      createdAt: row.createdAt,
+      section: row.section,
+      domain: row.domain,
+      skill: row.skill,
+      difficulty: row.difficulty,
+      stem: clip(row.stem),
+      correctAnswer: row.correctAnswer,
+    };
+    if (includeSource && row.source) question.source = row.source;
+    return question;
+  });
+  const total = questions.length;
+  const first = ordered[0];
+  const last = ordered[ordered.length - 1];
+  return {
+    id,
+    practiceSetId,
+    startedAt: first?.createdAt ?? "",
+    completedAt: last?.createdAt ?? "",
+    correct,
+    total,
+    percentCorrect: total === 0 ? 0 : Math.round((correct / total) * 100),
+    questions,
+  };
+}
+
+/**
+ * Group saved answers into practice attempts, newest attempt first.
+ * A shared practice_set_id is one attempt. Null ids stay out of those
+ * sets and are split when two neighboring answers are more than
+ * LEGACY_ATTEMPT_GAP_MS apart.
+ */
+export function groupPracticeAttempts(
+  rows: readonly AttemptFact[],
+  options: { includeSource: boolean },
+): PracticeAttempt[] {
+  const bySet = new Map<string, AttemptFact[]>();
+  const legacy: AttemptFact[] = [];
+  for (const row of rows) {
+    const setId = row.practiceSetId?.trim() ?? "";
+    if (setId !== "") {
+      const group = bySet.get(setId) ?? [];
+      group.push(row);
+      bySet.set(setId, group);
+      continue;
+    }
+    legacy.push(row);
+  }
+
+  const attempts: PracticeAttempt[] = [];
+  for (const [setId, group] of bySet) {
+    attempts.push(toPracticeAttempt(setId, setId, group, options.includeSource));
+  }
+
+  const orderedLegacy = [...legacy].sort(byAnswerTime);
+  let current: AttemptFact[] = [];
+  for (const row of orderedLegacy) {
+    const previous = current[current.length - 1];
+    const previousTime = previous ? timeValue(previous.createdAt) : Number.NaN;
+    const rowTime = timeValue(row.createdAt);
+    const gap = Number.isFinite(previousTime) && Number.isFinite(rowTime)
+      ? rowTime - previousTime
+      : Number.POSITIVE_INFINITY;
+    if (previous && gap > LEGACY_ATTEMPT_GAP_MS) {
+      const first = [...current].sort(byAnswerTime)[0];
+      attempts.push(toPracticeAttempt(`legacy:${first?.id ?? row.id}`, null, current, options.includeSource));
+      current = [];
+    }
+    current.push(row);
+  }
+  if (current.length > 0) {
+    const first = [...current].sort(byAnswerTime)[0];
+    attempts.push(toPracticeAttempt(`legacy:${first?.id ?? current[0]?.id ?? "legacy"}`, null, current, options.includeSource));
+  }
+
+  attempts.sort((a, b) => {
+    const aTime = timeValue(a.completedAt);
+    const bTime = timeValue(b.completedAt);
+    const aOk = Number.isFinite(aTime);
+    const bOk = Number.isFinite(bTime);
+    if (aOk && bOk && aTime !== bTime) return bTime - aTime;
+    if (aOk !== bOk) return aOk ? -1 : 1;
+    return b.id.localeCompare(a.id);
+  });
+  return attempts;
+}
+
 export function summarizeAttempts(
   studentId: number,
   rows: readonly AttemptFact[],
@@ -314,6 +483,7 @@ export function summarizeAttempts(
     byDomain: byVolume([...byDomain.values()]),
     bySkill: byVolume([...bySkill.values()]),
     missed,
+    history: groupPracticeAttempts(rows, { includeSource: options.includeSource }),
   };
 }
 
@@ -343,12 +513,14 @@ export function attemptFactFromRow(value: unknown, includeSource: boolean): Atte
   if (typeof question.skill !== "string" || question.skill === "") return null;
   if (typeof question.difficulty !== "string" || !DIFFICULTIES.has(question.difficulty as SatDifficulty)) return null;
   if (typeof question.question !== "string" || typeof question.answer !== "string") return null;
+  const setId = typeof row.practice_set_id === "string" ? row.practice_set_id.trim() : "";
   const fact: AttemptFact = {
     id: row.id,
     questionId: row.question_id,
     selectedAnswer: typeof row.selected_answer === "string" ? row.selected_answer : null,
     isCorrect: row.is_correct,
     createdAt: row.created_at,
+    practiceSetId: setId === "" ? null : setId,
     section: question.section as SatSection,
     domain: question.domain,
     skill: question.skill,
@@ -370,6 +542,68 @@ export function readGradeResponse(payload: unknown): { isCorrect: boolean; recor
   const body = asRecord(payload);
   if (!body || typeof body.isCorrect !== "boolean") return null;
   return { isCorrect: body.isCorrect, recorded: body.recorded === true };
+}
+
+function isSection(value: unknown): value is SatSection {
+  return typeof value === "string" && SECTIONS.has(value as SatSection);
+}
+
+function isDifficulty(value: unknown): value is SatDifficulty {
+  return typeof value === "string" && DIFFICULTIES.has(value as SatDifficulty);
+}
+
+/** History array from GET /api/sat/attempts. Returns null when the shape is unusable. */
+export function historyFromPayload(payload: unknown): PracticeAttempt[] | null {
+  const body = asRecord(payload);
+  if (!body || !Array.isArray(body.history)) return null;
+  const attempts: PracticeAttempt[] = [];
+  for (const item of body.history) {
+    const row = asRecord(item);
+    if (!row || typeof row.id !== "string" || row.id === "") return null;
+    if (typeof row.startedAt !== "string" || typeof row.completedAt !== "string") return null;
+    if (typeof row.correct !== "number" || typeof row.total !== "number" || typeof row.percentCorrect !== "number") return null;
+    if (!Number.isInteger(row.correct) || !Number.isInteger(row.total) || row.total < 0 || row.correct < 0) return null;
+    if (row.practiceSetId !== null && typeof row.practiceSetId !== "string") return null;
+    if (!Array.isArray(row.questions)) return null;
+    const questions: PracticeAttemptQuestion[] = [];
+    for (const entry of row.questions) {
+      const question = asRecord(entry);
+      if (!question || typeof question.id !== "string" || typeof question.questionId !== "string") return null;
+      if (typeof question.isCorrect !== "boolean" || typeof question.createdAt !== "string") return null;
+      if (question.selectedAnswer !== null && typeof question.selectedAnswer !== "string") return null;
+      if (!isSection(question.section) || !isDifficulty(question.difficulty)) return null;
+      if (typeof question.domain !== "string" || typeof question.skill !== "string") return null;
+      if (typeof question.stem !== "string" || typeof question.correctAnswer !== "string") return null;
+      const parsed: PracticeAttemptQuestion = {
+        id: question.id,
+        questionId: question.questionId,
+        selectedAnswer: typeof question.selectedAnswer === "string" ? question.selectedAnswer : null,
+        isCorrect: question.isCorrect,
+        createdAt: question.createdAt,
+        section: question.section,
+        domain: question.domain,
+        skill: question.skill,
+        difficulty: question.difficulty,
+        stem: question.stem,
+        correctAnswer: question.correctAnswer,
+      };
+      if (typeof question.source === "string" && SOURCES.has(question.source as SatSource)) {
+        parsed.source = question.source as SatSource;
+      }
+      questions.push(parsed);
+    }
+    attempts.push({
+      id: row.id,
+      practiceSetId: typeof row.practiceSetId === "string" ? row.practiceSetId : null,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      correct: row.correct,
+      total: row.total,
+      percentCorrect: row.percentCorrect,
+      questions,
+    });
+  }
+  return attempts;
 }
 
 export function isMissingAttemptsTable(error: { code?: string; message?: string } | null): boolean {

@@ -17,10 +17,24 @@ import {
   type StoredSession,
 } from "@/lib/sat/session";
 import type { SatQuestion } from "@/lib/sat/types";
+import { SatPracticeHistory } from "./AttemptHistory";
 import { QuestionScreen } from "./QuestionScreen";
 import { ResultsScreen } from "./ResultsScreen";
 import { SetupScreen } from "./SetupScreen";
 import { cardClass, labelClass } from "./styles";
+
+function PracticeHome({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex min-w-0 max-w-full flex-col gap-6">
+      <header>
+        <p className={labelClass}>Practice</p>
+        <h1 className="mt-1 text-2xl font-bold text-gray-900">SAT practice</h1>
+      </header>
+      <SatPracticeHistory />
+      {children}
+    </div>
+  );
+}
 
 type Phase = "setup" | "practice" | "results";
 
@@ -317,42 +331,45 @@ export function SatPracticeApp({ userId, mockFallback = false }: { userId: strin
 
   if (bank === null) {
     return (
-      <section className={cardClass} aria-busy="true">
-        <p className="text-sm text-gray-500">Loading questions.</p>
-      </section>
+      <PracticeHome>
+        <section className={cardClass} aria-busy="true">
+          <p className="text-sm text-gray-500">Loading questions.</p>
+        </section>
+      </PracticeHome>
     );
   }
 
   if (loadError) {
     return (
-      <section aria-labelledby="sat-load-error-title">
-        <p className={labelClass}>Practice</p>
-        <h2 id="sat-load-error-title" className="mt-1 text-2xl font-bold text-gray-900">
-          Questions could not be loaded.
-        </h2>
-      </section>
+      <PracticeHome>
+        <section aria-labelledby="sat-load-error-title">
+          <h2 id="sat-load-error-title" className="text-2xl font-bold text-gray-900">
+            Questions could not be loaded.
+          </h2>
+        </section>
+      </PracticeHome>
     );
   }
 
   return (
-    <>
-    {usingMock && (
-      <p className={`${cardClass} mb-4 text-sm`}>
-        Sample questions for local preview. Answers are graded in the app and are not saved.
-      </p>
-    )}
-    <SetupScreen
-      filters={filters}
-      questions={loaded}
-      available={matching.length}
-      bankEmpty={bank.length === 0}
-      canContinue={hydrated && continueSession !== null}
-      canReview={hydrated && latestSession !== null}
-      onChange={setFilters}
-      onStart={startPractice}
-      onContinue={continuePractice}
-      onReview={openLatest}
-    />
-    </>
+    <PracticeHome>
+      {usingMock && (
+        <p className={`${cardClass} text-sm`}>
+          Sample questions for local preview. Answers are graded in the app and are not saved.
+        </p>
+      )}
+      <SetupScreen
+        filters={filters}
+        questions={loaded}
+        available={matching.length}
+        bankEmpty={bank.length === 0}
+        canContinue={hydrated && continueSession !== null}
+        canReview={hydrated && latestSession !== null}
+        onChange={setFilters}
+        onStart={startPractice}
+        onContinue={continuePractice}
+        onReview={openLatest}
+      />
+    </PracticeHome>
   );
 }

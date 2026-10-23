@@ -25,6 +25,7 @@ function attemptColumns(includeSource: boolean): string {
     "question_id",
     "selected_answer",
     "is_correct",
+    "practice_set_id",
     "created_at",
     `sat_questions ( ${questionColumns} )`,
   ].join(", ");
@@ -140,6 +141,8 @@ export async function POST(request: Request) {
       selected_answer: body.selectedAnswer,
       is_correct: isCorrect,
       time_spent_seconds: body.timeSpentSeconds,
+      // The practice app sends one id for every answer in a set. Null is kept
+      // for older clients; history groups those rows by a time gap.
       practice_set_id: body.practiceSetId,
     })
     .select("is_correct")
@@ -167,16 +170,30 @@ export async function GET(request: Request) {
   if (isAuthError(caller)) return caller;
 
   const admin = adminClient();
-  const { data: student, error: studentError } = await admin
+  const studentQuery = admin
     .from("students")
     .select("id, assigned_tutor_id")
     .eq("id", studentId)
     .maybeSingle();
-  if (studentError) return NextResponse.json({ error: "Could not load this student." }, { status: 500 });
-  if (!student) return NextResponse.json({ error: "Student not found" }, { status: 404 });
+  const parentQuery = caller.role === "parent"
+    ? admin
+      .from("parent_students")
+      .select("student_id")
+      .eq("parent_profile_id", caller.id)
+      .eq("student_id", studentId)
+      .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
 
-  const assignedTutorId = typeof student.assigned_tutor_id === "number" ? student.assigned_tutor_id : null;
-  if (!canViewSatAttempts(caller, studentId, assignedTutorId)) {
+  const [studentResult, parentResult] = await Promise.all([studentQuery, parentQuery]);
+  if (studentResult.error) return NextResponse.json({ error: "Could not load this student." }, { status: 500 });
+  if (!studentResult.data) return NextResponse.json({ error: "Student not found" }, { status: 404 });
+  if (parentResult.error) return NextResponse.json({ error: "Could not verify access." }, { status: 500 });
+
+  const assignedTutorId = typeof studentResult.data.assigned_tutor_id === "number"
+    ? studentResult.data.assigned_tutor_id
+    : null;
+  const parentLinked = caller.role === "parent" && Boolean(parentResult.data);
+  if (!canViewSatAttempts(caller, studentId, assignedTutorId, { parentLinked })) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
