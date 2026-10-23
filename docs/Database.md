@@ -179,6 +179,29 @@ CREATE TABLE blocked_slots (
 );
 ```
 
+### `campus_flyer_leads`
+
+One row per TCU or SMU campus-flyer submission (`/tcu`, `/smu`). At least one of `email` or `phone` must be non-empty. `session_format` is `online`, `in_person`, or null. `utm_source` is `tcu` or `smu`.
+
+```sql
+CREATE TABLE campus_flyer_leads (
+  id              SERIAL PRIMARY KEY,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  name            TEXT NOT NULL,
+  email           TEXT,
+  phone           TEXT,
+  course          TEXT NOT NULL,
+  session_format  TEXT,                  -- online | in_person | null
+  parent_helping  BOOLEAN,
+  utm_source      TEXT NOT NULL,         -- tcu | smu
+  utm_medium      TEXT NOT NULL
+);
+```
+
+Indexes: `created_at DESC`, `utm_source`.
+
+**RLS:** enabled. Authenticated admins may select (`campus_flyer_leads_admin_select` uses `is_admin()`). Service-role writes only — no insert, update, or delete policies. The campus-lead API writes with the service role, which bypasses RLS.
+
 ---
 
 ## Planned Schema (Phase 2+)
