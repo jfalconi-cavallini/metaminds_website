@@ -35,6 +35,23 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <link href="https://assets.calendly.com/assets/external/widget.css" rel="stylesheet" />
+        {/* Runs before gtag so /tcu and /smu page_view sees campaign params.
+            These paths are real pages, not redirects. */}
+        <Script id="campus-flyer-utm" strategy="beforeInteractive">{`
+          (function () {
+            try {
+              var path = location.pathname.replace(/\\/$/, "") || "/";
+              var source = path === "/tcu" ? "tcu" : path === "/smu" ? "smu" : "";
+              if (!source) return;
+              var url = new URL(location.href);
+              url.searchParams.set("utm_source", source);
+              url.searchParams.set("utm_medium", "campus_flyer");
+              var next = url.pathname + url.search + url.hash;
+              var current = location.pathname + location.search + location.hash;
+              if (next !== current) history.replaceState(null, "", next);
+            } catch (e) {}
+          })();
+        `}</Script>
       </head>
       <body className={inter.className}>
         {/* Google Analytics */}

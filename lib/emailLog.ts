@@ -8,6 +8,7 @@ export type EmailType =
   | "welcome_student"
   | "welcome_parent"
   | "welcome_tutor"
+  | "campus_flyer_lead"
   | "test";
 
 /** Records an outbound email after a Resend send attempt, so admins/tutors

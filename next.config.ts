@@ -12,16 +12,6 @@ const nextConfig: NextConfig = {
         permanent: false,
       },
       {
-        source: "/tcu",
-        destination: "/consultation?utm_source=tcu&utm_medium=campus_flyer",
-        permanent: false,
-      },
-      {
-        source: "/smu",
-        destination: "/consultation?utm_source=smu&utm_medium=campus_flyer",
-        permanent: false,
-      },
-      {
         source: "/crunch-consult",
         destination: "/consultation?utm_source=crunch&utm_medium=gym_tv",
         permanent: false,
