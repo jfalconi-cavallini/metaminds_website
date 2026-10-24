@@ -110,6 +110,13 @@ export default function PrivacyPage() {
                         <p>
                             Questions about privacy? Contact us at{" "}
                             <a
+                                href={siteData.brand.phoneHref}
+                                className="text-indigo-600 hover:text-indigo-700 underline"
+                            >
+                                {siteData.brand.phone}
+                            </a>
+                            {" "}or{" "}
+                            <a
                                 href={`mailto:${siteData.brand.email}`}
                                 className="text-indigo-600 hover:text-indigo-700 underline"
                             >

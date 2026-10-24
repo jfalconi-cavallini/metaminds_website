@@ -236,6 +236,11 @@ export default function FAQ() {
                 >
                     Have a question or ready to get started? We&apos;ll get back to you within 24 hours.
                 </motion.p>
+                <p className="text-center mt-4">
+                    <a href={siteData.brand.phoneHref} className="text-lg font-semibold text-blue-600 hover:underline">
+                        {siteData.brand.phone}
+                    </a>
+                </p>
             </div>
 
             {/* Contact Form Section */}

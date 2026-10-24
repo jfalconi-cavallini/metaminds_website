@@ -3,6 +3,8 @@ export const siteData = {
         name: "MetaMinds STEM Academy",
         location: "DFW Metroplex",
         email: "metamindsstemacademy@gmail.com",
+        phone: "(209) 261 5048",
+        phoneHref: "tel:+12092615048",
         tagline: "Expert Tutoring for SAT, ACT, AP, GED & STEM",
         description: "1-on-1 tutoring from working engineers and scientists holding B.S. and M.S. degrees from UC San Diego and UC Berkeley. SAT/ACT/GED prep, K-12 math, coding, and advanced STEM mentoring.",
     },
@@ -13,31 +15,6 @@ export const siteData = {
         // else read them.
         formUrl: "https://calendly.com/metamindsstemacademy/metaminds-free-consultation", // UPDATE WITH YOUR CALENDLY LINK
     },
-
-    trustBar: [
-        { label: "Students Helped", value: "500+" },
-        { label: "Avg SAT Improvement", value: "+200pts" },
-        { label: "Tutor Degrees", value: "B.S. / M.S." },
-        { label: "Success Rate", value: "98%" },
-    ],
-
-    testimonials: [
-        {
-            quote: "My SAT score went from 1050 to 1310. The personalized approach really made the difference.",
-            author: "Sarah J.",
-            role: "SAT Student",
-        },
-        {
-            quote: "Finally understand coding. Best investment in my son's education.",
-            author: "Parent of Alex",
-            role: "Python Student",
-        },
-        {
-            quote: "Got into my dream college. Couldn't have done it without this tutoring.",
-            author: "Michael K.",
-            role: "SAT Student",
-        },
-    ],
 
     platform: {
         headline: "Every Session Leaves a Trail You Can See",
@@ -89,11 +66,11 @@ export const siteData = {
         },
         {
             question: "What's the cost of tutoring?",
-            answer: "Packages start at $70 for a single session, and drop as low as $50/hr on our 20-hour package. Book a free consultation and we'll walk you through which tier and package fit your goals.",
+            answer: "Elementary from $35/hr, Middle School from $40/hr, and High School from $50/hr. Packages of 1, 4, or 8 hours. Book a free consultation and we'll help you choose.",
         },
         {
             question: "How much can I improve my SAT/ACT score?",
-            answer: "Students we've worked with have seen 200+ point SAT improvements, with others reaching 1500+ scores. Results depend on starting point, consistency, and effort — individual results vary.",
+            answer: "One of our students went from 1110 to 1410 on an Official SAT practice test. Students who show up and do the homework see the biggest gains.",
         },
         {
             question: "Can I schedule sessions around my school schedule?",
@@ -108,10 +85,6 @@ export const siteData = {
             answer: "Yes! Refer a friend or family member who purchases a 4-hour or 8-hour package and we'll add 1 free tutoring hour to your account as a thank-you. There's no limit to how many people you can refer.",
         },
         {
-            question: "What if I'm not satisfied?",
-            answer: "We offer a money-back guarantee if you're not satisfied after your first session. No questions asked. Your satisfaction is our priority.",
-        },
-        {
             question: "What technology do I need?",
             answer: "Just a computer with internet, a webcam, and a microphone. We use Zoom for video sessions and can share screens for coding and problem-solving.",
         },
@@ -122,7 +95,6 @@ export const siteData = {
         { label: "Our Team", href: "#team" },
         { label: "Pricing", href: "#pricing" },
         { label: "Programs", href: "#programs" },
-        { label: "Results", href: "#results" },
         { label: "FAQ", href: "#faq" },
         { label: "Games", href: "games" },
     ],
@@ -139,13 +111,13 @@ export const siteData = {
                 "B.S. Computer Science, UC San Diego",
                 "CEO & Co-Founder, MetaMinds STEM Academy",
                 "Former Professional Tutor, Revolution Prep",
-                "7+ years STEM teaching experience",
+                "8 plus years of tutoring experience",
             ],
-            bio: "Jose founded MetaMinds after years as a professional tutor at Revolution Prep, where he saw firsthand how much families were overpaying for results they could get better — directly from the tutor. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
+            bio: "Jose founded MetaMinds after 8 plus years of tutoring experience at Revolution Prep, where he saw firsthand how much families were overpaying for results they could get better, directly from the tutor. A CS graduate from UC San Diego, he built this platform so students get elite instruction without the corporate markup.",
         },
         {
             name: "Emma Brugman",
-            title: "Co-Founder · ML, Data Science & SAT/ACT Tutor",
+            title: "Cofounder, Head of Curriculum Development and AI",
             image: "/images/tutors/emma_tutor_1024_square.jpg",
             credentials: [
                 "B.S. Cognitive & Behavioral Neuroscience, UC San Diego",
